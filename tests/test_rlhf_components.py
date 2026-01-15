@@ -301,8 +301,8 @@ class TestWorkflow(unittest.TestCase):
     def test_entropy_computation(self):
         """Test entropy monitoring"""
         n = subprocess.run(
-            ["python", "better_ai/training/train_enhanced.py", "--stage", "full", "--test", "--batch-size", "1", "--max-steps", "1"],
-            check=True
+            ["python", "train_enhanced.py", "--stage", "full", "--test", "--batch-size", "1", "--max-steps", "1"],
+            check=True, p
         )
         if n.returncode != 0:
             self.fail(f"Workflow test failed because of stderr- {n.stderr} \n and stdout- {n.stdout}")
