@@ -464,7 +464,25 @@ class MoETrainingTUI:
         """Save current metrics to file"""
         if not self.log_file:
             return
-        
+
+        # Convert tensors to serializable types
+        def convert_to_serializable(obj):
+            if isinstance(obj, torch.Tensor):
+                return obj.cpu().numpy().tolist() if obj.numel() > 1 else obj.item()
+            elif isinstance(obj, dict):
+                return {k: convert_to_serializable(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_to_serializable(v) for v in obj]
+            elif isinstance(obj, (float, int, str, bool)):
+                return obj
+            elif obj is None:
+                return None
+            else:
+                try:
+                    return float(obj)
+                except (ValueError, TypeError):
+                    return str(obj)
+
         metrics = {
             'timestamp': time.time(),
             'step': self.current_step,
@@ -476,8 +494,8 @@ class MoETrainingTUI:
                 'gradient_norm': list(self.metrics_history['gradient_norm'])[-1] if self.metrics_history['gradient_norm'] else 0,
             },
             'expert_stats': {
-                'specialization': self.expert_specialization,
-                'loads': self.expert_loads,
+                'specialization': convert_to_serializable(self.expert_specialization),
+                'loads': convert_to_serializable(self.expert_loads),
                 'utilization': list(self.metrics_history['expert_utilization'])[-1] if self.metrics_history['expert_utilization'] else 0,
                 'load_balance': self._calculate_load_balance()
             },
@@ -495,9 +513,9 @@ class MoETrainingTUI:
                 'convergence': self._calculate_convergence()
             }
         }
-        
+
         with open(self.log_file, 'a') as f:
-            f.write(json.dumps(metrics, indent=2) + '\n')
+            f.write(json.dumps(convert_to_serializable(metrics), indent=2) + '\n')
     
     def _reset_view(self):
         """Reset the UI view"""

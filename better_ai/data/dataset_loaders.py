@@ -146,11 +146,11 @@ class MagicoderDataset(Dataset):
 
 class CodeFeedbackDataset(Dataset):
     """Code-Feedback dataset for multi-turn coding conversations"""
-    
+
     def __init__(
         self,
         dataset_name: str = "HuggingFaceH4/Code-Feedback",
-        split: str = "train",
+        split: str = "train_sft",
         max_length: int = 8192,
         tokenizer_name: str = "microsoft/CodeGPT-small-py"
     ):

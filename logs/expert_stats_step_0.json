@@ -1,12 +1,12 @@
 {
   "step": 0,
-  "timestamp": 1768465388.8399332,
+  "timestamp": 1768469360.8090189,
   "training_metrics": {
-    "recent_loss": 11.221237230300904,
+    "recent_loss": 11.084922075271606,
     "recent_aux_loss": 0.0,
     "current_lr": 0.0001,
     "recent_gradient_norm": 0.0,
-    "memory_usage_gb": 7.406134128570557
+    "memory_usage_gb": 3.4409308433532715
   },
   "expert_stats": {
     "specialization_scores": [

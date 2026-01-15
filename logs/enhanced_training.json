@@ -306,3 +306,3531 @@
     "convergence": 0.0
   }
 }
+{
+  "timestamp": 1768465993.6437395,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768465994.5214505,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768465997.839358,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768465998.4857295,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466000.5997305,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466002.560608,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466002.6676438,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466006.5972962,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466007.8748696,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466008.3994117,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466010.8609903,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466018.3483002,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466020.2682543,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466021.3809915,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466022.4098368,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466029.5626729,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466078.8354928,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466079.4543529,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768466088.9198227,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467058.5183835,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467073.1336846,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467103.204842,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467123.4837658,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467222.7390232,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467227.220381,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467230.352547,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467247.8097122,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467251.9693475,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467254.3806932,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467257.8735118,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467258.0402842,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467258.2627568,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467260.5391521,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467261.8130157,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467264.4113696,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467265.1550758,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467268.180186,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467277.7737508,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467278.6765482,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467278.8046753,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467279.4829588,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467281.3902404,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467282.093932,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467300.7183182,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467309.8295639,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467338.8614736,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467347.913404,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467474.9778616,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467478.6582475,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467479.1645753,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467479.9017398,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467482.5307298,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467483.1638663,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467484.8250508,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467485.7103922,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467494.1523407,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467496.5936913,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467497.2639625,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467504.7380557,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467511.1573172,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467512.6589012,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467512.851844,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467839.638411,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467846.1348808,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467925.4076688,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768467934.2258642,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468020.0340893,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468027.0378017,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468028.791789,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468035.7011073,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468107.4851043,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468107.6101947,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468162.1258504,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468203.704537,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468211.330425,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468212.389908,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468214.3195522,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468217.0899754,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468370.9946117,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468409.8966632,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468410.6582475,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468412.2755,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468420.5726907,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468543.6477222,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468632.2485156,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468649.075744,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468767.1623068,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468770.9542696,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468772.4946456,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468776.6568363,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468786.9391947,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468790.8116891,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468834.9877706,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468836.5374146,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468836.9224553,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468840.6438138,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468842.0960412,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468844.6637979,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468848.8898277,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468852.615841,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468857.2894473,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468866.8421674,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468870.2598622,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468872.0523758,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468873.861725,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468885.3664074,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468892.027173,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468893.7558534,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468895.5832157,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468898.3139772,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468901.3183887,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468902.6157782,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468902.754407,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468905.2161782,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468906.262799,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468907.1182828,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468913.7678595,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468915.5024796,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768468922.1929007,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768469152.0525646,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768469190.2679558,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768469193.3462858,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768469203.038708,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768469221.6475968,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768469225.3036895,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
+{
+  "timestamp": 1768469253.8574603,
+  "step": 0,
+  "epoch": 0,
+  "training_metrics": {
+    "loss": 0,
+    "aux_loss": 0,
+    "learning_rate": 0,
+    "gradient_norm": 0
+  },
+  "expert_stats": {
+    "specialization": {},
+    "loads": {},
+    "utilization": 0,
+    "load_balance": 1.0
+  },
+  "performance": {
+    "memory_usage_gb": 0,
+    "throughput": 0,
+    "batch_time": 0
+  },
+  "coherence": {
+    "score": 0,
+    "phase": "EXPLORING",
+    "stability": 0.0,
+    "convergence": 0.0
+  }
+}
