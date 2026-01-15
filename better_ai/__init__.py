@@ -3,7 +3,7 @@ Better AI - DeepSeek V3.2 Inspired Toy Model
 Ultra-optimized FP8 training & inference on RTX 4060 Laptop GPU
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Better AI Team"
 
 from .models import DeepSeekModel, DeepSeekMoEModel

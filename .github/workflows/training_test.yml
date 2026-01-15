@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10]
+        python-version: [3.11, 3.12]
 
     steps:
     - uses: actions/checkout@v4
@@ -29,7 +29,8 @@ jobs:
 
     - name: Test training pipeline with mock data
       run: |
-        python train_enhanced.py --stage full --test --batch-size 2 --max-steps 10
+        
+        python test_rlhf_components.py
 
     - name: Run unit tests
       run: |

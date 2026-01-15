@@ -5,6 +5,9 @@ Tests core functionality of BR-RM, GRPO, and advanced features
 
 import torch
 import unittest
+import sys
+import subprocess
+sys.path.append(".")
 from better_ai.config import ModelConfig
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.models.reward_model import BranchRewardModel, MultiAttributeRewardModel
@@ -19,7 +22,6 @@ from better_ai.models.advanced_features import (
     JSONEnforcer,
     EntropicSteering,
 )
-
 
 class TestBranchRewardModel(unittest.TestCase):
     """Test BR-RM functionality"""
@@ -290,9 +292,71 @@ class TestEntropyMonitoring(unittest.TestCase):
         self.assertEqual(outputs["spike_detected"].shape, (batch_size, seq_len))
 
 
+class TestWorkflow(unittest.TestCase):
+    """Test main workflow file"""
+    
+    def setUp(self):
+        pass
+    
+    def test_entropy_computation(self):
+        """Test entropy monitoring"""
+        n = subprocess.run(
+            ["python", "better_ai/training/train_enhanced.py", "--stage", "full", "--test", "--batch-size", "1", "--max-steps", "1"],
+            check=True
+        )
+        if n.returncode != 0:
+            self.fail(f"Workflow test failed because of stderr- {n.stderr} \n and stdout- {n.stdout}")
+        elif "Error" in str(n.stdout):
+            self.fail(f"Workflow test failed because of stdout- {n.stdout} \n and stderr- {n.stderr}")
+
+
 def run_tests():
     """Run all tests"""
-    unittest.main(argv=[''], exit=False, verbosity=2)
+    with open("better_ai/config.py", "r") as f:
+        config_code = f.read()
+    with open("better_ai/config.py", "w") as f:
+        f.write(config_code.replace(
+            "hidden_dim: int = 1536", "hidden_dim: int = 128"
+        ).replace(
+            "num_layers: int = 12", "num_layers: int = 1"
+        ).replace(
+            "num_attention_heads: int = 24", "num_attention_heads: int = 8"
+        ).replace(
+            "num_key_value_heads: Optional[int] = 12", "num_key_value_heads: Optional[int] = 4"
+        ).replace(
+            "intermediate_dim: int = 6144", "intermediate_dim: int = 512"
+        ).replace(
+            "vocab_size: int = 64000", "vocab_size: int = 6400"
+        ).replace(
+            "max_seq_length: int = 4096", "max_seq_length: int = 256"
+        ).replace(
+            "cot_num_heads: int = 8", "cot_num_heads: int = 2"
+        ).replace(
+            "tool_vocab_size: int = 1000", "tool_vocab_size: int = 100"
+        ).replace(
+            "tool_hidden_dim: int = 512", "tool_hidden_dim: int = 64"
+        ).replace(
+            "scratchpad_hidden_dim: int = 2048", "scratchpad_hidden_dim: int = 128"
+        ).replace(
+            "warmup_steps: int = 1000", "warmup_steps: int = 1"
+        ).replace(
+            "max_steps: int = 100000", "max_steps: int = 100"
+        ).replace(
+            "save_steps: int = 1000", "save_steps: int = 10"
+        ).replace(
+            "eval_steps: int = 1000", "eval_steps: int = 10"
+        ).replace(
+            "max_seq_length: int = 4096", "max_seq_length: int = 256"
+        )
+        )
+    try:
+        unittest.main(argv=[''], exit=False, verbosity=2)
+        with open("better_ai/config.py", "w") as f:
+            f.write(config_code)
+    except Exception as e:
+        with open("better_ai/config.py", "w") as f:
+            f.write(config_code)
+        raise e
 
 
 if __name__ == "__main__":

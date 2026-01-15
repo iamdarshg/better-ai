@@ -14,7 +14,7 @@ class ModelConfig:
     # Architecture parameters
     vocab_size: int = 64000  # Increased for better coding coverage
     hidden_dim: int = 1536  # Increased for better representation
-    num_layers: int = 2  # Reduced for efficiency
+    num_layers: int = 12  # Reduced for efficiency
     num_attention_heads: int = 24  # Increased proportionally
     num_key_value_heads: Optional[int] = 12  # For GQA, maintain 2:1 ratio
     intermediate_dim: int = 6144  # 4x hidden_dim for SwiGLU
@@ -99,7 +99,6 @@ class ModelConfig:
     scratchpad_max_iterations: int = 8
     scratchpad_hidden_dim: int = 2048
 
-
 @dataclass
 class TrainingConfig:
     """Configuration for training"""
@@ -160,7 +159,6 @@ class TrainingConfig:
     # Monitoring
     profile_memory: bool = True
     profile_time: bool = True
-
 
 @dataclass
 class InferenceConfig:
