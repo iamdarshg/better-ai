@@ -1,0 +1,117 @@
+2026-01-14 11:46:17,674 - __main__ - INFO - Better AI RLHF Training Pipeline
+2026-01-14 11:46:17,675 - __main__ - INFO - Device: cuda
+2026-01-14 11:46:17,675 - __main__ - INFO - Model Config: ModelConfig(vocab_size=64000, hidden_dim=1536, num_layers=16, num_attention_heads=24, num_key_value_heads=12, intermediate_dim=6144, max_seq_length=4096, num_experts=16, num_experts_per_token=2, expert_capacity_factor=1.25, shared_experts=1, moe_load_balance_weight=0.01, rope_theta=10000.0, rope_dim=None, attention_dropout=0.0, residual_dropout=0.0, embedding_dropout=0.0, norm_type='rmsnorm', norm_eps=1e-06, activation='swiglu', init_std=0.02, init_method='normal', use_fp8=True, fp8_e4m3=True, use_sparse_attention=True, local_window_size=1024, global_stride=512, use_gradient_checkpointing=True, use_flash_attention=True, use_paged_attention=True, use_ring_attention=True, ring_block_size=2048, ring_num_devices=None, use_cot_specialization=True, cot_num_heads=8, cot_hidden_dim=768, use_inner_monologue=True, thought_token_id=None, private_subspace_dim=1024, use_star=True, star_bootstrap_rounds=3, star_consistency_samples=10, use_tool_heads=True, tool_vocab_size=1000, tool_hidden_dim=512, use_grammar_constraints=True, grammar_type='gbnf', enforce_json_output=True, use_entropic_steering=True, entropy_threshold=2.5, clarify_token_id=None, use_recursive_scratchpad=True, scratchpad_max_iterations=8, scratchpad_hidden_dim=2048)
+2026-01-14 11:46:17,676 - __main__ - INFO - Training Config: TrainingConfig(batch_size=8, gradient_accumulation_steps=4, learning_rate=0.0001, warmup_steps=1000, max_steps=100000, save_steps=1000, eval_steps=500, optimizer='adamw', beta1=0.9, beta2=0.95, weight_decay=0.1, eps=1e-08, use_8bit_optimizer=True, lr_schedule='cosine', lr_decay_steps=None, min_lr_ratio=0.1, fp8_loss_scale=1.0, fp8_delayed_scaling=True, fp8_scaling_window=16, data_path='./data', tokenizer_path=None, max_seq_length=4096, shuffle_buffer_size=10000, log_dir='./logs', log_every_n_steps=100, wandb_project=None, wandb_entity=None, output_dir='./checkpoints', save_total_limit=5, save_strategy='steps', fp16=False, bf16=True, distributed_backend='ddp', fsdp_sharding_strategy='FULL_SHARD', fsdp_cpu_offload=True, profile_memory=True, profile_time=True)
+2026-01-14 11:46:17,676 - __main__ - INFO - ================================================================================
+2026-01-14 11:46:17,676 - __main__ - INFO - STAGE 1: PRETRAINING
+2026-01-14 11:46:17,677 - __main__ - INFO - ================================================================================
+2026-01-14 11:46:17,677 - __main__ - INFO - Using device: cuda
+2026-01-14 11:46:33,014 - __main__ - INFO - Loading Stack v2 pretraining dataset...
+2026-01-14 11:50:33,949 - better_ai.data.dataset_loaders - INFO - Loaded Stack v2 train split
+2026-01-14 11:50:59,325 - better_ai.data.dataset_loaders - ERROR - Failed to load Stack v2 dataset: Bad split: validation. Available splits: ['train']. Trying fallback if appropriate.
+2026-01-14 11:50:59,326 - better_ai.data.dataset_loaders - WARNING - Requested split 'validation' not available for bigcode/the-stack-v2. Falling back to 'train' split.
+2026-01-14 11:51:24,526 - better_ai.data.dataset_loaders - INFO - Loaded Stack v2 train split as fallback
+2026-01-14 11:51:29,101 - __main__ - INFO - Starting pretraining...
+2026-01-14 11:52:12,842 - __main__ - INFO - Pretraining completed!
+2026-01-14 11:52:12,842 - __main__ - INFO - ================================================================================
+2026-01-14 11:52:12,842 - __main__ - INFO - STAGE 2: SUPERVISED FINE-TUNING
+2026-01-14 11:52:12,843 - __main__ - INFO - ================================================================================
+2026-01-14 11:52:12,843 - __main__ - INFO - Using device: cuda
+2026-01-14 11:52:26,939 - __main__ - INFO - Loading checkpoint: ./checkpoints/pretrained_model.pt
+2026-01-14 11:52:34,126 - __main__ - INFO - Loading Magicoder dataset...
+2026-01-14 11:52:46,931 - datasets.builder - WARNING - HF google storage unreachable. Downloading and preparing it from source
+2026-01-14 11:53:07,470 - better_ai.data.dataset_loaders - INFO - Loaded Magicoder ise-uiuc/Magicoder-OSS-Instruct-75K train split with 75197 examples
+2026-01-14 11:53:07,471 - __main__ - INFO - Loading Code-Feedback dataset...
+2026-01-14 11:53:27,469 - datasets.builder - WARNING - HF google storage unreachable. Downloading and preparing it from source
+2026-01-14 11:53:39,653 - __main__ - ERROR - Training failed: Unknown split "train". Should be one of ['train_sft', 'test_sft'].
+Traceback (most recent call last):
+  File "D:\CodeProjects\better-ai\train_enhanced.py", line 489, in main
+    trainer, _ = train_sft(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\CodeProjects\better-ai\train_enhanced.py", line 177, in train_sft
+    code_feedback_loader = create_dataloader(
+                           ^^^^^^^^^^^^^^^^^^
+  File "D:\CodeProjects\better-ai\better_ai\data\dataset_loaders.py", line 408, in create_dataloader
+    dataset = dataset_class(
+              ^^^^^^^^^^^^^^
+  File "D:\CodeProjects\better-ai\better_ai\data\dataset_loaders.py", line 163, in __init__
+    self.dataset = load_dataset(dataset_name, split=split)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\load.py", line 2595, in load_dataset
+    ds = builder_instance.as_dataset(split=split, verification_mode=verification_mode, in_memory=keep_in_memory)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\builder.py", line 1244, in as_dataset
+    datasets = map_nested(
+               ^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\utils\py_utils.py", line 457, in map_nested
+    return function(data_struct)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\builder.py", line 1274, in _build_single_dataset
+    ds = self._as_dataset(
+         ^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\builder.py", line 1348, in _as_dataset
+    dataset_kwargs = ArrowReader(cache_dir, self.info).read(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\arrow_reader.py", line 251, in read
+    files = self.get_file_instructions(name, instructions, split_infos)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\arrow_reader.py", line 224, in get_file_instructions
+    file_instructions = make_file_instructions(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\arrow_reader.py", line 133, in make_file_instructions
+    absolute_instructions = instruction.to_absolute(name2len)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\arrow_reader.py", line 661, in to_absolute
+    return [_rel_to_abs_instr(rel_instr, name2len) for rel_instr in self._relative_instructions]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Darsh Gupta\AppData\Roaming\Python\Python312\site-packages\datasets\arrow_reader.py", line 478, in _rel_to_abs_instr
+    raise ValueError(f'Unknown split "{split}". Should be one of {list(name2len)}.')
+ValueError: Unknown split "train". Should be one of ['train_sft', 'test_sft'].
+2026-01-14 11:55:34,065 - __main__ - INFO - Better AI RLHF Training Pipeline
+2026-01-14 11:55:34,065 - __main__ - INFO - Device: cuda
+2026-01-14 11:55:34,066 - __main__ - INFO - Model Config: ModelConfig(vocab_size=64000, hidden_dim=1536, num_layers=16, num_attention_heads=24, num_key_value_heads=12, intermediate_dim=6144, max_seq_length=4096, num_experts=16, num_experts_per_token=2, expert_capacity_factor=1.25, shared_experts=1, moe_load_balance_weight=0.01, rope_theta=10000.0, rope_dim=None, attention_dropout=0.0, residual_dropout=0.0, embedding_dropout=0.0, norm_type='rmsnorm', norm_eps=1e-06, activation='swiglu', init_std=0.02, init_method='normal', use_fp8=True, fp8_e4m3=True, use_sparse_attention=True, local_window_size=1024, global_stride=512, use_gradient_checkpointing=True, use_flash_attention=True, use_paged_attention=True, use_ring_attention=True, ring_block_size=2048, ring_num_devices=None, use_cot_specialization=True, cot_num_heads=8, cot_hidden_dim=768, use_inner_monologue=True, thought_token_id=None, private_subspace_dim=1024, use_star=True, star_bootstrap_rounds=3, star_consistency_samples=10, use_tool_heads=True, tool_vocab_size=1000, tool_hidden_dim=512, use_grammar_constraints=True, grammar_type='gbnf', enforce_json_output=True, use_entropic_steering=True, entropy_threshold=2.5, clarify_token_id=None, use_recursive_scratchpad=True, scratchpad_max_iterations=8, scratchpad_hidden_dim=2048)
+2026-01-14 11:55:34,067 - __main__ - INFO - Training Config: TrainingConfig(batch_size=8, gradient_accumulation_steps=4, learning_rate=0.0001, warmup_steps=1000, max_steps=100000, save_steps=1000, eval_steps=500, optimizer='adamw', beta1=0.9, beta2=0.95, weight_decay=0.1, eps=1e-08, use_8bit_optimizer=True, lr_schedule='cosine', lr_decay_steps=None, min_lr_ratio=0.1, fp8_loss_scale=1.0, fp8_delayed_scaling=True, fp8_scaling_window=16, data_path='./data', tokenizer_path=None, max_seq_length=4096, shuffle_buffer_size=10000, log_dir='./logs', log_every_n_steps=100, wandb_project=None, wandb_entity=None, output_dir='./checkpoints', save_total_limit=5, save_strategy='steps', fp16=False, bf16=True, distributed_backend='ddp', fsdp_sharding_strategy='FULL_SHARD', fsdp_cpu_offload=True, profile_memory=True, profile_time=True)
+2026-01-14 11:55:34,067 - __main__ - INFO - TEST MODE: Using mock data
+2026-01-14 11:55:34,067 - __main__ - INFO - ================================================================================
+2026-01-14 11:55:34,067 - __main__ - INFO - STAGE 1: PRETRAINING
+2026-01-14 11:55:34,067 - __main__ - INFO - ================================================================================
+2026-01-14 11:55:34,068 - __main__ - INFO - Using device: cuda
+2026-01-14 11:55:47,926 - __main__ - INFO - Using mock data for testing...
+2026-01-14 11:55:52,222 - __main__ - INFO - Starting pretraining...
+2026-01-14 11:57:47,788 - __main__ - INFO - Pretraining completed!
+2026-01-14 11:57:47,800 - __main__ - INFO - ================================================================================
+2026-01-14 11:57:47,801 - __main__ - INFO - STAGE 2: SUPERVISED FINE-TUNING
+2026-01-14 11:57:47,802 - __main__ - INFO - ================================================================================
+2026-01-14 11:57:47,802 - __main__ - INFO - Using device: cuda
+2026-01-14 11:59:11,100 - __main__ - INFO - Better AI RLHF Training Pipeline
+2026-01-14 11:59:11,103 - __main__ - INFO - Device: cuda
+2026-01-14 11:59:11,103 - __main__ - INFO - Model Config: ModelConfig(vocab_size=64000, hidden_dim=1536, num_layers=16, num_attention_heads=24, num_key_value_heads=12, intermediate_dim=6144, max_seq_length=4096, num_experts=16, num_experts_per_token=2, expert_capacity_factor=1.25, shared_experts=1, moe_load_balance_weight=0.01, rope_theta=10000.0, rope_dim=None, attention_dropout=0.0, residual_dropout=0.0, embedding_dropout=0.0, norm_type='rmsnorm', norm_eps=1e-06, activation='swiglu', init_std=0.02, init_method='normal', use_fp8=True, fp8_e4m3=True, use_sparse_attention=True, local_window_size=1024, global_stride=512, use_gradient_checkpointing=True, use_flash_attention=True, use_paged_attention=True, use_ring_attention=True, ring_block_size=2048, ring_num_devices=None, use_cot_specialization=True, cot_num_heads=8, cot_hidden_dim=768, use_inner_monologue=True, thought_token_id=None, private_subspace_dim=1024, use_star=True, star_bootstrap_rounds=3, star_consistency_samples=10, use_tool_heads=True, tool_vocab_size=1000, tool_hidden_dim=512, use_grammar_constraints=True, grammar_type='gbnf', enforce_json_output=True, use_entropic_steering=True, entropy_threshold=2.5, clarify_token_id=None, use_recursive_scratchpad=True, scratchpad_max_iterations=8, scratchpad_hidden_dim=2048)
+2026-01-14 11:59:11,103 - __main__ - INFO - Training Config: TrainingConfig(batch_size=8, gradient_accumulation_steps=4, learning_rate=0.0001, warmup_steps=1000, max_steps=100000, save_steps=1000, eval_steps=500, optimizer='adamw', beta1=0.9, beta2=0.95, weight_decay=0.1, eps=1e-08, use_8bit_optimizer=True, lr_schedule='cosine', lr_decay_steps=None, min_lr_ratio=0.1, fp8_loss_scale=1.0, fp8_delayed_scaling=True, fp8_scaling_window=16, data_path='./data', tokenizer_path=None, max_seq_length=4096, shuffle_buffer_size=10000, log_dir='./logs', log_every_n_steps=100, wandb_project=None, wandb_entity=None, output_dir='./checkpoints', save_total_limit=5, save_strategy='steps', fp16=False, bf16=True, distributed_backend='ddp', fsdp_sharding_strategy='FULL_SHARD', fsdp_cpu_offload=True, profile_memory=True, profile_time=True)
+2026-01-14 11:59:11,104 - __main__ - INFO - ================================================================================
+2026-01-14 11:59:11,105 - __main__ - INFO - STAGE 1: PRETRAINING
+2026-01-14 11:59:11,105 - __main__ - INFO - ================================================================================
+2026-01-14 11:59:11,105 - __main__ - INFO - Using device: cuda
+2026-01-14 11:59:28,594 - __main__ - INFO - Loading Stack v2 pretraining dataset...
+2026-01-14 11:59:28,594 - better_ai.data.dataset_loaders - WARNING - Using num_workers=0 for streaming StackV2Dataset
+2026-01-14 12:03:30,095 - better_ai.data.dataset_loaders - INFO - Loaded Stack v2 train split
+2026-01-14 12:03:30,096 - better_ai.data.dataset_loaders - WARNING - Using num_workers=0 for streaming StackV2Dataset
+2026-01-14 12:03:58,857 - better_ai.data.dataset_loaders - ERROR - Failed to load Stack v2 dataset: Bad split: validation. Available splits: ['train']. Trying fallback if appropriate.
+2026-01-14 12:03:58,857 - better_ai.data.dataset_loaders - WARNING - Requested split 'validation' not available for bigcode/the-stack-v2. Falling back to 'train' split.
+2026-01-14 12:04:24,809 - better_ai.data.dataset_loaders - INFO - Loaded Stack v2 train split as fallback
+2026-01-14 12:04:33,488 - __main__ - INFO - Starting pretraining...
+2026-01-14 12:19:05,578 - __main__ - INFO - Better AI RLHF Training Pipeline
+2026-01-14 12:19:05,578 - __main__ - INFO - Device: cuda
+2026-01-14 12:19:05,579 - __main__ - INFO - Model Config: ModelConfig(vocab_size=64000, hidden_dim=1536, num_layers=16, num_attention_heads=24, num_key_value_heads=12, intermediate_dim=6144, max_seq_length=4096, num_experts=16, num_experts_per_token=2, expert_capacity_factor=1.25, shared_experts=1, moe_load_balance_weight=0.01, rope_theta=10000.0, rope_dim=None, attention_dropout=0.0, residual_dropout=0.0, embedding_dropout=0.0, norm_type='rmsnorm', norm_eps=1e-06, activation='swiglu', init_std=0.02, init_method='normal', use_fp8=True, fp8_e4m3=True, use_sparse_attention=True, local_window_size=1024, global_stride=512, use_gradient_checkpointing=True, use_flash_attention=True, use_paged_attention=True, use_ring_attention=True, ring_block_size=2048, ring_num_devices=None, use_cot_specialization=True, cot_num_heads=8, cot_hidden_dim=768, use_inner_monologue=True, thought_token_id=None, private_subspace_dim=1024, use_star=True, star_bootstrap_rounds=3, star_consistency_samples=10, use_tool_heads=True, tool_vocab_size=1000, tool_hidden_dim=512, use_grammar_constraints=True, grammar_type='gbnf', enforce_json_output=True, use_entropic_steering=True, entropy_threshold=2.5, clarify_token_id=None, use_recursive_scratchpad=True, scratchpad_max_iterations=8, scratchpad_hidden_dim=2048)
+2026-01-14 12:19:05,579 - __main__ - INFO - Training Config: TrainingConfig(batch_size=8, gradient_accumulation_steps=2, learning_rate=0.0001, warmup_steps=1000, max_steps=100000, save_steps=1000, eval_steps=500, optimizer='adamw', beta1=0.9, beta2=0.95, weight_decay=0.1, eps=1e-08, use_8bit_optimizer=True, lr_schedule='cosine', lr_decay_steps=None, min_lr_ratio=0.1, fp8_loss_scale=1.0, fp8_delayed_scaling=True, fp8_scaling_window=16, data_path='./data', tokenizer_path=None, max_seq_length=4096, shuffle_buffer_size=10000, log_dir='./logs', log_every_n_steps=100, wandb_project=None, wandb_entity=None, output_dir='./checkpoints', save_total_limit=5, save_strategy='steps', fp16=False, bf16=True, distributed_backend='ddp', fsdp_sharding_strategy='FULL_SHARD', fsdp_cpu_offload=True, profile_memory=True, profile_time=True)
+2026-01-14 12:19:05,581 - __main__ - INFO - ================================================================================
+2026-01-14 12:19:05,581 - __main__ - INFO - STAGE 1: PRETRAINING
+2026-01-14 12:19:05,581 - __main__ - INFO - ================================================================================
+2026-01-14 12:19:05,582 - __main__ - INFO - Using device: cuda
+2026-01-14 12:19:35,468 - __main__ - INFO - Loading Stack v2 pretraining dataset...
+2026-01-14 12:19:35,507 - better_ai.data.dataset_loaders - WARNING - Using num_workers=0 for streaming StackV2Dataset
+2026-01-14 12:23:37,395 - better_ai.data.dataset_loaders - INFO - Loaded Stack v2 train split
+2026-01-14 12:23:37,403 - better_ai.data.dataset_loaders - WARNING - Using num_workers=0 for streaming StackV2Dataset
+2026-01-14 12:24:03,725 - better_ai.data.dataset_loaders - ERROR - Failed to load Stack v2 dataset: Bad split: validation. Available splits: ['train']. Trying fallback if appropriate.
+2026-01-14 12:24:03,725 - better_ai.data.dataset_loaders - WARNING - Requested split 'validation' not available for bigcode/the-stack-v2. Falling back to 'train' split.
+2026-01-14 12:24:29,415 - better_ai.data.dataset_loaders - INFO - Loaded Stack v2 train split as fallback
+2026-01-14 12:24:35,208 - __main__ - INFO - Starting pretraining...

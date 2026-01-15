@@ -1,0 +1,299 @@
+"""
+Integration tests for all RLHF components
+Tests core functionality of BR-RM, GRPO, and advanced features
+"""
+
+import torch
+import unittest
+from better_ai.config import ModelConfig
+from better_ai.models.enhanced_model import EnhancedDeepSeekModel
+from better_ai.models.reward_model import BranchRewardModel, MultiAttributeRewardModel
+from better_ai.training.grpo import GRPOTrainer, GRPOLoss
+from better_ai.models.advanced_features import (
+    RecursiveScratchpad,
+    CoTSpecializationHeads,
+    InnerMonologue,
+    STaRModule,
+    ToolUseHeads,
+    GBNFConstraint,
+    JSONEnforcer,
+    EntropicSteering,
+)
+
+
+class TestBranchRewardModel(unittest.TestCase):
+    """Test BR-RM functionality"""
+    
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.config = ModelConfig()
+        self.model = BranchRewardModel(self.config).to(self.device)
+    
+    def test_forward_pass(self):
+        """Test basic forward pass"""
+        batch_size = 4
+        seq_len = 128
+        hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
+        
+        # Test with sequence
+        scores = self.model(hidden_states)
+        self.assertEqual(scores.shape, (batch_size,))
+        
+        # Test with pool
+        pooled = hidden_states[:, -1, :]
+        scores = self.model(pooled)
+        self.assertEqual(scores.shape, (batch_size,))
+    
+    def test_branch_scores(self):
+        """Test branch scoring"""
+        batch_size = 4
+        hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
+        
+        scores, branches = self.model(hidden_states, return_branch_scores=True)
+        
+        self.assertEqual(scores.shape, (batch_size,))
+        self.assertIn("correctness", branches)
+        self.assertIn("efficiency", branches)
+        self.assertIn("readability", branches)
+        self.assertIn("robustness", branches)
+        self.assertIn("branch_weights", branches)
+    
+    def test_pair_scoring(self):
+        """Test preference pair scoring"""
+        batch_size = 4
+        hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
+        
+        chosen_scores, rejected_scores = self.model.score_pair(
+            torch.randn(batch_size, self.config.hidden_dim),
+            torch.randn(batch_size, self.config.hidden_dim),
+        )
+        
+        self.assertEqual(chosen_scores.shape, (batch_size,))
+        self.assertEqual(rejected_scores.shape, (batch_size,))
+
+
+class TestMultiAttributeRewardModel(unittest.TestCase):
+    """Test multi-attribute reward model"""
+    
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.config = ModelConfig()
+        self.model = MultiAttributeRewardModel(self.config, num_attributes=5).to(self.device)
+    
+    def test_forward_pass(self):
+        """Test multi-attribute forward pass"""
+        batch_size = 4
+        hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
+        
+        results = self.model(hidden_states)
+        
+        self.assertIn("correctness", results)
+        self.assertIn("efficiency", results)
+        self.assertIn("readability", results)
+        self.assertIn("robustness", results)
+        self.assertIn("creativity", results)
+        self.assertIn("point_estimates", results)
+
+
+class TestGRPOTrainer(unittest.TestCase):
+    """Test GRPO training"""
+    
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.config = ModelConfig()
+        self.model = EnhancedDeepSeekModel(self.config).to(self.device)
+        self.reward_model = BranchRewardModel(self.config).to(self.device)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-4)
+        
+        self.grpo_config = {
+            "beta": 0.01,
+            "group_size": 4,
+            "device": self.device,
+            "hidden_dim": self.config.hidden_dim,
+        }
+    
+    def test_advantage_computation(self):
+        """Test group advantage estimation"""
+        trainer = GRPOTrainer(self.model, self.reward_model, self.optimizer, self.grpo_config)
+        
+        batch_size = 4
+        group_size = 4
+        
+        rewards = torch.randn(batch_size, group_size)
+        logprobs = torch.randn(batch_size, group_size)
+        values = torch.randn(batch_size, group_size)
+        
+        advantages, returns, norm_advantages = trainer.compute_group_advantages(
+            rewards, logprobs, values
+        )
+        
+        self.assertEqual(advantages.shape, (batch_size, group_size))
+        self.assertEqual(returns.shape, (batch_size, group_size))
+        self.assertEqual(norm_advantages.shape, (batch_size, group_size))
+
+
+class TestGRPOLoss(unittest.TestCase):
+    """Test GRPO loss computation"""
+    
+    def test_loss_computation(self):
+        """Test GRPO loss"""
+        loss_fn = GRPOLoss(beta=0.01, eps_clip=0.2)
+        
+        batch_size = 4
+        old_logprobs = torch.randn(batch_size, requires_grad=False)
+        new_logprobs = torch.randn(batch_size, requires_grad=True)
+        advantages = torch.randn(batch_size)
+        
+        loss = loss_fn(old_logprobs, new_logprobs, advantages)
+        
+        self.assertGreater(loss.item(), 0)
+        loss.backward()
+        self.assertIsNotNone(new_logprobs.grad)
+
+
+class TestRecursiveScratchpad(unittest.TestCase):
+    """Test recursive scratchpad"""
+    
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.config = ModelConfig()
+        self.module = RecursiveScratchpad(
+            self.config.hidden_dim,
+            max_iterations=5,
+            scratchpad_dim=256,
+        ).to(self.device)
+    
+    def test_forward_pass(self):
+        """Test scratchpad processing"""
+        batch_size = 4
+        seq_len = 128
+        hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
+        
+        outputs = self.module(hidden_states)
+        
+        self.assertEqual(outputs["scratchpad_output"].shape, (batch_size, self.config.hidden_dim))
+        self.assertGreater(outputs["iteration_count"], 0)
+
+
+class TestCoTSpecializationHeads(unittest.TestCase):
+    """Test CoT specialization"""
+    
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.config = ModelConfig()
+        self.module = CoTSpecializationHeads(
+            self.config.hidden_dim,
+            num_cot_heads=4,
+        ).to(self.device)
+    
+    def test_forward_pass(self):
+        """Test CoT heads"""
+        batch_size = 4
+        seq_len = 128
+        hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
+        
+        outputs = self.module(hidden_states, is_reasoning_phase=True)
+        
+        self.assertEqual(outputs["cot_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
+        self.assertEqual(outputs["final_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
+
+
+class TestToolUseHeads(unittest.TestCase):
+    """Test tool-use heads"""
+    
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.config = ModelConfig()
+        self.module = ToolUseHeads(self.config.hidden_dim).to(self.device)
+    
+    def test_forward_pass(self):
+        """Test tool-use prediction"""
+        batch_size = 4
+        hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
+        
+        outputs = self.module(hidden_states)
+        
+        self.assertEqual(outputs["tool_logits"].shape, (batch_size, self.config.tool_vocab_size))
+        self.assertEqual(outputs["mode_score"].shape, (batch_size, 1))
+        self.assertEqual(outputs["confidence"].shape, (batch_size, 1))
+
+
+class TestEnhancedModel(unittest.TestCase):
+    """Test integrated enhanced model"""
+    
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.config = ModelConfig()
+        self.model = EnhancedDeepSeekModel(self.config).to(self.device)
+    
+    def test_forward_pass(self):
+        """Test basic forward pass"""
+        batch_size = 2
+        seq_len = 64
+        input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
+        
+        outputs = self.model(input_ids, return_advanced_features=False)
+        
+        self.assertEqual(outputs["logits"].shape, (batch_size, seq_len, self.config.vocab_size))
+    
+    def test_advanced_features(self):
+        """Test with all advanced features"""
+        batch_size = 2
+        seq_len = 64
+        input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
+        
+        outputs = self.model(input_ids, return_advanced_features=True)
+        
+        self.assertIn("advanced_features", outputs)
+        advanced = outputs["advanced_features"]
+        
+        if self.config.use_recursive_scratchpad:
+            self.assertIn("scratchpad", advanced)
+        
+        if self.config.use_tool_heads:
+            self.assertIn("tool_use", advanced)
+        
+        self.assertIn("reward", advanced)
+    
+    def test_loss_computation(self):
+        """Test loss computation"""
+        batch_size = 2
+        seq_len = 64
+        input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
+        labels = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
+        
+        losses = self.model.compute_loss(input_ids, labels)
+        
+        self.assertIn("lm_loss", losses)
+        self.assertIn("total_loss", losses)
+        self.assertGreater(losses["lm_loss"].item(), 0)
+
+
+class TestEntropyMonitoring(unittest.TestCase):
+    """Test entropic steering"""
+    
+    def setUp(self):
+        self.device = torch.device("cpu")
+        self.config = ModelConfig()
+        self.module = EntropicSteering(self.config.hidden_dim).to(self.device)
+    
+    def test_entropy_computation(self):
+        """Test entropy monitoring"""
+        batch_size = 4
+        seq_len = 128
+        hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
+        logits = torch.randn(batch_size, seq_len, self.config.vocab_size).to(self.device)
+        
+        outputs = self.module(hidden_states, logits)
+        
+        self.assertEqual(outputs["entropy_scores"].shape, (batch_size, seq_len))
+        self.assertEqual(outputs["spike_detected"].shape, (batch_size, seq_len))
+
+
+def run_tests():
+    """Run all tests"""
+    unittest.main(argv=[''], exit=False, verbosity=2)
+
+
+if __name__ == "__main__":
+    run_tests()

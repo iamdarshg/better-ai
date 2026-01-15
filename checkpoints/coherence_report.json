@@ -1,0 +1,57 @@
+{
+  "timestamp": 1768372059.06597,
+  "scheduler_config": {
+    "base_lr": 0.0001,
+    "min_lr": 1e-06,
+    "max_lr": 0.001,
+    "coherence_target": 0.7,
+    "adjustment_frequency": 50
+  },
+  "final_state": {
+    "current_lr": 0.0001,
+    "base_lr": 0.0001,
+    "lr_range": [
+      1e-06,
+      0.001
+    ],
+    "total_adjustments": 0,
+    "step_count": 0,
+    "coherence_metrics": {
+      "current": 0.0,
+      "stability": 0.0,
+      "specialization": 0.0,
+      "convergence": 0.0,
+      "trends": {
+        "loss": 0.0,
+        "expert_util": 0.0,
+        "gradient": 0.0
+      }
+    },
+    "training_phase": {
+      "current": "WARMUP",
+      "durations": {
+        "WARMUP": 0,
+        "TRAINING": 0,
+        "STABILIZING": 0,
+        "FINE_TUNING": 0
+      }
+    },
+    "recommendations": {
+      "reduce_lr": false,
+      "increase_lr": false,
+      "adjust_expert_capacity": true,
+      "change_attention_mechanism": false,
+      "early_stop": false,
+      "change_batch_size": true
+    }
+  },
+  "adjustment_history": [],
+  "coherence_calculator": {
+    "window_size": 50,
+    "weights": {
+      "specialization": 0.3,
+      "convergence": 0.4,
+      "stability": 0.3
+    }
+  }
+}
