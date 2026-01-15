@@ -451,7 +451,7 @@ def main():
     parser.add_argument("--max-steps", type=int, default=100000)
     parser.add_argument("--eval", action="store_true", help="Run evaluation after training")
     parser.add_argument("--test", action="store_true", help="Run with mock data for testing infrastructure")
-    
+
     args = parser.parse_args()
     
     # Setup
@@ -496,7 +496,7 @@ def main():
             model = trainer.model
         
         if args.eval and model is not None:
-            evaluate_model(model, model_config, args.output_dir)
+            evaluate_model(model.model if hasattr(model, 'model') else model, model_config, args.output_dir)
         
         logger.info("Training completed successfully!")
         

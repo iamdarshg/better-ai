@@ -12,33 +12,33 @@ Better AI is a comprehensive RLHF (Reinforcement Learning from Human Feedback) s
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │        Advanced Reasoning Features (Layer 4)        │   │
-│  │ • Recursive Scratchpad  • CoT Specialization       │   │
-│  │ • Inner Monologue       • STaR Bootstrapping       │   │
-│  │ • Tool-Use Heads        • GBNF Constraints         │   │
-│  │ • JSON Enforcement      • Entropic Steering        │   │
+│  │ • Recursive Scratchpad  • CoT Specialization        │   │
+│  │ • Inner Monologue       • STaR Bootstrapping        │   │
+│  │ • Tool-Use Heads        • GBNF Constraints          │   │
+│  │ • JSON Enforcement      • Entropic Steering         │   │
 │  └─────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │        RLHF Reward Modeling (Layer 3)              │   │
-│  │ • BR-RM (Branch Reward Model)                      │   │
-│  │ • Multi-Attribute Regression                       │   │
-│  │ • Quantile Regression for Uncertainty             │   │
+│  │        RLHF Reward Modeling (Layer 3)               │   │
+│  │ • BR-RM (Branch Reward Model)                       │   │
+│  │ • Multi-Attribute Regression                        │   │
+│  │ • Quantile Regression for Uncertainty               │   │
 │  └─────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │      Core Transformer Architecture (Layer 2)        │   │
-│  │ • Ring Attention for Distributed Processing        │   │
-│  │ • MoE Layers with 16 Experts                       │   │
-│  │ • RMSNorm + SwiGLU Activation                      │   │
-│  │ • Grouped Query Attention (GQA)                    │   │
+│  │ • Ring Attention for Distributed Processing         │   │
+│  │ • MoE Layers with 16 Experts                        │   │
+│  │ • RMSNorm + SwiGLU Activation                       │   │
+│  │ • Grouped Query Attention (GQA)                     │   │
 │  └─────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │        Training Infrastructure (Layer 1)            │   │
-│  │ • GRPO (Group Reward Policy Optimization)          │   │
+│  │ • GRPO (Group Reward Policy Optimization)           │   │
 │  │ • Multi-Stage Training Pipeline                     │   │
-│  │ • FP8 Quantization Support                         │   │
-│  │ • Distributed Training with DDP/FSDP              │   │
+│  │ • FP8 Quantization Support                          │   │
+│  │ • Distributed Training with DDP/FSDP                │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
