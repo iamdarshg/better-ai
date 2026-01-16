@@ -15,7 +15,8 @@ import re
 class RecursiveScratchpad(nn.Module):
     """
     Recursive Scratchpad for iterative reasoning
-    Allows model to think through problems step-by-step
+    Recursively processes scratchpad content through the full model
+    Maintains sequence length throughout all iterations
     """
     
     def __init__(self, hidden_dim: int, max_iterations: int = 5, scratchpad_dim: int = 512):
@@ -27,64 +28,82 @@ class RecursiveScratchpad(nn.Module):
         
         # Scratchpad state management
         self.scratchpad_encoder = nn.Linear(hidden_dim, scratchpad_dim)
-        self.scratchpad_processor = nn.GRUCell(hidden_dim + scratchpad_dim, scratchpad_dim)
         self.scratchpad_decoder = nn.Linear(scratchpad_dim, hidden_dim)
         
-        # Iteration control
+        # Iteration control - decides when to stop recursing
         self.stop_token_predictor = nn.Sequential(
-            nn.Linear(scratchpad_dim, scratchpad_dim // 2),
+            nn.Linear(hidden_dim, hidden_dim // 2),
             nn.ReLU(),
-            nn.Linear(scratchpad_dim // 2, 1),
+            nn.Linear(hidden_dim // 2, 1),
+            nn.Sigmoid()
+        )
+        
+        # Scratchpad content selector - which tokens get fed back
+        self.content_selector = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1),
             nn.Sigmoid()
         )
     
     def forward(
         self,
         hidden_states: torch.Tensor,
+        model_forward_fn: Optional[callable] = None,
         max_iterations: Optional[int] = None,
     ) -> Dict[str, torch.Tensor]:
         """
         Process through recursive scratchpad
         
         Args:
-            hidden_states: (batch_size, seq_len, hidden_dim) or (batch_size, hidden_dim)
+            hidden_states: (batch_size, seq_len, hidden_dim)
+            model_forward_fn: Callable that takes hidden_states and returns updated hidden_states
+                             If None, just encodes/decodes without recursion
             max_iterations: Override default max iterations
         
         Returns:
             Dictionary with scratchpad_output, reasoning_traces, iteration_count
         """
-        if hidden_states.dim() == 3:
-            hidden_states = hidden_states[:, -1, :]  # Use last token
-        
-        batch_size = hidden_states.shape[0]
+        batch_size, seq_len, hidden_dim = hidden_states.shape
         max_iter = max_iterations or self.max_iterations
         
-        # Initialize scratchpad state
-        scratchpad_state = self.scratchpad_encoder(hidden_states)
+        # Initialize scratchpad state for each sequence position
+        scratchpad_state = self.scratchpad_encoder(hidden_states)  # (batch_size, seq_len, scratchpad_dim)
         
-        reasoning_traces = []
-        current_hidden = hidden_states
+        reasoning_traces = [hidden_states.detach()]
+        current_hidden = hidden_states.clone()
         
         for iteration in range(max_iter):
-            # Process through scratchpad
-            combined_input = torch.cat([current_hidden, scratchpad_state], dim=-1)
-            scratchpad_state = self.scratchpad_processor(combined_input, scratchpad_state)
+            # Encode current state to scratchpad
+            scratchpad_state = self.scratchpad_encoder(current_hidden)
             
-            # Decode scratchpad state
-            scratchpad_output = self.scratchpad_decoder(scratchpad_state)
-            reasoning_traces.append(scratchpad_output.detach())
+            # Decode scratchpad back to hidden space for next iteration
+            scratchpad_decoded = self.scratchpad_decoder(scratchpad_state)  # (batch_size, seq_len, hidden_dim)
             
-            # Update hidden state with scratchpad output
-            current_hidden = current_hidden + 0.1 * scratchpad_output  # Residual connection
+            # If model_forward_fn provided, recursively call full model on scratchpad content
+            if model_forward_fn is not None:
+                scratchpad_output = model_forward_fn(scratchpad_decoded)  # (batch_size, seq_len, hidden_dim)
+            else:
+                scratchpad_output = scratchpad_decoded
             
-            # Check if we should stop
-            stop_logit = self.stop_token_predictor(scratchpad_state)
-            if (stop_logit > 0.5).any() and iteration > 0:
+            # Select which tokens contribute to next iteration (prevents dilution)
+            content_scores = self.content_selector(current_hidden)  # (batch_size, seq_len, 1)
+            
+            # Blend scratchpad output with current hidden state
+            current_hidden = current_hidden * (1 - 0.3 * content_scores) + scratchpad_output * (0.3 * content_scores)
+            
+            reasoning_traces.append(current_hidden.detach())
+            
+            # Check if we should stop recursing (per-token decision, aggregate for batch)
+            stop_logits = self.stop_token_predictor(current_hidden)  # (batch_size, seq_len, 1)
+            stop_decision = (stop_logits.mean(dim=1) > 0.5).any()  # Aggregate across sequence
+            
+            if stop_decision and iteration > 0:
                 break
         
         return {
-            "scratchpad_output": current_hidden,
-            "reasoning_traces": torch.stack(reasoning_traces, dim=1),  # (batch_size, num_iterations, hidden_dim)
+            "scratchpad_output": current_hidden,  # (batch_size, seq_len, hidden_dim)
+            "reasoning_traces": torch.stack(reasoning_traces, dim=1),  # (batch_size, num_iterations, seq_len, hidden_dim)
             "iteration_count": len(reasoning_traces),
         }
 
@@ -233,7 +252,7 @@ class InnerMonologue(nn.Module):
             for i in range(seq_len):
                 if token_ids[0, i] == thought_token_id:
                     in_thought = not in_thought
-                is_private[:, i] = in_private_space if in_thought else False
+                is_private[:, i] = in_thought
         else:
             # Use learned subspace switch
             switch_scores = self.subspace_switch(hidden_states)  # (batch_size, seq_len, 1)
@@ -315,41 +334,64 @@ class STaRModule(nn.Module):
         STaR bootstrapping for reasoning improvement
         
         Args:
-            hidden_states: (batch_size, seq_len, hidden_dim)
+            hidden_states: (batch_size, seq_len, hidden_dim) or (batch_size, hidden_dim)
             reasoning_traces: List of reasoning traces from multiple rounds
         
         Returns:
             Dictionary with bootstrapped_trace, consistency_scores, validity_scores
         """
+        if not reasoning_traces:
+            # Return empty results if no traces provided
+            batch_size = hidden_states.shape[0]
+            return {
+                "bootstrapped_trace": hidden_states if hidden_states.dim() > 1 else hidden_states.unsqueeze(0),
+                "validity_scores": torch.ones(batch_size, 1),
+                "consistency_scores": torch.ones(batch_size, 1),
+                "best_trace_idx": torch.zeros(batch_size, dtype=torch.long),
+            }
+        
         if hidden_states.dim() == 3:
-            hidden_repr = hidden_states[:, -1, :]
+            # Use mean pooling across sequence for validity scoring
+            hidden_repr = hidden_states.mean(dim=1)  # (batch_size, hidden_dim)
         else:
             hidden_repr = hidden_states
         
-        # Validate each trace
-        validity_scores = [self.validate_trace(trace) for trace in reasoning_traces]
+        batch_size = hidden_repr.shape[0]
+        
+        # Validate each trace - traces are (batch_size, seq_len, hidden_dim)
+        validity_scores = []
+        for trace in reasoning_traces:
+            if trace.dim() == 3:
+                trace_repr = trace.mean(dim=1)  # Pool to (batch_size, hidden_dim)
+            else:
+                trace_repr = trace
+            validity = self.validate_trace(trace_repr)  # (batch_size,)
+            validity_scores.append(validity)
+        
         validity_scores = torch.stack(validity_scores, dim=1)  # (batch_size, num_traces)
         
         # Check consistency between top traces
         consistency_matrix = []
         for i, trace1 in enumerate(reasoning_traces):
             for trace2 in reasoning_traces[i+1:]:
-                consistency = self.check_consistency(trace1, trace2)
+                trace1_repr = trace1.mean(dim=1) if trace1.dim() == 3 else trace1
+                trace2_repr = trace2.mean(dim=1) if trace2.dim() == 3 else trace2
+                consistency = self.check_consistency(trace1_repr, trace2_repr)
                 consistency_matrix.append(consistency)
         
-        consistency_scores = torch.stack(consistency_matrix, dim=1) if consistency_matrix else torch.ones(hidden_repr.shape[0], 1)
+        consistency_scores = torch.stack(consistency_matrix, dim=1) if consistency_matrix else torch.ones(batch_size, 1)
         
-        # Select best trace based on validity and consistency
-        best_validity = validity_scores.argmax(dim=1)
+        # Select best trace based on validity
+        best_validity_idx = validity_scores.argmax(dim=1)  # (batch_size,)
         bootstrapped_trace = torch.stack([
-            reasoning_traces[best_validity[i]] for i in range(hidden_repr.shape[0])
+            reasoning_traces[best_validity_idx[i].item()] for i in range(batch_size)
         ])
         
         return {
             "bootstrapped_trace": bootstrapped_trace,
             "validity_scores": validity_scores,
             "consistency_scores": consistency_scores,
-            "best_trace_idx": best_validity,
+            "best_trace_idx": best_validity_idx,
         }
 
 

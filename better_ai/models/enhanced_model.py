@@ -5,6 +5,7 @@ Includes Ring Attention, BR-RM, CoT, Inner Monologue, STaR, Tool-Use, GBNF, JSON
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from typing import Optional, List, Tuple, Dict, Any
 from .core import DeepSeekModel, TransformerBlock
 from .ring_attention import RingAttention
