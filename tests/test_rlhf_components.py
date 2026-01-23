@@ -174,7 +174,7 @@ class TestRecursiveScratchpad(unittest.TestCase):
         
         outputs = self.module(hidden_states)
         
-        self.assertEqual(outputs["scratchpad_output"].shape, (batch_size, self.config.hidden_dim))
+        self.assertEqual(outputs["scratchpad_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
         self.assertGreater(outputs["iteration_count"], 0)
 
 
@@ -207,7 +207,7 @@ class TestToolUseHeads(unittest.TestCase):
     def setUp(self):
         self.device = torch.device("cpu")
         self.config = ModelConfig()
-        self.module = ToolUseHeads(self.config.hidden_dim).to(self.device)
+        self.module = EntropicSteering(self.config.hidden_dim).to(self.device)
     
     def test_forward_pass(self):
         """Test tool-use prediction"""
@@ -287,7 +287,10 @@ class TestEntropyMonitoring(unittest.TestCase):
     def setUp(self):
         self.device = torch.device("cpu")
         self.config = ModelConfig()
-        self.module = EntropicSteering(self.config.hidden_dim).to(self.device)
+        self.module = ToolUseHeads(
+            self.config.hidden_dim,
+            tool_vocab_size=self.config.tool_vocab_size
+        ).to(self.device)
     
     def test_entropy_computation(self):
         """Test entropy monitoring"""

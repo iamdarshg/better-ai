@@ -333,6 +333,8 @@ class MoETrainingTUI:
     
     def _setup_keyboard_handlers(self):
         """Setup keyboard input handlers"""
+        if not sys.stdout.isatty():
+            return
         import keyboard
         
         def on_key_press(event):
