@@ -297,12 +297,15 @@ class TestEntropyMonitoring(unittest.TestCase):
         batch_size = 4
         seq_len = 128
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
-        logits = torch.randn(batch_size, seq_len, self.config.vocab_size).to(self.device)
+
+        # Create a high-entropy distribution to trigger a spike
+        logits = torch.ones(batch_size, seq_len, self.config.vocab_size).to(self.device)
         
         outputs = self.module.forward(hidden_states, logits)
         
         self.assertEqual(outputs["entropy_scores"].shape, (batch_size, seq_len))
         self.assertEqual(outputs["spike_detected"].shape, (batch_size, seq_len))
+        self.assertTrue(outputs["spike_detected"].any(), "No entropy spike was detected")
 
 
 class TestWorkflow(unittest.TestCase):
