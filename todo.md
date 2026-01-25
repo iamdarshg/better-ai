@@ -99,7 +99,7 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 - [ ] Implement reasoning trace validation
 - [ ] Test STaR reasoning improvement
 
-### 3.5 Specialising Attention Heads 
+### 3.5 Specialising Attention Heads
 - [ ] Implement specific attention heads for tool use
 - [ ] Implement specific attention heads for db-operations like SQL, redis and so on
 - [ ] Implement specific attention heads for math and algorithmic reasoning
@@ -139,8 +139,8 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 - [ ] Add Ring Attention profiling and debugging
 - [ ] Test Ring Attention scaling
 
-### 3.4 Think In Diffusion,, Output using transofrmers 
-- [ ] Add an experimental module that acts as a seperate MoE model also operating on the scratchpad, that then feeds into a seperate, much smaller transformer to cnvert its ouput into the desired format which then goes onto the scratchpad, which is then reprocessed by the larger transformer model and is outputted base on the fomrat of the larger tarnsformer. 
+### 3.4 Think In Diffusion,, Output using transofrmers
+- [ ] Add an experimental module that acts as a seperate MoE model also operating on the scratchpad, that then feeds into a seperate, much smaller transformer to cnvert its ouput into the desired format which then goes onto the scratchpad, which is then reprocessed by the larger transformer model and is outputted base on the fomrat of the larger tarnsformer.
 
 ## Phase 4: Training Pipeline Integration (1-2 weeks)
 

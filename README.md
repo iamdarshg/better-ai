@@ -365,7 +365,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 For questions, issues, or contributions:
 - **GitHub Issues**: https://github.com/iamdarshg/better-ai/issues
 - **Discussions**: https://github.com/iamdarshg/better-ai/discussions
-- **Email**: iamdarshg@gmail.com
+- **Email**: darshgupta@example.com
 
 ---
 

@@ -13,12 +13,12 @@ class ModelConfig:
     
     # Architecture parameters
     vocab_size: int = 64000  # Increased for better coding coverage
-    hidden_dim: int = 2048  # Increased for better representation
-    num_layers: int = 30  # Reduced for efficiency
+    hidden_dim: int = 1024  # Increased for better representation
+    num_layers: int = 12  # Reduced for efficiency
     num_attention_heads: int = 32  # Increased proportionally
     num_key_value_heads: Optional[int] = 16  # For GQA, maintain 2:1 ratio
-    intermediate_dim: int = 6144  # 4x hidden_dim for SwiGLU
-    max_seq_length: int = 16384  # Increased with Ring Attention
+    intermediate_dim: int = 768  # 4x hidden_dim for SwiGLU
+    max_seq_length: int = 2048  # Increased with Ring Attention
     
     # MoE parameters
     num_experts: int = 16  # Reduced for efficiency
@@ -64,6 +64,9 @@ class ModelConfig:
     ring_block_size: int = 2048
     ring_num_devices: Optional[int] = None  # Auto-detect
     
+    # Linear Attention parameters
+    use_linear_attention: bool = False
+
     # CoT Specialization parameters
     use_cot_specialization: bool = True
     cot_num_heads: int = 64
@@ -159,6 +162,10 @@ class TrainingConfig:
     # Monitoring
     profile_memory: bool = True
     profile_time: bool = True
+
+    # Pruning
+    pruning_ratio: float = 0.1
+    pruning_steps: Optional[List[int]] = None
 
 @dataclass
 class InferenceConfig:

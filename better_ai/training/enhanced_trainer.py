@@ -13,6 +13,7 @@ from .checkpointing import SelectiveCheckpointManager, AdaptiveMemoryManager
 from .adaptive_optimizations import DynamicExpertCapacityManager, AdaptiveAttentionSelector
 from .coherence_scheduler import CoherenceBasedScheduler
 from .tui import MoETrainingTUI, ColoredText
+from .pruning import prune_expert_widths
 
 
 class EnhancedMoETrainer:
@@ -35,9 +36,11 @@ class EnhancedMoETrainer:
         scheduler,
         config,
         device: torch.device,
+        tokenizer=None,
         use_enhanced_features: bool = True
     ):
         self.model = model
+        self.tokenizer = tokenizer
         self.train_dataloader = train_dataloader
         self.eval_dataloader = eval_dataloader
         self.optimizer = optimizer
@@ -181,6 +184,10 @@ class EnhancedMoETrainer:
 
                 self.global_step += 1
 
+                # Pruning
+                if self.config.pruning_steps and self.global_step in self.config.pruning_steps:
+                    prune_expert_widths(self.model, self.config.pruning_ratio, ["expert"])
+
                 # Enhanced logging and early stopping
                 if self._should_log_step():
                     self._enhanced_logging(batch_idx)
@@ -246,10 +253,61 @@ class EnhancedMoETrainer:
         
         return processed_batch
     
+    def _rl_forward_pass(self, batch: Dict[str, Any]) -> tuple:
+        """PPO-like forward pass for RLHF."""
+        input_ids = batch.get('input_ids')
+        if input_ids is None:
+            return torch.tensor(0.0), torch.tensor(0.0), None
+
+        # 1. Get policy and value estimates
+        outputs = self.model(input_ids=input_ids, return_advanced_features=True)
+        logits = outputs.get("logits")
+        values = outputs.get("advanced_features", {}).get("value")
+
+        if logits is None or values is None:
+            return torch.tensor(0.0), torch.tensor(0.0), None
+
+        # 2. Generate a response
+        probs = torch.nn.functional.softmax(logits, dim=-1)
+        generated_ids = torch.multinomial(probs.view(-1, probs.size(-1)), num_samples=1).view(probs.size(0), probs.size(1))
+
+        # 3. Get rewards
+        rewards = self.model.reward_model(outputs["hidden_states"], batch.get("attention_mask"))
+
+        # 4. Calculate advantages
+        advantages = rewards - values.squeeze(-1)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        # 5. Calculate PPO loss
+        log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
+        action_log_probs = log_probs.gather(dim=-1, index=generated_ids.unsqueeze(-1)).squeeze(-1)
+
+        # For simplicity, we use a clipped loss without the ratio
+        clip_range = 0.2
+        policy_loss = -torch.min(
+            action_log_probs * advantages,
+            torch.clamp(action_log_probs, 1 - clip_range, 1 + clip_range) * advantages
+        ).mean()
+
+        value_loss = F.mse_loss(values.squeeze(-1), rewards)
+
+        total_loss = policy_loss + 0.5 * value_loss
+        aux_loss = outputs.get('aux_loss', torch.tensor(0.0, device=self.device))
+        expert_ids = outputs.get('expert_ids')
+
+        return total_loss, aux_loss, expert_ids
+
     def _enhanced_forward_pass(self, batch: Dict[str, Any]) -> tuple:
-        """Enhanced forward pass with attention selection"""
-        
-        # Determine attention type based on sequence length
+        """Enhanced forward pass with attention selection and RLHF"""
+
+        if 'chosen' in batch and 'rejected' in batch:
+             input_ids = batch['chosen_input_ids']
+             labels = batch['chosen_labels']
+             batch['input_ids'] = input_ids
+             batch['labels'] = labels
+        elif 'prompt' in batch and 'response' in batch:
+            return self._rl_forward_pass(batch)
+
         input_ids = batch.get('input_ids')
         if input_ids is not None:
             seq_length = input_ids.size(1) if len(input_ids.shape) > 1 else input_ids.size(0)
@@ -260,28 +318,21 @@ class EnhancedMoETrainer:
                     seq_length=seq_length,
                     memory_usage=memory_usage
                 )
-                # Note: In a real implementation, you would switch the model's attention mechanism
-                # For now, we just track the selection
                 print(f"🧠 Attention Type: {attention_type.upper()} (seq_len={seq_length}, mem={memory_usage:.2f})")
         
-        # Filter out labels and other non-model arguments
         model_batch = {k: v for k, v in batch.items() if k not in ['labels', 'pixel_values', 'label_ids']}
         
-        # Standard forward pass
         outputs = self.model(**model_batch)
         
-        # Extract loss and expert information
         if isinstance(outputs, dict):
             loss = outputs.get('loss', torch.tensor(0.0, device=self.device))
             aux_loss = outputs.get('aux_loss', torch.tensor(0.0, device=self.device))
             expert_ids = outputs.get('expert_ids')
         else:
-            # Legacy format
             loss = outputs[0] if len(outputs) > 0 else torch.tensor(0.0, device=self.device)
             aux_loss = outputs[1] if len(outputs) > 1 else torch.tensor(0.0, device=self.device)
             expert_ids = None
         
-        # Compute loss from logits if model doesn't compute it
         if loss.item() == 0.0 and 'labels' in batch:
             labels = batch['labels'].to(self.device)
             if isinstance(outputs, dict) and 'logits' in outputs:

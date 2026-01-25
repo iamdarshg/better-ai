@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, List, Tuple, Dict, Any
-from .core import DeepSeekModel, TransformerBlock
+from .core import DeepSeekModel, TransformerBlock, LinearAttention
 from .ring_attention import RingAttention
 from .reward_model import BranchRewardModel, MultiAttributeRewardModel
 from .advanced_features import (
@@ -38,24 +38,17 @@ class EnhancedDeepSeekModel(nn.Module):
         self.device_str = str(device) if device else None
         
         # Core model
-        self.model = DeepSeekModel(
-            vocab_size=config.vocab_size,
-            hidden_size=config.hidden_dim,
-            num_layers=config.num_layers,
-            num_heads=config.num_attention_heads,
-            num_key_value_heads=config.num_key_value_heads or config.num_attention_heads,
-            intermediate_size=config.intermediate_dim,
-            max_seq_length=config.max_seq_length,
-            dropout=config.residual_dropout,
-        )
+        self.model = DeepSeekModel(config)
         
         # Move core model to device if specified
         if device is not None:
             self.model = self.model.to(device)
         
-        # Replace attention layers with Ring Attention if enabled
+        # Replace attention layers with Ring Attention or Linear Attention if enabled
         if config.use_ring_attention:
             self._replace_with_ring_attention(config, device)
+        elif config.use_linear_attention:
+            self._replace_with_linear_attention(config, device)
         
         # Language model head
         self.lm_head = nn.Linear(config.hidden_dim, config.vocab_size, bias=False, device=device)
@@ -107,6 +100,25 @@ class EnhancedDeepSeekModel(nn.Module):
         # Reward models
         self.reward_model = BranchRewardModel(config, hidden_dim=512)
         self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=5, num_quantiles=5)
+
+        # Value head for PPO
+        self.value_head = nn.Linear(config.hidden_dim, 1, bias=False, device=device)
+
+    def resize_token_embeddings(self, new_num_tokens: int):
+        """Resize the token embeddings."""
+        self.model.resize_token_embeddings(new_num_tokens)
+        self.lm_head = nn.Linear(self.config.hidden_dim, new_num_tokens, bias=False, device=self.device_str)
+
+    def _replace_with_linear_attention(self, config: ModelConfig, device: Optional[torch.device] = None):
+        """Replace standard attention with Linear Attention."""
+        for layer in self.model.layers:
+            linear_attn = LinearAttention(
+                hidden_size=config.hidden_dim,
+                num_heads=config.num_attention_heads,
+            )
+            if device:
+                linear_attn.to(device)
+            layer.self_attn = linear_attn
     
     def _replace_with_ring_attention(self, config: ModelConfig, device: Optional[torch.device] = None):
         """Replace standard attention with Ring Attention"""
@@ -236,6 +248,10 @@ class EnhancedDeepSeekModel(nn.Module):
         advanced_outputs["reward"] = reward_score
         advanced_outputs["multi_attr_reward"] = multi_attr_reward
         
+        # Value head output
+        value = self.value_head(hidden_states)
+        advanced_outputs["value"] = value
+
         result["advanced_features"] = advanced_outputs
         result["logits"] = logits
         
@@ -295,11 +311,18 @@ class EnhancedDeepSeekModel(nn.Module):
             
             # Top-P (Nucleus) sampling
             if top_p < 1.0:
-                sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True)
                 cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+
+                # Remove tokens with cumulative probability above the threshold (nucleus filtering)
                 sorted_indices_to_remove = cumulative_probs > top_p
-                sorted_indices_to_remove[..., 0] = False  # Keep at least one token
-                logits[sorted_indices[sorted_indices_to_remove]] = float('-inf')
+                # Shift the indices to the right to keep also the first token above the threshold
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = 0
+
+                # scatter sorted tensors to original indexing
+                indices_to_remove = torch.zeros_like(logits, dtype=torch.bool).scatter_(dim=1, index=sorted_indices, src=sorted_indices_to_remove)
+                logits[indices_to_remove] = float("-inf")
             
             # Sample
             probs = F.softmax(logits, dim=-1)
@@ -375,3 +398,44 @@ class EnhancedDeepSeekModel(nn.Module):
         losses["total_loss"] = total_loss
         
         return losses
+
+    def self_correct(
+        self,
+        input_ids: torch.Tensor,
+        tokenizer,
+        max_new_tokens: int = 128,
+        verification_keyword: str = "error",
+    ) -> Tuple[str, bool]:
+        """
+        Generates a response and performs self-correction if a keyword is detected.
+
+        Args:
+            input_ids: The input prompt token IDs.
+            tokenizer: The tokenizer for decoding.
+            max_new_tokens: The maximum number of tokens to generate.
+            verification_keyword: The keyword to check for in the initial response.
+
+        Returns:
+            A tuple containing the final response and a boolean indicating if correction was performed.
+        """
+        # 1. Generate initial response
+        initial_response_ids = self.generate(input_ids, max_new_tokens=max_new_tokens)
+        initial_response_text = tokenizer.decode(initial_response_ids[0], skip_special_tokens=True)
+
+        # 2. Verify the response
+        needs_correction = verification_keyword in initial_response_text.lower()
+
+        if not needs_correction:
+            return initial_response_text, False
+
+        # 3. If correction is needed, generate a new response with a correction prompt
+        correction_prompt = (
+            f"The following response contains an error: '{initial_response_text}'."
+            "Please correct the error and provide a new, accurate response."
+        )
+        correction_input_ids = tokenizer(correction_prompt, return_tensors="pt").input_ids.to(input_ids.device)
+
+        corrected_response_ids = self.generate(correction_input_ids, max_new_tokens=max_new_tokens)
+        corrected_response_text = tokenizer.decode(corrected_response_ids[0], skip_special_tokens=True)
+
+        return corrected_response_text, True
