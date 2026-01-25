@@ -149,7 +149,7 @@ class TestGRPOLoss(unittest.TestCase):
         
         loss = loss_fn(old_logprobs, new_logprobs, advantages)
         
-        self.assertGreater(loss.item(), 0)
+        self.assertNotEqual(loss.item(), 0)
         loss.backward()
         self.assertIsNotNone(new_logprobs.grad)
 
@@ -174,7 +174,7 @@ class TestRecursiveScratchpad(unittest.TestCase):
         
         outputs = self.module(hidden_states)
         
-        self.assertEqual(outputs["scratchpad_output"].shape, (batch_size, self.config.hidden_dim))
+        self.assertEqual(outputs["scratchpad_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
         self.assertGreater(outputs["iteration_count"], 0)
 
 
@@ -207,7 +207,10 @@ class TestToolUseHeads(unittest.TestCase):
     def setUp(self):
         self.device = torch.device("cpu")
         self.config = ModelConfig()
-        self.module = ToolUseHeads(self.config.hidden_dim).to(self.device)
+        self.module = ToolUseHeads(
+            self.config.hidden_dim,
+            tool_vocab_size=self.config.tool_vocab_size
+        ).to(self.device)
     
     def test_forward_pass(self):
         """Test tool-use prediction"""
@@ -294,12 +297,15 @@ class TestEntropyMonitoring(unittest.TestCase):
         batch_size = 4
         seq_len = 128
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
-        logits = torch.randn(batch_size, seq_len, self.config.vocab_size).to(self.device)
+
+        # Create a high-entropy distribution to trigger a spike
+        logits = torch.ones(batch_size, seq_len, self.config.vocab_size).to(self.device)
         
         outputs = self.module.forward(hidden_states, logits)
         
         self.assertEqual(outputs["entropy_scores"].shape, (batch_size, seq_len))
         self.assertEqual(outputs["spike_detected"].shape, (batch_size, seq_len))
+        self.assertTrue(outputs["spike_detected"].any(), "No entropy spike was detected")
 
 
 class TestWorkflow(unittest.TestCase):

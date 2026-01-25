@@ -153,76 +153,61 @@ class EnhancedMoETrainer:
             data_iterator = iter(self.train_dataloader)
             batch_idx = 0
             
-            while self.global_step < getattr(self.config, 'max_steps', 10000):
-                try:
-                    # Get next batch
-                    batch = next(data_iterator)
-                    
-                    # Enhanced batch processing
-                    step_start_time = time.time()
-                    
-                    # Handle mixed data types (fix for batch collation error)
-                    batch = self._process_batch(batch)
-                    
-                    # Forward pass with optimizations
-                    loss, aux_loss, expert_ids = self._enhanced_forward_pass(batch)
-                    
-                    # Backward pass with gradient handling
-                    loss_total = loss + aux_loss
-                    loss_total.backward()
-                    
-                    # Gradient clipping and optimization
-                    grad_norm = self._handle_gradients_and_optimize()
-                    
-                    # Update all optimization managers
-                    self._update_optimization_managers(
-                        loss, aux_loss, grad_norm, expert_ids, batch, step_start_time
+            for batch_idx, batch in enumerate(self.train_dataloader):
+                # Enhanced batch processing
+                step_start_time = time.time()
+
+                # Handle mixed data types (fix for batch collation error)
+                batch = self._process_batch(batch)
+
+                # Forward pass with optimizations
+                loss, aux_loss, expert_ids = self._enhanced_forward_pass(batch)
+
+                # Backward pass with gradient handling
+                loss_total = loss + aux_loss
+                loss_total.backward()
+
+                # Gradient clipping and optimization
+                grad_norm = self._handle_gradients_and_optimize()
+
+                # Update all optimization managers
+                self._update_optimization_managers(
+                    loss, aux_loss, grad_norm, expert_ids, batch, step_start_time
+                )
+
+                # Scheduler step
+                if self.scheduler is not None:
+                    self.scheduler.step()
+
+                self.global_step += 1
+
+                # Enhanced logging and early stopping
+                if self._should_log_step():
+                    self._enhanced_logging(batch_idx)
+
+                if self._should_early_stop():
+                    break
+
+                # Coherence-based early stopping
+                if self.use_enhanced_features:
+                    coherence_result = self.coherence_scheduler.step(
+                        loss=loss.item() if hasattr(loss, 'item') else float(loss),
+                        aux_loss=aux_loss.item() if hasattr(aux_loss, 'item') else float(aux_loss),
+                        expert_utilization=self._calculate_expert_utilization(expert_ids),
+                        gradient_norm=grad_norm,
+                        step=self.global_step
                     )
                     
-                    # Scheduler step
-                    if self.scheduler is not None:
-                        self.scheduler.step()
-                    
-                    self.global_step += 1
-                    batch_idx += 1
-                    
-                    # Enhanced logging and early stopping
-                    if self._should_log_step():
-                        self._enhanced_logging(batch_idx)
-                    
-                    if self._should_early_stop():
+                    if coherence_result['should_stop']:
+                        self.early_stop_triggered = True
+                        print(f"{ColoredText.warning('Early stopping triggered by coherence scheduler!')}")
                         break
                     
-                    # Coherence-based early stopping
-                    if self.use_enhanced_features:
-                        coherence_result = self.coherence_scheduler.step(
-                            loss=loss.item() if hasattr(loss, 'item') else float(loss),
-                            aux_loss=aux_loss.item() if hasattr(aux_loss, 'item') else float(aux_loss),
-                            expert_utilization=self._calculate_expert_utilization(expert_ids),
-                            gradient_norm=grad_norm,
-                            step=self.global_step
-                        )
-                        
-                        if coherence_result['should_stop']:
-                            self.early_stop_triggered = True
-                            print(f"{ColoredText.warning('Early stopping triggered by coherence scheduler!')}")
-                            break
-                        
-                        if coherence_result['adjusted']:
-                            # Update learning rate based on coherence
-                            if hasattr(self.optimizer, 'param_groups'):
-                                for param_group in self.optimizer.param_groups:
-                                    param_group['lr'] = coherence_result['current_lr']
-                
-                except StopIteration:
-                    # Dataset exhausted - create new iterator to continue training
-                    print(f"\n{ColoredText.info('Dataset iterator exhausted, creating new iterator...')}")
-                    data_iterator = iter(self.train_dataloader)
-                    continue
-                except Exception as e:
-                    print(f"{ColoredText.error(f'Error processing batch: {e}')}")
-                    # Skip this batch and continue
-                    continue
+                    if coherence_result['adjusted']:
+                        # Update learning rate based on coherence
+                        if hasattr(self.optimizer, 'param_groups'):
+                            for param_group in self.optimizer.param_groups:
+                                param_group['lr'] = coherence_result['current_lr']
         
         except KeyboardInterrupt:
             print(f"\n{ColoredText.warning('Training interrupted by user!')}")

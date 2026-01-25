@@ -674,7 +674,7 @@ class EntropicSteering(nn.Module):
         entropy_std = entropy_scores.std(dim=-1, keepdim=True)
         normalized_entropy = (entropy_scores - entropy_mean) / (entropy_std + 1e-6)
         
-        spike_detected = normalized_entropy > 1.5  # 1.5 std above mean
+        spike_detected = entropy_scores > self.entropy_threshold
         
         # Generate clarification triggers
         clarification_embeddings = self.clarification_head(hidden_states)
