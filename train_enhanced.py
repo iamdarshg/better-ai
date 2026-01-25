@@ -75,7 +75,7 @@ def train_pretraining(
     else:
         logger.info("Loading Stack v2 pretraining dataset...")
         train_dataloader = create_dataloader(
-            "stack_v2",
+            "bigcode/the-stack-v2-dedup",
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
@@ -84,8 +84,8 @@ def train_pretraining(
         )
         
         eval_dataloader = create_dataloader(
-            "stack_v2",
-            split="validation",
+            "open-r1/codeforces",
+            split="train",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
             shuffle=False,
@@ -107,7 +107,64 @@ def train_pretraining(
         T_0=training_config.warmup_steps,
         T_mult=1,
         eta_min=training_config.learning_rate * training_config.min_lr_ratio
+    ) 
+    
+    # Initialize trainer
+    trainer = EnhancedMoETrainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        config=training_config,
+        device=device,
+        use_enhanced_features=True
     )
+    
+    # Train
+    logger.info("Starting pretraining...")
+    metrics = trainer.train()
+
+    if use_mock_data:
+        logger.info("Using mock data for testing...")
+        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
+        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
+    else:
+        logger.info("Loading Stack v2 pretraining dataset...")
+        train_dataloader = create_dataloader(
+            "lumees/github-code-2025-language-split",
+            split="train",
+            batch_size=training_config.batch_size,
+            max_length=training_config.max_seq_length,
+            shuffle=True,
+            num_workers=4,
+        )
+        
+        eval_dataloader = create_dataloader(
+            "open-r1/codeforces",
+            split="train",
+            batch_size=training_config.batch_size * 2,
+            max_length=training_config.max_seq_length,
+            shuffle=False,
+            num_workers=4,
+        )
+    
+    # Setup optimizer
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=training_config.learning_rate,
+        betas=(training_config.beta1, training_config.beta2),
+        weight_decay=training_config.weight_decay,
+        eps=training_config.eps
+    )
+    
+    # Setup scheduler
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer,
+        T_0=training_config.warmup_steps,
+        T_mult=1,
+        eta_min=training_config.learning_rate * training_config.min_lr_ratio
+    ) 
     
     # Initialize trainer
     trainer = EnhancedMoETrainer(
@@ -166,7 +223,7 @@ def train_sft(
     else:
         logger.info("Loading Magicoder dataset...")
         magicoder_loader = create_dataloader(
-            "magicoder",
+            "ise-uiuc/Magicoder-Evol-Instruct-110K",
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
@@ -175,8 +232,8 @@ def train_sft(
         
         logger.info("Loading Code-Feedback dataset...")
         code_feedback_loader = create_dataloader(
-            "code_feedback",
-            split="train",
+            "m-a-p/Code-Feedback",
+            split="train_sft",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
             shuffle=True,
@@ -187,8 +244,8 @@ def train_sft(
         
         # Create eval loader
         eval_loader = create_dataloader(
-            "magicoder",
-            split="validation",
+            "CodeResearch/CodeJudge-Eval",
+            split="train",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
             shuffle=False,
@@ -268,7 +325,7 @@ def train_rlhf(
         # Load preference data
         logger.info("Loading CodeUltraFeedback preference pairs...")
         pref_loader = create_dataloader(
-            "code_ultrafeedback",
+            "coseal/CodeUltraFeedback",
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
@@ -277,8 +334,8 @@ def train_rlhf(
         
         # Create eval loader
         eval_loader = create_dataloader(
-            "code_ultrafeedback",
-            split="validation",
+            "coseal/codal-bench",
+            split="test",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
             shuffle=False,
@@ -340,7 +397,7 @@ def evaluate_model(
     # Load evaluation dataset (SWE-bench)
     logger.info("Loading SWE-bench evaluation dataset...")
     eval_loader = create_dataloader(
-        "swe_bench",
+        "ScaleAI/SWE-bench_Pro",
         split="test",
         batch_size=8,
         max_length=model_config.max_seq_length,
@@ -351,6 +408,7 @@ def evaluate_model(
     
     for batch_idx, batch in enumerate(eval_loader):
         input_ids = batch["input_ids"].to(device)
+        labels = batch["labels"].to(device)
         
         # Generate outputs
         with torch.no_grad():
@@ -361,7 +419,22 @@ def evaluate_model(
         
         # Compute metrics
         metrics = EvaluationMetrics()
-        metrics.coding_accuracy = 0.8  # Placeholder - would compute actual accuracy
+        
+        # Compute actual coding accuracy by comparing predictions with labels
+        logits = outputs["logits"]
+        predicted_tokens = torch.argmax(logits, dim=-1)
+        
+        # Calculate token-level accuracy (excluding padding tokens)
+        # Create mask for non-padding tokens (assuming -100 is padding in labels)
+        valid_mask = labels != -100
+        if valid_mask.sum() > 0:
+            correct_predictions = (predicted_tokens == labels) & valid_mask
+            accuracy = correct_predictions.sum().float() / valid_mask.sum().float()
+            metrics.coding_accuracy = accuracy.item()
+        else:
+            # Fallback if no valid tokens
+            metrics.coding_accuracy = 0.0
+        
         metrics.reasoning_quality = 0.75
         metrics.correctness_score = 0.85
         metrics.efficiency_score = 0.78
@@ -496,7 +569,21 @@ def main():
             model = trainer.model
         
         if args.eval and model is not None:
-            evaluate_model(model.model if hasattr(model, 'model') else model, model_config, args.output_dir)
+            # Ensure we have the correct model type for evaluation
+            if hasattr(model, 'model'):
+                # If model is wrapped (e.g., in a trainer), get the actual model
+                actual_model = model.model
+            else:
+                actual_model = model
+            
+            # Ensure it's an EnhancedDeepSeekModel by checking for required attributes
+            if hasattr(actual_model, 'config') and hasattr(actual_model, 'forward'):
+                # Type cast for type checker - this is safe because we've checked the attributes
+                from better_ai.models.enhanced_model import EnhancedDeepSeekModel
+                enhanced_model: EnhancedDeepSeekModel = actual_model  # type: ignore
+                evaluate_model(enhanced_model, model_config, args.output_dir)
+            else:
+                logger.warning("Model does not have required attributes for evaluation, skipping evaluation")
         
         logger.info("Training completed successfully!")
         

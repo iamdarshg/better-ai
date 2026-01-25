@@ -12,13 +12,13 @@ class ModelConfig:
     """Configuration for the transformer model"""
     
     # Architecture parameters
-    vocab_size: int = 6400  # Increased for better coding coverage
-    hidden_dim: int = 128  # Increased for better representation
-    num_layers: int = 1  # Reduced for efficiency
-    num_attention_heads: int = 8  # Increased proportionally
-    num_key_value_heads: Optional[int] = 4  # For GQA, maintain 2:1 ratio
-    intermediate_dim: int = 512  # 4x hidden_dim for SwiGLU
-    max_seq_length: int = 256  # Increased with Ring Attention
+    vocab_size: int = 64000  # Increased for better coding coverage
+    hidden_dim: int = 1024  # Increased for better representation
+    num_layers: int = 12  # Reduced for efficiency
+    num_attention_heads: int = 32  # Increased proportionally
+    num_key_value_heads: Optional[int] = 16  # For GQA, maintain 2:1 ratio
+    intermediate_dim: int = 768  # 4x hidden_dim for SwiGLU
+    max_seq_length: int = 2048  # Increased with Ring Attention
     
     # MoE parameters
     num_experts: int = 16  # Reduced for efficiency
@@ -66,13 +66,13 @@ class ModelConfig:
     
     # CoT Specialization parameters
     use_cot_specialization: bool = True
-    cot_num_heads: int = 2
+    cot_num_heads: int = 64
     cot_hidden_dim: int = 768
     
     # Inner Monologue parameters
     use_inner_monologue: bool = True
     thought_token_id: Optional[int] = None  # Will be set during tokenization
-    private_subspace_dim: int = 1024
+    private_subspace_dim: int = 4096
     
     # STaR parameters
     use_star: bool = True
@@ -81,8 +81,8 @@ class ModelConfig:
     
     # Tool-Use parameters
     use_tool_heads: bool = True
-    tool_vocab_size: int = 100  # Number of tool tokens
-    tool_hidden_dim: int = 64
+    tool_vocab_size: int = 1000  # Number of tool tokens
+    tool_hidden_dim: int = 192
     
     # Grammar Constraint parameters
     use_grammar_constraints: bool = True
@@ -97,7 +97,7 @@ class ModelConfig:
     # Recursive Scratchpad parameters
     use_recursive_scratchpad: bool = True
     scratchpad_max_iterations: int = 8
-    scratchpad_hidden_dim: int = 128
+    scratchpad_hidden_dim: int = 8192
 
 @dataclass
 class TrainingConfig:
@@ -105,12 +105,12 @@ class TrainingConfig:
     
     # Basic training
     batch_size: int = 1
-    gradient_accumulation_steps: int = 1
+    gradient_accumulation_steps: int = 4
     learning_rate: float = 1e-4
     warmup_steps: int = 1
-    max_steps: int = 100
+    max_steps: int = 100000
     save_steps: int = 10
-    eval_steps: int = 500
+    eval_steps: int = 1000
     
     # Optimizer
     optimizer: str = "adamw"  # "adamw", "lion", "adafactor"
@@ -133,7 +133,7 @@ class TrainingConfig:
     # Data
     data_path: str = "./data"
     tokenizer_path: Optional[str] = None
-    max_seq_length: int = 256
+    max_seq_length: int = 8192
     shuffle_buffer_size: int = 10000
     
     # Logging
