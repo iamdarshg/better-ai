@@ -30,6 +30,7 @@ from better_ai.training.evaluation import (
     EvaluationMetrics
 )
 from better_ai.data.unified_dataloader import create_dataloader
+from better_ai.data.dataset_config import load_datasets_by_stage
 from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 def setup_logging(log_dir: str = "./logs"):
     """Setup logging configuration"""
+    os.makedirs(log_dir, exist_ok=True)
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -84,27 +86,32 @@ def train_pretraining(
         train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
         eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
     else:
-        logger.info("Loading Stack v2 pretraining dataset...")
+        logger.info("Loading pretraining datasets...")
+        pretraining_datasets = load_datasets_by_stage('pretraining')
+
+        # For pre-training, we can cycle through the datasets
+        # This is a simplified approach. A more advanced implementation would
+        # handle dataset mixing and sampling.
+
+        # For now, we'll just use the first pretraining dataset
+        dataset_config = pretraining_datasets[0]
+
+        logger.info(f"Using dataset: {dataset_config['name']}")
+
+        training_config.max_steps = dataset_config['num_training_steps']
+
         train_dataloader = create_dataloader(
-            "bigcode/the-stack-v2",
+            dataset_config,
             tokenizer=tokenizer,
             split="train",
             batch_size=training_config.batch_size,
-            max_length=training_config.max_seq_length,
-            streaming=True,
-            num_workers=0,
-            languages=languages.split(","),
         )
         
         eval_dataloader = create_dataloader(
-            "bigcode/the-stack-v2",
+            dataset_config,
             tokenizer=tokenizer,
             split="validation",
             batch_size=training_config.batch_size * 2,
-            max_length=training_config.max_seq_length,
-            streaming=True,
-            num_workers=0,
-            languages=languages.split(","),
         )
     
     # Setup optimizer
@@ -190,23 +197,28 @@ def train_sft(
         train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
         eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
     else:
-        logger.info("Loading SFT dataset...")
+        logger.info("Loading SFT datasets...")
+        sft_datasets = load_datasets_by_stage('sft')
+
+        # Using the first SFT dataset
+        dataset_config = sft_datasets[0]
+
+        logger.info(f"Using dataset: {dataset_config['name']}")
+
+        training_config.max_steps = dataset_config['num_training_steps']
+
         train_dataloader = create_dataloader(
-            "ise-uiuc/Magicoder-Evol-Instruct-110K",
+            dataset_config,
             tokenizer=tokenizer,
             split="train",
             batch_size=training_config.batch_size,
-            max_length=training_config.max_seq_length,
-            languages=languages.split(","),
         )
         
         eval_dataloader = create_dataloader(
-            "ise-uiuc/Magicoder-Evol-Instruct-110K",
+            dataset_config,
             tokenizer=tokenizer,
             split="validation",
             batch_size=training_config.batch_size * 2,
-            max_length=training_config.max_seq_length,
-            languages=languages.split(","),
         )
     
     # Setup optimizer and scheduler
@@ -291,26 +303,32 @@ def train_rlhf(
         train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
         eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
     else:
-        # Load preference data
-        logger.info("Loading CodeUltraFeedback preference pairs...")
+        logger.info("Loading RLHF datasets...")
+        rlhf_datasets = load_datasets_by_stage('rlhf')
+
+        # Using the first RLHF dataset
+        dataset_config = rlhf_datasets[0]
+
+        logger.info(f"Using dataset: {dataset_config['name']}")
+
+        training_config.max_steps = dataset_config['num_training_steps']
+
         train_dataloader = create_dataloader(
-            "coseal/CodeUltraFeedback",
+            dataset_config,
             tokenizer=tokenizer,
             split="train",
             batch_size=training_config.batch_size,
-            max_length=training_config.max_seq_length,
             data_format="rlhf",
-            languages=languages.split(","),
         )
         
-        # Create eval loader
+        eval_datasets = load_datasets_by_stage('eval')
+        eval_dataset_config = eval_datasets[0]
+
         eval_dataloader = create_dataloader(
-            "coseal/codal-bench",
+            eval_dataset_config,
             tokenizer=tokenizer,
             split="test",
             batch_size=training_config.batch_size * 2,
-            max_length=training_config.max_seq_length,
-            languages=languages.split(","),
         )
     
     # Setup optimizer and scheduler
@@ -377,15 +395,18 @@ def evaluate_model(
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
-    # Load evaluation dataset (SWE-bench)
-    logger.info("Loading SWE-bench evaluation dataset...")
+    # Load evaluation dataset
+    logger.info("Loading evaluation datasets...")
+    eval_datasets = load_datasets_by_stage('eval')
+    eval_dataset_config = eval_datasets[0]
+
+    logger.info(f"Using dataset: {eval_dataset_config['name']}")
+
     eval_loader = create_dataloader(
-        "princeton-nlp/SWE-bench",
+        eval_dataset_config,
         tokenizer=tokenizer,
         split="test",
         batch_size=8,
-        max_length=model_config.max_seq_length,
-        languages=languages.split(","),
     )
     
     # Run evaluation

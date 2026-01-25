@@ -21,6 +21,7 @@ from .advanced_features import (
     EntropicSteering,
 )
 from ..config import ModelConfig
+from .generation import generate, compute_loss, self_correct
 
 
 class EnhancedDeepSeekModel(nn.Module):
@@ -103,6 +104,10 @@ class EnhancedDeepSeekModel(nn.Module):
 
         # Value head for PPO
         self.value_head = nn.Linear(config.hidden_dim, 1, bias=False, device=device)
+
+    generate = generate
+    compute_loss = compute_loss
+    self_correct = self_correct
 
     def resize_token_embeddings(self, new_num_tokens: int):
         """Resize the token embeddings."""
@@ -399,43 +404,3 @@ class EnhancedDeepSeekModel(nn.Module):
         
         return losses
 
-    def self_correct(
-        self,
-        input_ids: torch.Tensor,
-        tokenizer,
-        max_new_tokens: int = 128,
-        verification_keyword: str = "error",
-    ) -> Tuple[str, bool]:
-        """
-        Generates a response and performs self-correction if a keyword is detected.
-
-        Args:
-            input_ids: The input prompt token IDs.
-            tokenizer: The tokenizer for decoding.
-            max_new_tokens: The maximum number of tokens to generate.
-            verification_keyword: The keyword to check for in the initial response.
-
-        Returns:
-            A tuple containing the final response and a boolean indicating if correction was performed.
-        """
-        # 1. Generate initial response
-        initial_response_ids = self.generate(input_ids, max_new_tokens=max_new_tokens)
-        initial_response_text = tokenizer.decode(initial_response_ids[0], skip_special_tokens=True)
-
-        # 2. Verify the response
-        needs_correction = verification_keyword in initial_response_text.lower()
-
-        if not needs_correction:
-            return initial_response_text, False
-
-        # 3. If correction is needed, generate a new response with a correction prompt
-        correction_prompt = (
-            f"The following response contains an error: '{initial_response_text}'."
-            "Please correct the error and provide a new, accurate response."
-        )
-        correction_input_ids = tokenizer(correction_prompt, return_tensors="pt").input_ids.to(input_ids.device)
-
-        corrected_response_ids = self.generate(correction_input_ids, max_new_tokens=max_new_tokens)
-        corrected_response_text = tokenizer.decode(corrected_response_ids[0], skip_special_tokens=True)
-
-        return corrected_response_text, True

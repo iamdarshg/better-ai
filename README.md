@@ -11,12 +11,12 @@
 
 ## 🚀 Features
 
-- **Multi-Stage Training Pipeline**: Pretraining → SFT → RLHF with GRPO
-- **Advanced Architecture**: DeepSeek V3.2 inspired with Ring Attention and MoE
-- **Enhanced Reasoning**: Recursive Scratchpad, CoT Specialization, STaR Bootstrapping
-- **Multi-Attribute Reward Modeling**: Branch Reward Model (BR-RM) with 4 quality dimensions
-- **Memory Optimization**: FP8 quantization, gradient checkpointing, Ring Attention
-- **Distributed Training**: DDP/FSDP support for multi-GPU training
+- **Cutting-Edge Training Pipeline**: A multi-stage pipeline that takes the model from pretraining to supervised fine-tuning (SFT) and finally to Reinforcement Learning from Human Feedback (RLHF) with Group Reward Policy Optimization (GRPO). This ensures a robust and well-aligned model.
+- **DeepSeek-Inspired Architecture**: At its core, Better AI features a powerful and efficient transformer model inspired by the DeepSeek V3.2 architecture. This includes innovations like Ring Attention for near-infinite context processing and a Mixture of Experts (MoE) for dynamic routing and specialization.
+- **Advanced Reasoning Capabilities**: To tackle complex coding challenges, Better AI is equipped with a suite of advanced reasoning features, including a Recursive Scratchpad for iterative problem-solving, Chain-of-Thought (CoT) Specialization for improved reasoning, Self-Taught Reasoner (STaR) Bootstrapping for self-improvement, and a self-correction mechanism to identify and fix errors.
+- **Sophisticated Reward Modeling**: The RLHF process is guided by a Hierarchical Reward Model (HRM), a dual-reward framework that scores both single-step soundness and end-to-end coherence. This ensures that the model generates code that is not only locally correct but also globally coherent and well-structured.
+- **State-of-the-Art Training Optimizations**: The training process is enhanced with a range of advanced techniques, including expert specialization tracking to encourage expert diversity, selective gradient checkpointing to reduce memory usage, dynamic expert capacity adjustment to handle varying loads, and a coherence-based scheduler to dynamically adjust the learning rate.
+- **Memory and Distribution**: The system is designed for large-scale training with memory optimization techniques like FP8 quantization and support for distributed training with DDP/FSDP.
 
 ## 📋 Table of Contents
 
@@ -25,6 +25,7 @@
 - [Training Pipeline](#-training-pipeline)
 - [Architecture Overview](#-architecture-overview)
 - [Configuration](#-configuration)
+- [Dataset Configuration](#-dataset-configuration)
 - [Testing](#-testing)
 - [GitHub Actions CI/CD](#-github-actions-cicd)
 - [Contributing](#-contributing)
@@ -83,48 +84,30 @@ trainer = EnhancedMoETrainer(model, training_config)
 trainer.train()
 ```
 
-## 🔄 Training Pipeline
+## 🔄 The Better AI Training Pipeline
 
-Better AI implements a comprehensive 3-stage training pipeline:
+The Better AI training pipeline is a carefully designed multi-stage process that progressively refines the model's capabilities. Each stage builds upon the last, resulting in a highly capable and well-aligned coding model.
 
 ### Stage 1: Pretraining
-- **Dataset**: The Stack v2 (billions of code tokens)
-- **Objective**: Learn code representations and syntax
-- **Duration**: ~1-2 weeks (full scale)
+The foundation of the Better AI model is built during the pretraining stage. Here, the model is exposed to a massive corpus of code from a variety of sources, such as "The Stack v2". The primary objective of this stage is to teach the model the fundamental syntax, structures, and patterns of programming languages. This is achieved through a self-supervised learning process where the model learns to predict the next token in a sequence of code.
 
 ### Stage 2: Supervised Fine-Tuning (SFT)
-- **Datasets**: Magicoder + Code-Feedback
-- **Objective**: Learn instruction following
-- **Data Mix**: 75% Magicoder, 25% Code-Feedback
-- **Duration**: ~3-5 days
+Once the model has a solid understanding of code, it moves to the supervised fine-tuning (SFT) stage. In this stage, the model is trained on a curated dataset of high-quality code and natural language instructions, such as the "Magicoder" and "Code-Feedback" datasets. The goal of SFT is to teach the model to follow instructions and generate high-quality code that is not only syntactically correct but also well-structured and easy to understand.
 
-### Stage 3: RLHF with GRPO
-- **Dataset**: CodeUltraFeedback preference pairs
-- **Objective**: Align with human preferences
-- **Algorithm**: Group Reward Policy Optimization
-- **Reward Model**: Branch Reward Model (4 attributes)
-- **Duration**: ~5-7 days
+### Stage 3: Reinforcement Learning from Human Feedback (RLHF)
+The final stage of the training pipeline is Reinforcement Learning from Human Feedback (RLHF). In this stage, the model is further refined using a reward model that has been trained to predict human preferences. The model is presented with a prompt and generates multiple responses, which are then evaluated by the reward model. The model is then updated using Group Reward Policy Optimization (GRPO) to generate responses that are more likely to be preferred by humans. This process is guided by a sophisticated Hierarchical Reward Model that scores both single-step soundness and end-to-end coherence.
 
-## 🏗️ Architecture Overview
+## 🏗️ A DeepSeek-Inspired Architecture for a Cutting-Edge System
 
-```mermaid
-graph TD
-    A[Input Tokens] --> B[Embedding Layer]
-    B --> C[Ring Attention Blocks]
-    C --> D[MoE Layers]
-    D --> E[Advanced Reasoning Features]
-    E --> F[Output Generation]
-    F --> G[Reward Scoring]
-    G --> H[GRPO Optimization]
-```
+The Better AI architecture is a modular and extensible system designed for cutting-edge research and development in RLHF and advanced model training. It is built around a powerful and efficient transformer model inspired by the DeepSeek V3.2 architecture, and it incorporates a suite of advanced features for enhanced reasoning and performance.
 
-### Key Components
+At its core, the Better AI model is a decoder-only transformer with a number of key architectural innovations that are inspired by the DeepSeek V3.2 architecture. These include:
 
-1. **Ring Attention**: Enables near-infinite context processing
-2. **Mixture of Experts (MoE)**: 16 experts with dynamic routing
-3. **Branch Reward Model (BR-RM)**: Multi-attribute quality scoring
-4. **GRPO**: Group-based policy optimization
-5. **Advanced Reasoning**: Recursive Scratchpad, CoT, STaR, Inner Monologue
+- **Ring Attention**: To handle the long sequences of code that are common in software development, Better AI uses Ring Attention, a novel attention mechanism that allows for near-infinite context processing with linear complexity.
+- **Mixture of Experts (MoE)**: To increase the model's capacity without a proportional increase in computational cost, Better AI uses a Mixture of Experts (MoE) architecture. This allows the model to dynamically route different parts of the input to different "expert" sub-networks, resulting in a more efficient and effective model.
+- **Grouped Query Attention (GQA)**: To further improve the efficiency of the attention mechanism, Better AI uses Grouped Query Attention (GQA), which groups queries together to reduce the number of attention computations.
+
+In addition to these core architectural features, Better AI also incorporates a number of advanced features to enhance its reasoning capabilities, including a Recursive Scratchpad for iterative reasoning, CoT Specialization for improved chain-of-thought processing, and a self-correction mechanism to identify and fix errors. For a more detailed breakdown of the architecture, please refer to the `ARCHITECTURE.md` file.
 
 ## ⚙️ Configuration
 
@@ -322,6 +305,33 @@ python -m cProfile -s time train_enhanced.py --stage pretrain --test
 - **[QUICKSTART.md](QUICKSTART.md)**: Quick start guide with examples
 - **API Documentation**: Comprehensive docstrings in all modules
 - **Examples**: Runnable examples in the `examples/` directory
+
+## 📝 Dataset Configuration
+
+The `datasets.yml` file allows for detailed configuration of each dataset, including parameters like maximum sequence length and the number of training steps.
+
+### Example `datasets.yml`
+
+```yaml
+datasets:
+  - name: "The Stack"
+    path: "/path/to/the_stack"
+    max_seq_length: 8192
+    num_training_steps: 100000
+  - name: "Magicoder"
+    path: "/path/to/magicoder"
+    max_seq_length: 4096
+    num_training_steps: 50000
+```
+
+### Configuration Options
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | string | The name of the dataset. |
+| `path` | string | The path to the dataset directory. |
+| `max_seq_length` | int | The maximum sequence length for this dataset. |
+| `num_training_steps` | int | The number of training steps to perform on this dataset. |
 
 ## 🤝 Contributing
 
