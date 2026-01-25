@@ -35,14 +35,13 @@ jobs:
         pip install -r requirements.txt
         pip install pytest
 
-    - name: Test training pipeline with mock data
+    - name: Run Integration Tests
       run: |
-        
-        python tests/test_rlhf_components.py
+        python -m unittest tests.integration.test_rlhf_components
 
-    - name: Run unit tests
+    - name: Run All Unit Tests
       run: |
-        python -m pytest tests/ -v
+        python -m unittest discover tests/unit
 
     - name: Validate checkpoints
       run: |
