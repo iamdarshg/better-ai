@@ -42,7 +42,8 @@ class ExpertRouter(nn.Module):
         num_experts: int,
         num_experts_per_token: int = 2,
         router_bias: bool = False,
-        router_dtype: torch.dtype = torch.float32
+        router_dtype: torch.dtype = torch.float32,
+        pre_router_dim: Optional[int] = None
     ):
         super().__init__()
         
@@ -50,11 +51,20 @@ class ExpertRouter(nn.Module):
         self.num_experts = num_experts
         self.num_experts_per_token = num_experts_per_token
         
+        if pre_router_dim:
+            self.pre_router_net = nn.Sequential(
+                nn.Linear(hidden_size, pre_router_dim),
+                nn.ReLU(),
+                nn.Linear(pre_router_dim, hidden_size)
+            )
+        else:
+            self.pre_router_net = nn.Identity()
+
         # Router projection
         self.router_linear = nn.Linear(
-            hidden_size, 
-            num_experts, 
-            bias=router_bias, 
+            hidden_size,
+            num_experts,
+            bias=router_bias,
             dtype=router_dtype
         )
     
@@ -65,8 +75,11 @@ class ExpertRouter(nn.Module):
         
         batch_size, sequence_length, hidden_dim = hidden_states.shape
         
+        # Pre-router processing
+        pre_router_states = self.pre_router_net(hidden_states)
+
         # Compute router logits
-        router_logits = self.router_linear(hidden_states)
+        router_logits = self.router_linear(pre_router_states)
         
         # Apply softmax to get routing probabilities
         router_probs = F.softmax(router_logits, dim=-1)
@@ -170,7 +183,8 @@ class MoELayer(nn.Module):
         load_balance_loss_weight: float = 0.01,
         router_bias: bool = False,
         router_dtype: torch.dtype = torch.float32,
-        shared_experts: int = 1
+        shared_experts: int = 1,
+        pre_router_dim: Optional[int] = None
     ):
         super().__init__()
         
@@ -190,7 +204,8 @@ class MoELayer(nn.Module):
             num_experts=num_experts,  # Only actual experts, not shared ones
             num_experts_per_token=num_experts_per_token,
             router_bias=router_bias,
-            router_dtype=router_dtype
+            router_dtype=router_dtype,
+            pre_router_dim=pre_router_dim
         )
         
         # Experts

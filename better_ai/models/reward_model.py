@@ -14,14 +14,15 @@ from ..config import ModelConfig
 class BranchRewardModel(nn.Module):
     """
     Branch Reward Model (BR-RM) for coding task evaluation
-    Implements two-turn scoring with adaptive branching
+    Implements multi-turn scoring with adaptive branching
     """
     
-    def __init__(self, config: ModelConfig, hidden_dim: int = 512):
+    def __init__(self, config: ModelConfig, hidden_dim: int = 512, num_turns: int = 3):
         super().__init__()
         
         self.config = config
         self.hidden_dim = hidden_dim
+        self.num_turns = num_turns
         
         # Main reward scoring head
         self.reward_head = nn.Sequential(
@@ -77,7 +78,7 @@ class BranchRewardModel(nn.Module):
         ]
         
         # Rethinking module for branch-conditioned reasoning
-        self.rethinking_module = nn.GRUCell(config.hidden_dim, config.hidden_dim)
+        self.rethinking_module = nn.GRU(config.hidden_dim, config.hidden_dim, num_layers=self.num_turns, batch_first=True)
     
     def forward(
         self,
@@ -132,9 +133,13 @@ class BranchRewardModel(nn.Module):
         # Weighted combination
         combined_score = (branch_scores * branch_weights).sum(dim=-1, keepdim=True)
         
-        # Apply rethinking module for adaptive reasoning
-        rethinking_hidden = self.rethinking_module(hidden_repr, hidden_repr)
-        final_reward = self.reward_head(rethinking_hidden)
+        # Apply rethinking module for multi-turn analysis
+        # The hidden_repr is treated as the input for all time steps
+        rethinking_input = hidden_repr.unsqueeze(1).repeat(1, self.num_turns, 1)
+        rethinking_output, _ = self.rethinking_module(rethinking_input)
+
+        # The final reward is the output from the last turn
+        final_reward = self.reward_head(rethinking_output[:, -1, :])
         
         # Combine initial scores with rethinking
         final_reward = 0.7 * combined_score + 0.3 * final_reward

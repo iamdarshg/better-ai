@@ -29,7 +29,7 @@ from better_ai.training.evaluation import (
     MetricsAggregator,
     EvaluationMetrics
 )
-from better_ai.data.dataset_loaders import create_dataloader, get_dataset_info
+from better_ai.data.unified_dataloader import create_dataloader
 
 logger = logging.getLogger(__name__)
 
@@ -75,78 +75,21 @@ def train_pretraining(
     else:
         logger.info("Loading Stack v2 pretraining dataset...")
         train_dataloader = create_dataloader(
-            "bigcode/the-stack-v2-dedup",
+            "bigcode/the-stack-v2",
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
-            shuffle=True,
-            num_workers=4,
+            streaming=True,
+            num_workers=0,
         )
         
         eval_dataloader = create_dataloader(
-            "open-r1/codeforces",
-            split="train",
+            "bigcode/the-stack-v2",
+            split="validation",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
-            shuffle=False,
-            num_workers=4,
-        )
-    
-    # Setup optimizer
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=training_config.learning_rate,
-        betas=(training_config.beta1, training_config.beta2),
-        weight_decay=training_config.weight_decay,
-        eps=training_config.eps
-    )
-    
-    # Setup scheduler
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=training_config.warmup_steps,
-        T_mult=1,
-        eta_min=training_config.learning_rate * training_config.min_lr_ratio
-    ) 
-    
-    # Initialize trainer
-    trainer = EnhancedMoETrainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        eval_dataloader=eval_dataloader,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        config=training_config,
-        device=device,
-        use_enhanced_features=True
-    )
-    
-    # Train
-    logger.info("Starting pretraining...")
-    metrics = trainer.train()
-
-    if use_mock_data:
-        logger.info("Using mock data for testing...")
-        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
-        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
-    else:
-        logger.info("Loading Stack v2 pretraining dataset...")
-        train_dataloader = create_dataloader(
-            "lumees/github-code-2025-language-split",
-            split="train",
-            batch_size=training_config.batch_size,
-            max_length=training_config.max_seq_length,
-            shuffle=True,
-            num_workers=4,
-        )
-        
-        eval_dataloader = create_dataloader(
-            "open-r1/codeforces",
-            split="train",
-            batch_size=training_config.batch_size * 2,
-            max_length=training_config.max_seq_length,
-            shuffle=False,
-            num_workers=4,
+            streaming=True,
+            num_workers=0,
         )
     
     # Setup optimizer
@@ -218,37 +161,22 @@ def train_sft(
     # Create dataloaders
     if use_mock_data:
         logger.info("Using mock data for testing...")
-        combined_loader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
-        eval_loader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
+        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
+        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
     else:
-        logger.info("Loading Magicoder dataset...")
-        magicoder_loader = create_dataloader(
+        logger.info("Loading SFT dataset...")
+        train_dataloader = create_dataloader(
             "ise-uiuc/Magicoder-Evol-Instruct-110K",
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
-            shuffle=True,
         )
         
-        logger.info("Loading Code-Feedback dataset...")
-        code_feedback_loader = create_dataloader(
-            "m-a-p/Code-Feedback",
-            split="train_sft",
-            batch_size=training_config.batch_size,
-            max_length=training_config.max_seq_length,
-            shuffle=True,
-        )
-        
-        # Combine dataloaders
-        combined_loader = _combine_dataloaders([magicoder_loader, code_feedback_loader])
-        
-        # Create eval loader
-        eval_loader = create_dataloader(
-            "CodeResearch/CodeJudge-Eval",
-            split="train",
+        eval_dataloader = create_dataloader(
+            "ise-uiuc/Magicoder-Evol-Instruct-110K",
+            split="validation",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
-            shuffle=False,
         )
     
     # Setup optimizer and scheduler
@@ -270,8 +198,8 @@ def train_sft(
     # Initialize trainer
     trainer = EnhancedMoETrainer(
         model=model,
-        train_dataloader=combined_loader,
-        eval_dataloader=eval_loader,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
         optimizer=optimizer,
         scheduler=scheduler,
         config=training_config,
@@ -319,26 +247,26 @@ def train_rlhf(
     # Create dataloaders
     if use_mock_data:
         logger.info("Using mock data for testing...")
-        pref_loader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
-        eval_loader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
+        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
+        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
     else:
         # Load preference data
         logger.info("Loading CodeUltraFeedback preference pairs...")
-        pref_loader = create_dataloader(
+        train_dataloader = create_dataloader(
             "coseal/CodeUltraFeedback",
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
-            shuffle=True,
+            data_format="rlhf"
         )
         
         # Create eval loader
-        eval_loader = create_dataloader(
-            "coseal/codal-bench",
-            split="test",
+        eval_dataloader = create_dataloader(
+            "coseal/CodeUltraFeedback",
+            split="validation",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
-            shuffle=False,
+            data_format="rlhf"
         )
     
     # Setup optimizer and scheduler
@@ -360,8 +288,8 @@ def train_rlhf(
     # Initialize trainer
     trainer = EnhancedMoETrainer(
         model=model,
-        train_dataloader=pref_loader,
-        eval_dataloader=eval_loader,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
         optimizer=optimizer,
         scheduler=scheduler,
         config=training_config,
@@ -397,7 +325,7 @@ def evaluate_model(
     # Load evaluation dataset (SWE-bench)
     logger.info("Loading SWE-bench evaluation dataset...")
     eval_loader = create_dataloader(
-        "ScaleAI/SWE-bench_Pro",
+        "princeton-nlp/SWE-bench",
         split="test",
         batch_size=8,
         max_length=model_config.max_seq_length,
@@ -463,33 +391,6 @@ def evaluate_model(
     return avg_metrics
 
 
-def _combine_dataloaders(dataloaders):
-    """Helper to combine multiple dataloaders"""
-    class CombinedDataLoader:
-        def __init__(self, loaders):
-            self.loaders = loaders
-            self.current_loader_idx = 0
-            self.current_iter = None
-        
-        def __iter__(self):
-            self.current_loader_idx = 0
-            self.current_iter = None
-            return self
-        
-        def __next__(self):
-            while self.current_loader_idx < len(self.loaders):
-                if self.current_iter is None:
-                    self.current_iter = iter(self.loaders[self.current_loader_idx])
-                
-                try:
-                    return next(self.current_iter)
-                except StopIteration:
-                    self.current_loader_idx += 1
-                    self.current_iter = None
-            
-            raise StopIteration
-    
-    return CombinedDataLoader(dataloaders)
 
 
 def _create_mock_dataloader(batch_size: int, num_batches: int = 10, seq_length: int = 512):
