@@ -329,43 +329,38 @@ class TestWorkflow(unittest.TestCase):
 
 def run_tests():
     """Run all tests"""
+    import re
+    
     with open("better_ai/config.py", "r") as f:
         config_code = f.read()
+    
+    # Define scaling ratios for test mode (much smaller for CI)
+    scaling_rules = {
+        r'hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'hidden_dim: int = {max(32, int(m.group(1)) // 64)}',
+        r'num_layers:\s*int\s*=\s*(\d+)': lambda m: f'num_layers: int = {max(1, int(m.group(1)) // 60)}',
+        r'num_attention_heads:\s*int\s*=\s*(\d+)': lambda m: f'num_attention_heads: int = {max(1, int(m.group(1)) // 8)}',
+        r'num_key_value_heads:\s*Optional\[int\]\s*=\s*(\d+)': lambda m: f'num_key_value_heads: Optional[int] = {max(1, int(m.group(1)) // 8)}',
+        r'intermediate_dim:\s*int\s*=\s*(\d+)': lambda m: f'intermediate_dim: int = {max(32, int(m.group(1)) // 48)}',
+        r'vocab_size:\s*int\s*=\s*(\d+)': lambda m: f'vocab_size: int = {max(256, int(m.group(1)) // 100)}',
+        r'max_seq_length:\s*int\s*=\s*(\d+)': lambda m: f'max_seq_length: int = {max(32, int(m.group(1)) // 256)}',
+        r'cot_num_heads:\s*int\s*=\s*(\d+)': lambda m: f'cot_num_heads: int = {max(1, int(m.group(1)) // 12)}',
+        r'tool_vocab_size:\s*int\s*=\s*(\d+)': lambda m: f'tool_vocab_size: int = {max(32, int(m.group(1)) // 50)}',
+        r'tool_hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'tool_hidden_dim: int = {max(32, int(m.group(1)) // 24)}',
+        r'scratchpad_hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'scratchpad_hidden_dim: int = {max(32, int(m.group(1)) // 64)}',
+        r'warmup_steps:\s*int\s*=\s*(\d+)': lambda m: f'warmup_steps: int = {max(1, int(m.group(1)) // 10000)}',
+        r'max_steps:\s*int\s*=\s*(\d+)': lambda m: f'max_steps: int = {max(1, int(m.group(1)) // 5000)}',
+        r'save_steps:\s*int\s*=\s*(\d+)': lambda m: f'save_steps: int = {max(1, int(m.group(1)) // 1000)}',
+        r'eval_steps:\s*int\s*=\s*(\d+)': lambda m: f'eval_steps: int = {max(1, int(m.group(1)) // 1000)}',
+    }
+    
+    # Apply all scaling rules dynamically
+    scaled_config = config_code
+    for pattern, replacement_fn in scaling_rules.items():
+        scaled_config = re.sub(pattern, replacement_fn, scaled_config)
+    
     with open("better_ai/config.py", "w") as f:
-        f.write(config_code.replace(
-            "hidden_dim: int = 1536", "hidden_dim: int = 128"
-        ).replace(
-            "num_layers: int = 12", "num_layers: int = 1"
-        ).replace(
-            "num_attention_heads: int = 24", "num_attention_heads: int = 8"
-        ).replace(
-            "num_key_value_heads: Optional[int] = 12", "num_key_value_heads: Optional[int] = 4"
-        ).replace(
-            "intermediate_dim: int = 6144", "intermediate_dim: int = 512"
-        ).replace(
-            "vocab_size: int = 64000", "vocab_size: int = 6400"
-        ).replace(
-            "max_seq_length: int = 4096", "max_seq_length: int = 256"
-        ).replace(
-            "cot_num_heads: int = 8", "cot_num_heads: int = 2"
-        ).replace(
-            "tool_vocab_size: int = 1000", "tool_vocab_size: int = 100"
-        ).replace(
-            "tool_hidden_dim: int = 512", "tool_hidden_dim: int = 64"
-        ).replace(
-            "scratchpad_hidden_dim: int = 2048", "scratchpad_hidden_dim: int = 128"
-        ).replace(
-            "warmup_steps: int = 1000", "warmup_steps: int = 1"
-        ).replace(
-            "max_steps: int = 100000", "max_steps: int = 100"
-        ).replace(
-            "save_steps: int = 1000", "save_steps: int = 10"
-        ).replace(
-            "eval_steps: int = 1000", "eval_steps: int = 10"
-        ).replace(
-            "max_seq_length: int = 4096", "max_seq_length: int = 256"
-        )
-        )
+        f.write(scaled_config)
+    
     try:
         unittest.main(argv=['--locals'], exit=False, verbosity=2)
         with open("better_ai/config.py", "w") as f:
@@ -374,6 +369,15 @@ def run_tests():
         with open("better_ai/config.py", "w") as f:
             f.write(config_code)
         raise e
+    except SystemExit as e:
+        with open("better_ai/config.py", "w") as f:
+            f.write(config_code)
+        if e.code != 0:
+            raise e
+    except KeyboardInterrupt:
+        with open("better_ai/config.py", "w") as f:
+            f.write(config_code)
+        raise KeyboardInterrupt
 
 
 if __name__ == "__main__":
