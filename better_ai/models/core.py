@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Tuple, List, Union, Any
+from .rope import RoPECache
 
 
 class RMSNorm(nn.Module):
@@ -41,7 +42,7 @@ class SwiGLU(nn.Module):
 class MultiHeadAttention(nn.Module):
     """Multi-Head Attention with support for GQA"""
     
-    def __init__(self, hidden_size: int, num_heads: int, num_key_value_heads: int, head_dim: int, dropout: float = 0.0):
+    def __init__(self, hidden_size: int, num_heads: int, num_key_value_heads: int, head_dim: int, dropout: float = 0.0, use_nope: bool = False):
         super().__init__()
         
         self.hidden_size = hidden_size
@@ -49,6 +50,7 @@ class MultiHeadAttention(nn.Module):
         self.num_key_value_heads = num_key_value_heads
         self.head_dim = head_dim
         self.num_key_value_groups = num_heads // num_key_value_heads
+        self.use_nope = use_nope
         
         if head_dim * num_heads != hidden_size:
             raise ValueError(f"hidden_size must be divisible by num_heads")
@@ -61,6 +63,16 @@ class MultiHeadAttention(nn.Module):
         
         # Dropout
         self.attention_dropout = nn.Dropout(dropout)
+
+        if not self.use_nope:
+            self.rope_cache = RoPECache(
+                dim=self.head_dim,
+                max_seq_len=4096,
+                base=10000,
+                device=torch.device("cpu")
+            )
+        self.q_norm = RMSNorm(self.head_dim)
+        self.k_norm = RMSNorm(self.head_dim)
     
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int, num_heads: int):
         """Reshape tensor for attention computation"""
@@ -91,9 +103,16 @@ class MultiHeadAttention(nn.Module):
         value_states = self.v_proj(hidden_states)
         
         # Reshape for attention
-        query_states = self._shape(query_states, q_len, bsz, self.num_heads)  # (bsz, num_heads, q_len, head_dim)
-        key_states = self._shape(key_states, q_len, bsz, self.num_key_value_heads)      # (bsz, num_kv_heads, q_len, head_dim)
-        value_states = self._shape(value_states, q_len, bsz, self.num_key_value_heads)  # (bsz, num_kv_heads, q_len, head_dim)
+        query_states = self._shape(query_states, q_len, bsz, self.num_heads)
+        key_states = self._shape(key_states, q_len, bsz, self.num_key_value_heads)
+        value_states = self._shape(value_states, q_len, bsz, self.num_key_value_heads)
+
+        query_states = self.q_norm(query_states)
+        key_states = self.k_norm(key_states)
+
+        if not self.use_nope:
+            self.rope_cache.to(query_states.device)
+            query_states, key_states = self.rope_cache(query_states, key_states)
         
         # Handle key-value caching for inference
         if past_key_value is not None:
@@ -204,35 +223,34 @@ class TransformerBlock(nn.Module):
 class DeepSeekModel(nn.Module):
     """DeepSeek-inspired Transformer model"""
     
-    def __init__(self, vocab_size: int, hidden_size: int, num_layers: int, num_heads: int, 
-                 num_key_value_heads: int, intermediate_size: int, max_seq_length: int = 4096, 
-                 norm_eps: float = 1e-6, dropout: float = 0.0):
+    def __init__(self, config):
         super().__init__()
+        self.config = config
         self.padding_idx = 0
-        self.hidden_size = hidden_size
-        self.num_heads = num_heads
-        self.num_key_value_heads = num_key_value_heads
-        self.head_dim = hidden_size // num_heads
-        self.max_seq_length = max_seq_length
+        self.hidden_size = config.hidden_dim
+        self.num_heads = config.num_attention_heads
+        self.num_key_value_heads = config.num_key_value_heads
+        self.head_dim = self.hidden_size // self.num_heads
+        self.max_seq_length = config.max_seq_length
         
         # Embedding
-        self.embed_tokens = nn.Embedding(vocab_size, hidden_size, self.padding_idx)
+        self.embed_tokens = nn.Embedding(config.vocab_size, self.hidden_size, self.padding_idx)
         
         # Transformer layers
         self.layers = nn.ModuleList([
             TransformerBlock(
-                hidden_size=hidden_size,
-                num_heads=num_heads,
-                num_key_value_heads=num_key_value_heads,
+                hidden_size=self.hidden_size,
+                num_heads=self.num_heads,
+                num_key_value_heads=self.num_key_value_heads,
                 head_dim=self.head_dim,
-                intermediate_size=intermediate_size,
-                norm_eps=norm_eps,
-                dropout=dropout
-            ) for _ in range(num_layers)
+                intermediate_size=config.intermediate_dim,
+                norm_eps=config.norm_eps,
+                dropout=config.residual_dropout
+            ) for _ in range(config.num_layers)
         ])
         
         # Final normalization
-        self.norm = RMSNorm(hidden_size, eps=norm_eps)
+        self.norm = RMSNorm(self.hidden_size, eps=self.config.norm_eps)
         
         # Initialize weights
         self.apply(self._init_weights)
@@ -251,6 +269,22 @@ class DeepSeekModel(nn.Module):
     
     def set_input_embeddings(self, value):
         self.embed_tokens = value
+
+    def resize_token_embeddings(self, new_num_tokens: int):
+        """Resize token embeddings matrix of the model if new_num_tokens != config.vocab_size."""
+        if new_num_tokens is None or new_num_tokens == self.config.vocab_size:
+            return
+
+        old_embeddings = self.get_input_embeddings()
+        new_embeddings = nn.Embedding(new_num_tokens, self.config.hidden_dim)
+        new_embeddings.to(old_embeddings.weight.device, dtype=old_embeddings.weight.dtype)
+
+        # numbers of tokens to copy
+        n = min(old_embeddings.weight.shape[0], new_num_tokens)
+        new_embeddings.weight.data[:n, :] = old_embeddings.weight.data[:n, :]
+
+        self.set_input_embeddings(new_embeddings)
+        self.config.vocab_size = new_num_tokens
     
     def forward(
         self,
@@ -343,3 +377,33 @@ class DeepSeekModel(nn.Module):
             "hidden_states": all_hidden_states,
             "attentions": all_self_attns,
         }
+
+
+class LinearAttention(nn.Module):
+    """Gated Linear Attention (GLA) variant."""
+    def __init__(self, hidden_size: int, num_heads: int):
+        super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = hidden_size // num_heads
+
+        self.q_proj = nn.Linear(hidden_size, hidden_size)
+        self.k_proj = nn.Linear(hidden_size, hidden_size)
+        self.v_proj = nn.Linear(hidden_size, hidden_size)
+        self.g_proj = nn.Linear(hidden_size, hidden_size)
+        self.o_proj = nn.Linear(hidden_size, hidden_size)
+
+    def forward(self, hidden_states: torch.Tensor, *args, **kwargs) -> torch.Tensor:
+        x = hidden_states
+        batch_size, seq_len, _ = x.shape
+
+        q = self.q_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        k = self.k_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        v = self.v_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        g = torch.sigmoid(self.g_proj(x)).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # Simple linear attention: Q * (K^T * V)
+        kv = torch.einsum("b h s d, b h s e -> b h d e", k, v)
+        output = torch.einsum("b h s d, b h d e -> b h s e", q, kv)
+
+        output = self.o_proj((output * g).transpose(1, 2).reshape(batch_size, seq_len, -1))
+        return output, None, None

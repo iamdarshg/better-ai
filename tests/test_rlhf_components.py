@@ -333,25 +333,25 @@ def run_tests():
         config_code = f.read()
     with open("better_ai/config.py", "w") as f:
         f.write(config_code.replace(
-            "hidden_dim: int = 2048", "hidden_dim: int = 128"
+            "hidden_dim: int = 1536", "hidden_dim: int = 128"
         ).replace(
-            "num_layers: int = 30", "num_layers: int = 1"
+            "num_layers: int = 12", "num_layers: int = 1"
         ).replace(
-            "num_attention_heads: int = 32", "num_attention_heads: int = 8"
+            "num_attention_heads: int = 24", "num_attention_heads: int = 8"
         ).replace(
-            "num_key_value_heads: Optional[int] = 16", "num_key_value_heads: Optional[int] = 4"
+            "num_key_value_heads: Optional[int] = 12", "num_key_value_heads: Optional[int] = 4"
         ).replace(
             "intermediate_dim: int = 6144", "intermediate_dim: int = 512"
         ).replace(
             "vocab_size: int = 64000", "vocab_size: int = 6400"
         ).replace(
-            "max_seq_length: int = 16384", "max_seq_length: int = 256"
+            "max_seq_length: int = 4096", "max_seq_length: int = 256"
         ).replace(
-            "cot_num_heads: int = 12", "cot_num_heads: int = 2"
+            "cot_num_heads: int = 8", "cot_num_heads: int = 2"
         ).replace(
-            "tool_vocab_size: int = 2000", "tool_vocab_size: int = 100"
+            "tool_vocab_size: int = 1000", "tool_vocab_size: int = 100"
         ).replace(
-            "tool_hidden_dim: int = 768", "tool_hidden_dim: int = 64"
+            "tool_hidden_dim: int = 512", "tool_hidden_dim: int = 64"
         ).replace(
             "scratchpad_hidden_dim: int = 2048", "scratchpad_hidden_dim: int = 128"
         ).replace(
@@ -363,7 +363,7 @@ def run_tests():
         ).replace(
             "eval_steps: int = 1000", "eval_steps: int = 10"
         ).replace(
-            "max_seq_length: int = 16384", "max_seq_length: int = 256"
+            "max_seq_length: int = 4096", "max_seq_length: int = 256"
         )
         )
     try:

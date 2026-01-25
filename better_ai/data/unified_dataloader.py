@@ -25,18 +25,32 @@ def parse_xml_tags(text):
     return text
 
 class StreamingDataset(IterableDataset):
+    def _format_with_xml(self, item: dict) -> str:
+        """Formats a dataset item with XML-style tags."""
+        problem = item.get("problem", "")
+        constraints = item.get("constraints", "")
+        examples = item.get("examples", "")
+
+        # Fallback to using the entire item as text if specific fields are not present
+        if not problem and not constraints and not examples:
+            return item.get("text") or item.get("content", "")
+
+        return f"<problem>{problem}</problem><constraints>{constraints}</constraints><examples>{examples}</examples>"
     """A streaming dataset that can handle any dataset from Hugging Face"""
 
-    def __init__(self, dataset_name, tokenizer, max_length=8192, split="train", streaming=True, data_format="text"):
+    def __init__(self, dataset_name, tokenizer, max_length=8192, split="train", streaming=True, data_format="text", languages=None):
         self.dataset_name = dataset_name
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.split = split
         self.streaming = streaming
         self.data_format = data_format
+        self.languages = languages
 
         try:
             self.dataset = load_dataset(self.dataset_name, split=self.split, streaming=self.streaming)
+            if self.languages:
+                self.dataset = self.dataset.filter(lambda x: x.get("lang") in self.languages)
             logger.info(f"Loaded dataset {self.dataset_name} ({self.split} split)")
         except Exception as e:
             logger.error(f"Failed to load dataset {self.dataset_name}: {e}")
@@ -54,10 +68,10 @@ class StreamingDataset(IterableDataset):
                 else:
                     text = " ".join(str(v) for v in item.values() if isinstance(v, str))
 
-                text = parse_xml_tags(text)
+                formatted_text = self._format_with_xml(item)
 
                 encoding = self.tokenizer(
-                    text,
+                    formatted_text,
                     truncation=True,
                     max_length=self.max_length,
                     padding="max_length",
@@ -70,11 +84,8 @@ class StreamingDataset(IterableDataset):
                     "labels": encoding["input_ids"].squeeze()
                 }
             elif self.data_format == "rlhf":
-                chosen = item["chosen"]
-                rejected = item["rejected"]
-
-                chosen = parse_xml_tags(chosen)
-                rejected = parse_xml_tags(rejected)
+                chosen = self._format_with_xml(item["chosen"])
+                rejected = self._format_with_xml(item["rejected"])
 
                 chosen_encoding = self.tokenizer(
                     chosen,
@@ -101,20 +112,17 @@ class StreamingDataset(IterableDataset):
 
 def create_dataloader(
     dataset_name,
-    tokenizer_name="microsoft/CodeGPT-small-py",
+    tokenizer,
     batch_size=8,
     max_length=8192,
     split="train",
     streaming=True,
     num_workers=0,
     data_format="text",
+    languages=None,
     **kwargs
 ):
-    """Create a dataloader for a streaming dataset"""
-
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    """Create a dataloaloader for a streaming dataset"""
 
     dataset = StreamingDataset(
         dataset_name=dataset_name,
@@ -123,6 +131,7 @@ def create_dataloader(
         split=split,
         streaming=streaming,
         data_format=data_format,
+        languages=languages,
         **kwargs
     )
 
@@ -138,9 +147,11 @@ if __name__ == '__main__':
     tokenizer_name = "microsoft/CodeGPT-small-py"
     dataset_name = "HuggingFaceH4/CodeAlpaca_20K"
 
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+
     dataloader = create_dataloader(
         dataset_name=dataset_name,
-        tokenizer_name=tokenizer_name,
+        tokenizer=tokenizer,
         batch_size=2,
         max_length=1024
     )

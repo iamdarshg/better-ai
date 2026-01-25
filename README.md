@@ -1,18 +1,5 @@
 # Better AI: Advanced RLHF System for Coding
 
-## TODO
-
-- [ ] Implement Reinforcement Learning on reasoning trajectories
-- [ ] Implement Hybrid attention mechanisms (RoPE + NoPE layers)
-- [ ] Implement Query-Key layer normalization
-- [ ] Implement Linear attention variants (e.g., DeltaNet, GLA)
-- [ ] Implement Gating mechanisms in attention
-- [ ] Implement Non-linear reasoning paths
-- [ ] Implement Difficulty-based verification rewards
-- [ ] Implement Width pruning
-- [ ] Add a config option for language choices
-- [ ] Add a config option for the number of experts per language
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red)](https://pytorch.org/)

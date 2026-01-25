@@ -30,6 +30,7 @@ from better_ai.training.evaluation import (
     EvaluationMetrics
 )
 from better_ai.data.unified_dataloader import create_dataloader
+from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ def train_pretraining(
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
+    languages: str = "python,c,cpp,java,javascript,go,rust",
 ):
     """
     Stage 1: Pretraining on Stack v2 dataset
@@ -67,6 +69,14 @@ def train_pretraining(
     # Initialize model
     model = EnhancedDeepSeekModel(model_config, device=device)
     model = model.to(device)
+
+    # Create tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    special_tokens = ["[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
+    tokenizer.add_tokens(special_tokens)
+    model.resize_token_embeddings(len(tokenizer))
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     
     # Create dataloaders
     if use_mock_data:
@@ -77,22 +87,24 @@ def train_pretraining(
         logger.info("Loading Stack v2 pretraining dataset...")
         train_dataloader = create_dataloader(
             "bigcode/the-stack-v2",
-            tokenizer_name=tokenizer_name,
+            tokenizer=tokenizer,
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
             streaming=True,
             num_workers=0,
+            languages=languages.split(","),
         )
         
         eval_dataloader = create_dataloader(
             "bigcode/the-stack-v2",
-            tokenizer_name=tokenizer_name,
+            tokenizer=tokenizer,
             split="validation",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
             streaming=True,
             num_workers=0,
+            languages=languages.split(","),
         )
     
     # Setup optimizer
@@ -121,6 +133,7 @@ def train_pretraining(
         scheduler=scheduler,
         config=training_config,
         device=device,
+        tokenizer=tokenizer,
         use_enhanced_features=True
     )
     
@@ -142,6 +155,7 @@ def train_sft(
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
+    languages: str = "python,c,cpp,java,javascript,go,rust",
 ):
     """
     Stage 2: Supervised Fine-Tuning on Magicoder + Code-Feedback
@@ -161,6 +175,14 @@ def train_sft(
     if checkpoint_path:
         logger.info(f"Loading checkpoint: {checkpoint_path}")
         model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+
+    # Create tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    special_tokens = ["[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
+    tokenizer.add_tokens(special_tokens)
+    model.resize_token_embeddings(len(tokenizer))
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     
     # Create dataloaders
     if use_mock_data:
@@ -171,18 +193,20 @@ def train_sft(
         logger.info("Loading SFT dataset...")
         train_dataloader = create_dataloader(
             "ise-uiuc/Magicoder-Evol-Instruct-110K",
-            tokenizer_name=tokenizer_name,
+            tokenizer=tokenizer,
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
+            languages=languages.split(","),
         )
         
         eval_dataloader = create_dataloader(
             "ise-uiuc/Magicoder-Evol-Instruct-110K",
-            tokenizer_name=tokenizer_name,
+            tokenizer=tokenizer,
             split="validation",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
+            languages=languages.split(","),
         )
     
     # Setup optimizer and scheduler
@@ -210,6 +234,7 @@ def train_sft(
         scheduler=scheduler,
         config=training_config,
         device=device,
+        tokenizer=tokenizer,
         use_enhanced_features=True
     )
     
@@ -231,6 +256,7 @@ def train_rlhf(
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
+    languages: str = "python,c,cpp,java,javascript,go,rust",
 ):
     """
     Stage 3: RLHF training with GRPO
@@ -250,6 +276,14 @@ def train_rlhf(
     if checkpoint_path:
         logger.info(f"Loading checkpoint: {checkpoint_path}")
         model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+
+    # Create tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    special_tokens = ["[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
+    tokenizer.add_tokens(special_tokens)
+    model.resize_token_embeddings(len(tokenizer))
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     
     # Create dataloaders
     if use_mock_data:
@@ -261,20 +295,22 @@ def train_rlhf(
         logger.info("Loading CodeUltraFeedback preference pairs...")
         train_dataloader = create_dataloader(
             "coseal/CodeUltraFeedback",
-            tokenizer_name=tokenizer_name,
+            tokenizer=tokenizer,
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
-            data_format="rlhf"
+            data_format="rlhf",
+            languages=languages.split(","),
         )
         
         # Create eval loader
         eval_dataloader = create_dataloader(
             "coseal/codal-bench",
-            tokenizer_name=tokenizer_name,
+            tokenizer=tokenizer,
             split="test",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
+            languages=languages.split(","),
         )
     
     # Setup optimizer and scheduler
@@ -302,6 +338,7 @@ def train_rlhf(
         scheduler=scheduler,
         config=training_config,
         device=device,
+        tokenizer=tokenizer,
         use_enhanced_features=True
     )
     
@@ -321,6 +358,7 @@ def evaluate_model(
     model_config: ModelConfig,
     output_dir: str = "./checkpoints",
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
+    languages: str = "python,c,cpp,java,javascript,go,rust",
 ):
     """
     Evaluate trained model
@@ -330,15 +368,24 @@ def evaluate_model(
     logger.info("=" * 80)
     
     device = next(model.parameters()).device
+
+    # Create tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    special_tokens = ["[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
+    tokenizer.add_tokens(special_tokens)
+    model.resize_token_embeddings(len(tokenizer))
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     
     # Load evaluation dataset (SWE-bench)
     logger.info("Loading SWE-bench evaluation dataset...")
     eval_loader = create_dataloader(
         "princeton-nlp/SWE-bench",
-        tokenizer_name=tokenizer_name,
+        tokenizer=tokenizer,
         split="test",
         batch_size=8,
         max_length=model_config.max_seq_length,
+        languages=languages.split(","),
     )
     
     # Run evaluation
@@ -401,8 +448,6 @@ def evaluate_model(
     return avg_metrics
 
 
-
-
 def _create_mock_dataloader(batch_size: int, num_batches: int = 10, seq_length: int = 512):
     """Create a mock dataloader for testing"""
     class MockDataset(torch.utils.data.Dataset):
@@ -436,6 +481,7 @@ def main():
     parser.add_argument("--eval", action="store_true", help="Run evaluation after training")
     parser.add_argument("--test", action="store_true", help="Run with mock data for testing infrastructure")
     parser.add_argument("--tokenizer-name", default="microsoft/CodeGPT-small-py", help="The name of the tokenizer to use.")
+    parser.add_argument("--languages", default="python,c,cpp,java,javascript,go,rust", help="A comma-separated list of languages to use for filtering the datasets.")
 
     args = parser.parse_args()
     
@@ -465,19 +511,19 @@ def main():
         model = None
         
         if args.stage in ["pretrain", "full"]:
-            trainer, _ = train_pretraining(model_config, training_config, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name)
+            trainer, _ = train_pretraining(model_config, training_config, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name, languages=args.languages)
             model = trainer.model
             checkpoint_path = f"{args.output_dir}/pretrained_model.pt"
         
         if args.stage in ["sft", "full"]:
             checkpoint_path = f"{args.output_dir}/pretrained_model.pt" if args.stage == "full" else None
-            trainer, _ = train_sft(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name)
+            trainer, _ = train_sft(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name, languages=args.languages)
             model = trainer.model
             checkpoint_path = f"{args.output_dir}/sft_model.pt"
         
         if args.stage in ["rlhf", "full"]:
             checkpoint_path = f"{args.output_dir}/sft_model.pt" if args.stage == "full" else None
-            trainer, _ = train_rlhf(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name)
+            trainer, _ = train_rlhf(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name, languages=args.languages)
             model = trainer.model
         
         if args.eval and model is not None:
@@ -493,7 +539,7 @@ def main():
                 # Type cast for type checker - this is safe because we've checked the attributes
                 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
                 enhanced_model: EnhancedDeepSeekModel = actual_model  # type: ignore
-                evaluate_model(enhanced_model, model_config, args.output_dir, tokenizer_name=args.tokenizer_name)
+                evaluate_model(enhanced_model, model_config, args.output_dir, tokenizer_name=args.tokenizer_name, languages=args.languages)
             else:
                 logger.warning("Model does not have required attributes for evaluation, skipping evaluation")
         

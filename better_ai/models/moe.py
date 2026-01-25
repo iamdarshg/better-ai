@@ -76,10 +76,10 @@ class ExpertRouter(nn.Module):
         batch_size, sequence_length, hidden_dim = hidden_states.shape
         
         # Pre-router processing
-        pre_router_states = self.pre_router_net(hidden_states)
+        hidden_states = self.pre_router_net(hidden_states)
 
         # Compute router logits
-        router_logits = self.router_linear(pre_router_states)
+        router_logits = self.router_linear(hidden_states)
         
         # Apply softmax to get routing probabilities
         router_probs = F.softmax(router_logits, dim=-1)
@@ -183,8 +183,7 @@ class MoELayer(nn.Module):
         load_balance_loss_weight: float = 0.01,
         router_bias: bool = False,
         router_dtype: torch.dtype = torch.float32,
-        shared_experts: int = 1,
-        pre_router_dim: Optional[int] = None
+        shared_experts: int = 1
     ):
         super().__init__()
         
@@ -204,8 +203,7 @@ class MoELayer(nn.Module):
             num_experts=num_experts,  # Only actual experts, not shared ones
             num_experts_per_token=num_experts_per_token,
             router_bias=router_bias,
-            router_dtype=router_dtype,
-            pre_router_dim=pre_router_dim
+            router_dtype=router_dtype
         )
         
         # Experts
