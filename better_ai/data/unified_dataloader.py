@@ -111,28 +111,23 @@ class StreamingDataset(IterableDataset):
                 }
 
 def create_dataloader(
-    dataset_name,
+    dataset_config: dict,
     tokenizer,
     batch_size=8,
-    max_length=8192,
     split="train",
     streaming=True,
     num_workers=0,
-    data_format="text",
-    languages=None,
-    **kwargs
 ):
-    """Create a dataloaloader for a streaming dataset"""
+    """Create a dataloader for a streaming dataset from a configuration dictionary."""
 
     dataset = StreamingDataset(
-        dataset_name=dataset_name,
+        dataset_name=dataset_config['path'],
         tokenizer=tokenizer,
-        max_length=max_length,
+        max_length=dataset_config['max_seq_length'],
         split=split,
         streaming=streaming,
-        data_format=data_format,
-        languages=languages,
-        **kwargs
+        data_format=dataset_config.get('data_format', 'text'),
+        languages=dataset_config.get('languages')
     )
 
     return DataLoader(

@@ -12,11 +12,11 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 - [ ] Verify repository structure after cleanup
 
 ### 1.2 Model Architecture Updates
-- [ ] Update model config to maintain/increase internal dimensions
-- [ ] Increase vocabulary size for better coding coverage
-- [ ] Reduce layer count (24 → 12-16) for efficiency
-- [ ] Maintain MoE architecture with 4-8 experts
-- [ ] Update config.py with new architecture parameters
+- [x] Update model config to maintain/increase internal dimensions
+- [x] Increase vocabulary size for better coding coverage
+- [x] Reduce layer count (24 → 12-16) for efficiency
+- [x] Maintain MoE architecture with 4-8 experts
+- [x] Update config.py with new architecture parameters
 
 ### 1.3 Ring Attention Implementation
 - [ ] Implement basic Ring Attention in attention.py

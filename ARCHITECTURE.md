@@ -2,7 +2,19 @@
 
 ## System Overview
 
-Better AI is a comprehensive RLHF (Reinforcement Learning from Human Feedback) system for training advanced coding models. The system integrates multiple cutting-edge techniques for improved reasoning, correctness, and alignment.
+Better AI is a state-of-the-art RLHF (Reinforcement Learning from Human Feedback) system meticulously engineered for training sophisticated coding models. The system's design philosophy is centered around a multi-stage training pipeline that progressively refines the model's capabilities, from foundational code understanding to nuanced human-aligned reasoning. By integrating a suite of cutting-edge techniques, Better AI aims to produce models that excel in correctness, coherence, and alignment with human preferences.
+
+The architecture is designed to be both powerful and flexible, allowing for the seamless integration of new features and research ideas. It is built upon a DeepSeek-inspired transformer model that incorporates several key innovations, including Ring Attention for near-infinite context processing and a Mixture of Experts (MoE) for enhanced efficiency and specialization.
+
+## The Core: A DeepSeek-Inspired Architecture
+
+At the heart of the Better AI system is a decoder-only transformer model that draws inspiration from the highly successful DeepSeek V3.2 architecture. This choice was made to leverage the proven performance and efficiency of the DeepSeek design, while also providing a solid foundation for further innovation. The Better AI model incorporates several key architectural features that are inspired by DeepSeek, including:
+
+- **Ring Attention**: To effectively process the long and complex sequences of code that are common in software development, Better AI employs Ring Attention. This novel attention mechanism allows for near-infinite context processing with linear complexity, a significant advantage over traditional attention mechanisms that scale quadratically.
+- **Mixture of Experts (MoE)**: To increase the model's capacity without a proportional increase in computational cost, Better AI utilizes a Mixture of Experts (MoE) architecture. This allows the model to dynamically route different parts of the input to different "expert" sub-networks, resulting in a more efficient and effective model that can learn a wider range of specialized skills.
+- **Grouped Query Attention (GQA)**: To further enhance the efficiency of the attention mechanism, Better AI uses Grouped Query Attention (GQA). This technique groups queries together to reduce the number of attention computations, resulting in a significant speedup with minimal impact on performance.
+
+These architectural choices, combined with a suite of advanced reasoning features and training optimizations, make the Better AI model a powerful and efficient tool for a wide range of coding tasks.
 
 ## Architecture Layers
 
@@ -249,11 +261,38 @@ API Pred    Generation
 - Clarifying question insertion
 - Graceful handling of ambiguity
 
-## Training Pipeline
+### 7. Hierarchical Reward Model (HRM)
 
-### Stage 1: Pretraining (The Stack v2)
+The Hierarchical Reward Model is a dual-reward framework that scores both single-step soundness and end-to-end coherence. This ensures that the model generates code that is not only locally correct but also globally coherent and well-structured. The HRM consists of two main components:
 
-**Objective:** Learn code representations
+- **Single-Step Model**: This model, typically a `BranchRewardModel`, evaluates the correctness and quality of individual code snippets or lines.
+- **End-to-End Model**: This model, usually a simpler MLP, assesses the overall coherence and structure of the generated code.
+
+The final reward is a weighted combination of the scores from both models, providing a more holistic assessment of the generated code's quality.
+
+### 8. Advanced Training Optimizations
+
+The training process is optimized with a range of advanced techniques to improve efficiency, stability, and performance:
+
+- **Expert Specialization Tracking**: Monitors the specialization of each expert in the MoE model to encourage diversity and prevent expert collapse.
+- **Selective Gradient Checkpointing**: Reduces memory usage by selectively checkpointing gradients for specific layers, rather than the entire model.
+- **Dynamic Expert Capacity Adjustment**: Dynamically adjusts the capacity of each expert based on its current load to prevent overfitting and improve performance.
+- **Coherence-Based Scheduling**: Dynamically adjusts the learning rate based on the coherence of the model's predictions to improve training stability.
+
+## The Better AI Training Pipeline: A Multi-Stage Approach to Excellence
+
+The Better AI training pipeline is a meticulously designed multi-stage process that progressively refines the model's capabilities, transforming it from a general-purpose code model into a highly specialized and human-aligned coding assistant. This multi-stage approach is critical to the success of the Better AI system, as it allows the model to learn in a structured and incremental manner, building upon its knowledge at each stage.
+
+### Stage 1: Pretraining - Building a Foundation of Code Understanding
+The journey of a Better AI model begins with the pretraining stage. Here, the model is exposed to a massive and diverse corpus of code from a wide range of sources, including "The Stack v2". The primary objective of this stage is to instill in the model a fundamental understanding of the syntax, structures, and patterns of programming languages. This is achieved through a self-supervised learning process, where the model is trained to predict the next token in a sequence of code. This seemingly simple task forces the model to learn a rich and hierarchical representation of code, which serves as the foundation for all subsequent stages of training.
+
+### Stage 2: Supervised Fine-Tuning (SFT) - Learning to Follow Instructions
+Once the model has developed a solid foundation of code understanding, it progresses to the supervised fine-tuning (SFT) stage. In this stage, the model is trained on a curated dataset of high-quality code and natural language instructions, such as the "Magicoder" and "Code-Feedback" datasets. The goal of SFT is to teach the model to align its vast knowledge of code with human intent, enabling it to follow instructions and generate code that is not only syntactically correct but also well-structured, efficient, and easy to understand.
+
+### Stage 3: Reinforcement Learning from Human Feedback (RLHF) - Aligning with Human Preferences
+The final and most advanced stage of the training pipeline is Reinforcement Learning from Human Feedback (RLHF). In this stage, the model's behavior is further refined to align with human preferences. This is achieved by training a reward model to predict which of two code snippets a human would prefer. The model is then trained to generate code that maximizes the reward signal from this model, using a state-of-the-art policy gradient algorithm called Group Reward Policy Optimization (GRPO). This process is guided by a sophisticated Hierarchical Reward Model that scores both single-step soundness and end-to-end coherence, ensuring that the model generates code that is not only locally correct but also globally coherent and well-structured.
+
+This multi-stage training pipeline, combined with a powerful DeepSeek-inspired architecture and a suite of advanced reasoning features, is what makes Better AI a truly cutting-edge system for training advanced coding models.
 
 ```
 The Stack v2 Dataset
