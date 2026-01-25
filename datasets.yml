@@ -1,46 +1,202 @@
 datasets:
-  # Pre-training Datasets
-  - name: "the-stack-v2"
+  # -----------------------------------------------------------------------------
+  # PRETRAINING STAGE
+  # High-quality "base soup" with a focus on real-world Python/C/Rust and 
+  # deduplicated knowledge.
+  # -----------------------------------------------------------------------------
+  - name: "the-stack-v2-dedup"
     type: "huggingface"
-    path: "HuggingFaceH4/the-stack-v2"
+    path: "bigcode/the-stack-v2-dedup"
     stage: "pretraining"
     split: "train"
     max_seq_length: 8192
     num_training_steps: 100000
+
+  - name: "nemotron-code-v2"
+    type: "huggingface"
+    path: "nvidia/Nemotron-Pretraining-Code-v2"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 8192
+    num_training_steps: 100000
+
+  - name: "codesearchnet"
+    type: "huggingface"
+    path: "bigcode/codesearchnet"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 8192
+    num_training_steps: 50000
+
+  - name: "taco-algorithms"
+    type: "huggingface"
+    path: "BAAI/TACO"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 8192
+    num_training_steps: 30000
+
   - name: "github-code"
     type: "huggingface"
     path: "codeparrot/github-code"
     stage: "pretraining"
     split: "train"
     max_seq_length: 8192
-    num_training_steps: 100000
-
-  # Supervised Fine-Tuning (SFT) Datasets
-  - name: "magicoder"
-    type: "huggingface"
-    path: "ise-uiuc/Magicoder-Evol-Instruct-110K"
-    stage: "sft"
-    split: "train"
-    max_seq_length: 4096
-    num_training_steps: 50000
-  - name: "code-feedback"
-    type: "huggingface"
-    path: "TIGER-Lab/CodeFeedback"
-    stage: "sft"
-    split: "train"
-    max_seq_length: 4096
     num_training_steps: 50000
 
-  # RLHF / GRPO Datasets
-  - name: "code-ultrafeedback"
+  - name: "learn-rust"
     type: "huggingface"
-    path: "HuggingFaceH4/code-ultrafeedback"
-    stage: "rlhf"
-    split: "train_prefs"
-    max_seq_length: 2048
+    path: "gaianet/learn-rust"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 8192
+    num_training_steps: 20000
+
+  - name: "the-vault"
+    type: "huggingface"
+    path: "unnatural-code/The-Vault"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 8192
+    num_training_steps: 30000
+
+  - name: "jupyter-code-text"
+    type: "huggingface"
+    path: "ncoop57/jupyter_code_text_coarse"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 8192
+    num_training_steps: 20000
+
+  # -----------------------------------------------------------------------------
+  # SFT STAGE (Supervised Fine-Tuning)
+  # Focused on instruction following, real-world tasks, and tool use.
+  # -----------------------------------------------------------------------------
+  - name: "jupyter-agent-dataset"
+    type: "huggingface"
+    path: "jupyter-agent/jupyter-agent-dataset"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 16384
+    num_training_steps: 50000
+
+  - name: "opencodeinstruct"
+    type: "huggingface"
+    path: "HuggingFaceH4/OpenCodeInstruct"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 16384
+    num_training_steps: 50000
+
+  - name: "apps-filtered"
+    type: "huggingface"
+    path: "codeparrot/apps"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 16384
     num_training_steps: 25000
 
-  # Evaluation Datasets
+  - name: "bigcodebench"
+    type: "huggingface"
+    path: "bigcode/bigcodebench"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 16384
+    num_training_steps: 10000
+
+  - name: "stackoverflow-data"
+    type: "huggingface"
+    path: "bigcode/stackoverflow-data"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 16384
+    num_training_steps: 40000
+
+  - name: "secure-code-v2"
+    type: "huggingface"
+    path: "SecureCode-v2"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 16384
+    num_training_steps: 10000
+
+  - name: "agent-tool-use"
+    type: "huggingface"
+    path: "DeepNLP/Agent-Tool-Use-Dialogue-Open-Dataset"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 16384
+    num_training_steps: 20000
+
+  - name: "code-doc-pairs"
+    type: "huggingface"
+    path: "code2doc/function-doc-pairs"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 4096
+    num_training_steps: 20000
+
+  - name: "self-oss-instruct"
+    type: "huggingface"
+    path: "bigcode/self-oss-instruct-sc2-exec-filter-50k"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 4096
+    num_training_steps: 25000
+
+  # -----------------------------------------------------------------------------
+  # RLHF / PREFERENCE STAGE
+  # Alignment data for preference optimization (DPO/ORPO).
+  # -----------------------------------------------------------------------------
+  - name: "ultrafeedback-binarized"
+    type: "huggingface"
+    path: "argilla/ultrafeedback-binarized-preferences-cleaned"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 12288
+    num_training_steps: 25000
+
+  - name: "ultrafeedback-curated"
+    type: "huggingface"
+    path: "argilla/ultrafeedback-curated"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 12288
+    num_training_steps: 25000
+
+  - name: "stackoverflow-preferences"
+    type: "huggingface"
+    path: "stackoverflow-preferences"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 12288
+    num_training_steps: 15000
+
+  - name: "agentic-dpo"
+    type: "huggingface"
+    path: "Capx/Agentic-DPO-V0.1"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 8096
+    num_training_steps: 15000
+
+  - name: "helpsteer-code"
+    type: "huggingface"
+    path: "HelpSteer/code"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 8096
+    num_training_steps: 10000
+
+  - name: "github-issues-rlhf"
+    type: "huggingface"
+    path: "bigcode/github-issues"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 16384
+    num_training_steps: 10000
+
+  # Evaluation Datasets (kept from original config)
   - name: "swe-bench"
     type: "huggingface"
     path: "princeton-nlp/swe-bench"
@@ -48,10 +204,9 @@ datasets:
     split: "test"
     max_seq_length: 4096
     num_training_steps: 0
-  - name: "codeforces"
+  - name: "humaneval"
     type: "huggingface"
-    path: "BAAI/CodeF"
+    path: "openai/humaneval"
     stage: "eval"
     split: "test"
     max_seq_length: 4096
-    num_training_steps: 0
