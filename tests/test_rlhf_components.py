@@ -334,23 +334,23 @@ def run_tests():
     with open("better_ai/config.py", "r") as f:
         config_code = f.read()
     
-    # Define scaling ratios for test mode (1/16th of original size)
+    # Define scaling ratios for test mode (much smaller for CI)
     scaling_rules = {
-        r'hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'hidden_dim: int = {int(m.group(1)) // 16}',
-        r'num_layers:\s*int\s*=\s*(\d+)': lambda m: f'num_layers: int = {max(1, int(m.group(1)) // 30)}',
-        r'num_attention_heads:\s*int\s*=\s*(\d+)': lambda m: f'num_attention_heads: int = {max(1, int(m.group(1)) // 4)}',
-        r'num_key_value_heads:\s*Optional\[int\]\s*=\s*(\d+)': lambda m: f'num_key_value_heads: Optional[int] = {max(1, int(m.group(1)) // 4)}',
-        r'intermediate_dim:\s*int\s*=\s*(\d+)': lambda m: f'intermediate_dim: int = {int(m.group(1)) // 12}',
-        r'vocab_size:\s*int\s*=\s*(\d+)': lambda m: f'vocab_size: int = {int(m.group(1)) // 10}',
-        r'max_seq_length:\s*int\s*=\s*(\d+)': lambda m: f'max_seq_length: int = {int(m.group(1)) // 64}',
-        r'cot_num_heads:\s*int\s*=\s*(\d+)': lambda m: f'cot_num_heads: int = {max(1, int(m.group(1)) // 6)}',
-        r'tool_vocab_size:\s*int\s*=\s*(\d+)': lambda m: f'tool_vocab_size: int = {int(m.group(1)) // 20}',
-        r'tool_hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'tool_hidden_dim: int = {int(m.group(1)) // 12}',
-        r'scratchpad_hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'scratchpad_hidden_dim: int = {int(m.group(1)) // 16}',
-        r'warmup_steps:\s*int\s*=\s*(\d+)': lambda m: f'warmup_steps: int = {max(1, int(m.group(1)) // 1000)}',
-        r'max_steps:\s*int\s*=\s*(\d+)': lambda m: f'max_steps: int = {max(1, int(m.group(1)) // 1000)}',
-        r'save_steps:\s*int\s*=\s*(\d+)': lambda m: f'save_steps: int = {max(1, int(m.group(1)) // 100)}',
-        r'eval_steps:\s*int\s*=\s*(\d+)': lambda m: f'eval_steps: int = {max(1, int(m.group(1)) // 100)}',
+        r'hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'hidden_dim: int = {max(32, int(m.group(1)) // 64)}',
+        r'num_layers:\s*int\s*=\s*(\d+)': lambda m: f'num_layers: int = {max(1, int(m.group(1)) // 60)}',
+        r'num_attention_heads:\s*int\s*=\s*(\d+)': lambda m: f'num_attention_heads: int = {max(1, int(m.group(1)) // 8)}',
+        r'num_key_value_heads:\s*Optional\[int\]\s*=\s*(\d+)': lambda m: f'num_key_value_heads: Optional[int] = {max(1, int(m.group(1)) // 8)}',
+        r'intermediate_dim:\s*int\s*=\s*(\d+)': lambda m: f'intermediate_dim: int = {max(32, int(m.group(1)) // 48)}',
+        r'vocab_size:\s*int\s*=\s*(\d+)': lambda m: f'vocab_size: int = {max(256, int(m.group(1)) // 100)}',
+        r'max_seq_length:\s*int\s*=\s*(\d+)': lambda m: f'max_seq_length: int = {max(32, int(m.group(1)) // 256)}',
+        r'cot_num_heads:\s*int\s*=\s*(\d+)': lambda m: f'cot_num_heads: int = {max(1, int(m.group(1)) // 12)}',
+        r'tool_vocab_size:\s*int\s*=\s*(\d+)': lambda m: f'tool_vocab_size: int = {max(32, int(m.group(1)) // 50)}',
+        r'tool_hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'tool_hidden_dim: int = {max(32, int(m.group(1)) // 24)}',
+        r'scratchpad_hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'scratchpad_hidden_dim: int = {max(32, int(m.group(1)) // 64)}',
+        r'warmup_steps:\s*int\s*=\s*(\d+)': lambda m: f'warmup_steps: int = {max(1, int(m.group(1)) // 10000)}',
+        r'max_steps:\s*int\s*=\s*(\d+)': lambda m: f'max_steps: int = {max(1, int(m.group(1)) // 5000)}',
+        r'save_steps:\s*int\s*=\s*(\d+)': lambda m: f'save_steps: int = {max(1, int(m.group(1)) // 1000)}',
+        r'eval_steps:\s*int\s*=\s*(\d+)': lambda m: f'eval_steps: int = {max(1, int(m.group(1)) // 1000)}',
     }
     
     # Apply all scaling rules dynamically
