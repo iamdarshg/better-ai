@@ -25,6 +25,7 @@ datasets:
     num_training_steps: 50
 """)
         self.tokenizer = AutoTokenizer.from_pretrained("gpt2")
+        self.tokenizer.pad_token = self.tokenizer.eos_token
 
 
     def tearDown(self):
@@ -63,16 +64,20 @@ datasets:
         self.assertEqual(dataset_config['num_training_steps'], 100)
 
     def test_create_dataloader_with_config(self):
-        dataset_config = load_dataset_from_config('test_dummy', self.config_path)
-        # The path is a dummy path, so we expect this to fail
-        # This test is just to ensure the parameters are passed correctly
-        with self.assertRaises(Exception):
-            dataloader = create_dataloader(
-                dataset_config,
-                self.tokenizer,
-                batch_size=2
-            )
-            self.assertEqual(dataloader.dataset.max_length, 1024)
+        dataset_config = {
+            "name": "lhoestq/demo1",
+            "path": "lhoestq/demo1",
+            "max_seq_length": 128,
+        }
+        dataloader = create_dataloader(
+            dataset_config,
+            self.tokenizer,
+            batch_size=2
+        )
+
+        for batch in dataloader:
+            self.assertEqual(batch['input_ids'].shape[1], 128)
+            break
 
 if __name__ == '__main__':
     unittest.main()
