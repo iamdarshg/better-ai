@@ -8,7 +8,10 @@ from better_ai.config import ModelConfig
 from transformers import AutoTokenizer
 
 class TestModelEnhancements(unittest.TestCase):
+    """Unit tests for various model enhancement components."""
+
     def test_multi_turn_reward_model(self):
+        """Test the forward pass of the BranchRewardModel."""
         config = ModelConfig()
         model = BranchRewardModel(config, hidden_dim=512)
         hidden_states = torch.randn(1, 10, config.hidden_dim)
@@ -17,6 +20,7 @@ class TestModelEnhancements(unittest.TestCase):
         self.assertEqual(reward.shape, (1,))
 
     def test_pre_moe_router(self):
+        """Test the ExpertRouter's output shapes."""
         router = ExpertRouter(hidden_size=512, num_experts=8, pre_router_dim=128)
         hidden_states = torch.randn(1, 10, 512)
         routing_weights, selected_experts, router_logits = router(hidden_states)
@@ -24,6 +28,7 @@ class TestModelEnhancements(unittest.TestCase):
         self.assertEqual(selected_experts.shape, (1, 10, 2))
 
     def test_hybrid_attention(self):
+        """Test both RoPE and NoPE attention mechanisms."""
         # Test with RoPE
         attention_rope = MultiHeadAttention(hidden_size=512, num_heads=8, num_key_value_heads=4, head_dim=64, use_nope=False)
         hidden_states = torch.randn(1, 10, 512)
@@ -36,12 +41,14 @@ class TestModelEnhancements(unittest.TestCase):
         self.assertEqual(output_nope.shape, (1, 10, 512))
 
     def test_qk_normalization(self):
+        """Test the forward pass of MultiHeadAttention with QK normalization."""
         attention = MultiHeadAttention(hidden_size=512, num_heads=8, num_key_value_heads=4, head_dim=64)
         hidden_states = torch.randn(1, 10, 512)
         output, _, _ = attention(hidden_states)
         self.assertEqual(output.shape, (1, 10, 512))
 
     def test_self_correction(self):
+        """Test the self-correction mechanism of the EnhancedDeepSeekModel."""
         config = ModelConfig()
         model = EnhancedDeepSeekModel(config)
         tokenizer = AutoTokenizer.from_pretrained("gpt2")
@@ -58,6 +65,7 @@ class TestModelEnhancements(unittest.TestCase):
         self.assertGreater(len(final_response), 0)
 
     def test_linear_attention(self):
+        """Test the integration and forward pass of the LinearAttention module."""
         config = ModelConfig(use_linear_attention=True, use_ring_attention=False)
         model = EnhancedDeepSeekModel(config)
 

@@ -1,0 +1,43 @@
+datasets:
+  # Pre-training Datasets
+  - name: "the-stack-v2"
+    type: "huggingface"
+    path: "HuggingFaceH4/the-stack-v2"
+    stage: "pretraining"
+    split: "train"
+  - name: "github-code"
+    type: "huggingface"
+    path: "codeparrot/github-code"
+    stage: "pretraining"
+    split: "train"
+
+  # Supervised Fine-Tuning (SFT) Datasets
+  - name: "magicoder"
+    type: "huggingface"
+    path: "ise-uiuc/Magicoder-Evol-Instruct-110K"
+    stage: "sft"
+    split: "train"
+  - name: "code-feedback"
+    type: "huggingface"
+    path: "TIGER-Lab/CodeFeedback"
+    stage: "sft"
+    split: "train"
+
+  # RLHF / GRPO Datasets
+  - name: "code-ultrafeedback"
+    type: "huggingface"
+    path: "HuggingFaceH4/code-ultrafeedback"
+    stage: "rlhf"
+    split: "train_prefs"
+
+  # Evaluation Datasets
+  - name: "swe-bench"
+    type: "huggingface"
+    path: "princeton-nlp/swe-bench"
+    stage: "eval"
+    split: "test"
+  - name: "codeforces"
+    type: "huggingface"
+    path: "BAAI/CodeF"
+    stage: "eval"
+    split: "test"

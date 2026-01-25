@@ -287,3 +287,50 @@ class MultiAttributeRewardModel(nn.Module):
                 total_loss += loss.mean()
         
         return total_loss / max(len(self.attribute_names), 1)
+
+class HierarchicalRewardModel(nn.Module):
+    """
+    Hierarchical Reward Model (HRM) for scoring both single-step soundness and end-to-end coherence.
+    """
+    def __init__(self, config: ModelConfig):
+        super().__init__()
+        self.config = config
+
+        # Single-step reward model (e.g., BranchRewardModel)
+        self.single_step_model = BranchRewardModel(config)
+
+        # End-to-end reward model (e.g., a simple MLP)
+        self.end_to_end_model = nn.Sequential(
+            nn.Linear(config.hidden_dim, config.hidden_dim // 2),
+            nn.ReLU(),
+            nn.Linear(config.hidden_dim // 2, 1)
+        )
+
+    def forward(self, hidden_states: torch.Tensor, attention_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Compute a hierarchical reward score.
+
+        Args:
+            hidden_states: (batch_size, seq_len, hidden_dim)
+            attention_mask: Optional attention mask
+
+        Returns:
+            (batch_size,) hierarchical reward scores
+        """
+        # Get single-step rewards
+        single_step_scores = self.single_step_model(hidden_states, attention_mask)
+
+        # Get end-to-end rewards
+        pooled_hidden_states = hidden_states[:, -1, :]  # Use last hidden state
+        end_to_end_scores = self.end_to_end_model(pooled_hidden_states).squeeze(-1)
+
+        # Combine scores (e.g., with a weighted average)
+        combined_scores = 0.5 * single_step_scores + 0.5 * end_to_end_scores
+
+        return combined_scores
+
+    def loss(self, chosen_rewards: torch.Tensor, rejected_rewards: torch.Tensor) -> torch.Tensor:
+        """
+        Compute the ranking loss.
+        """
+        return -torch.nn.functional.logsigmoid(chosen_rewards - rejected_rewards).mean()
