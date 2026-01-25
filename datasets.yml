@@ -2,6 +2,8 @@ datasets:
   - name: "dummy"
     type: "dummy"
     path: "dummy"
+    stage: "pretraining"
   - name: "another_dummy"
     type: "dummy"
     path: "dummy"
+    stage: "sft"
