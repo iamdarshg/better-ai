@@ -25,15 +25,16 @@ from better_ai.models.advanced_features import (
 )
 
 class TestBranchRewardModel(unittest.TestCase):
-    """Test BR-RM functionality"""
+    """Integration tests for the BranchRewardModel."""
     
     def setUp(self):
+        """Set up the test environment."""
         self.device = torch.device("cpu")
         self.config = ModelConfig()
         self.model = BranchRewardModel(self.config).to(self.device)
     
     def test_forward_pass(self):
-        """Test basic forward pass"""
+        """Test the forward pass of the reward model with both sequence and pooled inputs."""
         batch_size = 4
         seq_len = 128
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
@@ -48,7 +49,7 @@ class TestBranchRewardModel(unittest.TestCase):
         self.assertEqual(scores.shape, (batch_size,))
     
     def test_branch_scores(self):
-        """Test branch scoring"""
+        """Test that the reward model returns scores for all branches."""
         batch_size = 4
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
         
@@ -62,7 +63,7 @@ class TestBranchRewardModel(unittest.TestCase):
         self.assertIn("branch_weights", branches)
     
     def test_pair_scoring(self):
-        """Test preference pair scoring"""
+        """Test the scoring of preference pairs."""
         batch_size = 4
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
         
@@ -76,15 +77,16 @@ class TestBranchRewardModel(unittest.TestCase):
 
 
 class TestMultiAttributeRewardModel(unittest.TestCase):
-    """Test multi-attribute reward model"""
+    """Integration tests for the MultiAttributeRewardModel."""
     
     def setUp(self):
+        """Set up the test environment."""
         self.device = torch.device("cpu")
         self.config = ModelConfig()
         self.model = MultiAttributeRewardModel(self.config, num_attributes=5).to(self.device)
     
     def test_forward_pass(self):
-        """Test multi-attribute forward pass"""
+        """Test the forward pass of the multi-attribute reward model."""
         batch_size = 4
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
         
@@ -99,9 +101,10 @@ class TestMultiAttributeRewardModel(unittest.TestCase):
 
 
 class TestGRPOTrainer(unittest.TestCase):
-    """Test GRPO training"""
+    """Integration tests for the GRPOTrainer."""
     
     def setUp(self):
+        """Set up the test environment."""
         self.device = torch.device("cpu")
         self.config = ModelConfig()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
@@ -116,7 +119,7 @@ class TestGRPOTrainer(unittest.TestCase):
         }
     
     def test_advantage_computation(self):
-        """Test group advantage estimation"""
+        """Test the computation of group advantages."""
         trainer = GRPOTrainer(self.model, self.reward_model, self.optimizer, self.grpo_config)
         
         batch_size = 4
@@ -136,10 +139,10 @@ class TestGRPOTrainer(unittest.TestCase):
 
 
 class TestGRPOLoss(unittest.TestCase):
-    """Test GRPO loss computation"""
+    """Unit tests for the GRPOLoss function."""
     
     def test_loss_computation(self):
-        """Test GRPO loss"""
+        """Test the computation of the GRPO loss."""
         loss_fn = GRPOLoss(beta=0.01, eps_clip=0.2)
         
         batch_size = 4
@@ -155,9 +158,10 @@ class TestGRPOLoss(unittest.TestCase):
 
 
 class TestRecursiveScratchpad(unittest.TestCase):
-    """Test recursive scratchpad"""
+    """Integration tests for the RecursiveScratchpad module."""
     
     def setUp(self):
+        """Set up the test environment."""
         self.device = torch.device("cpu")
         self.config = ModelConfig()
         self.module = RecursiveScratchpad(
@@ -167,7 +171,7 @@ class TestRecursiveScratchpad(unittest.TestCase):
         ).to(self.device)
     
     def test_forward_pass(self):
-        """Test scratchpad processing"""
+        """Test the forward pass of the RecursiveScratchpad."""
         batch_size = 4
         seq_len = 128
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
@@ -179,9 +183,10 @@ class TestRecursiveScratchpad(unittest.TestCase):
 
 
 class TestCoTSpecializationHeads(unittest.TestCase):
-    """Test CoT specialization"""
+    """Integration tests for the CoTSpecializationHeads module."""
     
     def setUp(self):
+        """Set up the test environment."""
         self.device = torch.device("cpu")
         self.config = ModelConfig()
         self.module = CoTSpecializationHeads(
@@ -190,7 +195,7 @@ class TestCoTSpecializationHeads(unittest.TestCase):
         ).to(self.device)
     
     def test_forward_pass(self):
-        """Test CoT heads"""
+        """Test the forward pass of the CoTSpecializationHeads."""
         batch_size = 4
         seq_len = 128
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
@@ -202,9 +207,10 @@ class TestCoTSpecializationHeads(unittest.TestCase):
 
 
 class TestToolUseHeads(unittest.TestCase):
-    """Test tool-use heads"""
+    """Integration tests for the ToolUseHeads module."""
     
     def setUp(self):
+        """Set up the test environment."""
         self.device = torch.device("cpu")
         self.config = ModelConfig()
         self.module = ToolUseHeads(
@@ -213,7 +219,7 @@ class TestToolUseHeads(unittest.TestCase):
         ).to(self.device)
     
     def test_forward_pass(self):
-        """Test tool-use prediction"""
+        """Test the forward pass of the ToolUseHeads."""
         batch_size = 4
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
         try:
@@ -228,15 +234,16 @@ class TestToolUseHeads(unittest.TestCase):
 
 
 class TestEnhancedModel(unittest.TestCase):
-    """Test integrated enhanced model"""
+    """Integration tests for the EnhancedDeepSeekModel."""
     
     def setUp(self):
+        """Set up the test environment."""
         self.device = torch.device("cpu")
         self.config = ModelConfig()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
     
     def test_forward_pass(self):
-        """Test basic forward pass"""
+        """Test the basic forward pass of the model."""
         batch_size = 2
         seq_len = 64
         input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
@@ -246,7 +253,7 @@ class TestEnhancedModel(unittest.TestCase):
         self.assertEqual(outputs["logits"].shape, (batch_size, seq_len, self.config.vocab_size))
     
     def test_advanced_features(self):
-        """Test with all advanced features"""
+        """Test the forward pass with all advanced features enabled."""
         batch_size = 2
         seq_len = 64
         input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
@@ -268,7 +275,7 @@ class TestEnhancedModel(unittest.TestCase):
         self.assertIn("reward", advanced)
     
     def test_loss_computation(self):
-        """Test loss computation"""
+        """Test the loss computation of the model."""
         batch_size = 2
         seq_len = 64
         input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
@@ -285,15 +292,16 @@ class TestEnhancedModel(unittest.TestCase):
 
 
 class TestEntropyMonitoring(unittest.TestCase):
-    """Test entropic steering"""
+    """Integration tests for the EntropicSteering module."""
     
     def setUp(self):
+        """Set up the test environment."""
         self.device = torch.device("cpu")
         self.config = ModelConfig()
         self.module = EntropicSteering(self.config.hidden_dim).to(self.device)
     
     def test_entropy_computation(self):
-        """Test entropy monitoring"""
+        """Test the entropy computation and spike detection."""
         batch_size = 4
         seq_len = 128
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
@@ -309,16 +317,17 @@ class TestEntropyMonitoring(unittest.TestCase):
 
 
 class TestWorkflow(unittest.TestCase):
-    """Test main workflow file"""
+    """End-to-end tests for the main training workflow."""
     
     def setUp(self):
+        """Set up the test environment."""
         pass
     
     def test_workflow_whole(self):
-        """Test entropy monitoring"""
+        """Test the entire training workflow from start to finish."""
         n = subprocess.run(
             ["python", "train_enhanced.py", "--stage", "full", "--test", "--batch-size", "1", "--max-steps", "1"],
-            cwd=os.path.dirname(os.path.dirname(__file__)),
+            cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')),
             capture_output=True, text=True
         )
         if n.returncode != 0:

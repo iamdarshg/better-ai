@@ -10,7 +10,10 @@ class SimpleModel(nn.Module):
         self.non_expert = nn.Linear(10, 10)
 
 class TestPruning(unittest.TestCase):
+    """Unit tests for the pruning functionality."""
+
     def test_prune_expert_widths(self):
+        """Test that the prune_expert_widths function correctly prunes the expert layers."""
         model = SimpleModel()
         pruning_ratio = 0.5
 

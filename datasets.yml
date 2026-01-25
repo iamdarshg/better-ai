@@ -1,0 +1,7 @@
+datasets:
+  - name: "dummy"
+    type: "dummy"
+    path: "dummy"
+  - name: "another_dummy"
+    type: "dummy"
+    path: "dummy"

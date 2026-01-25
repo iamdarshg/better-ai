@@ -3,8 +3,11 @@ from unittest.mock import Mock, patch
 from better_ai.data.unified_dataloader import StreamingDataset
 
 class TestDataloader(unittest.TestCase):
+    """Unit tests for the data loading and processing components."""
+
     @patch('better_ai.data.unified_dataloader.load_dataset')
     def test_xml_formatting(self, mock_load_dataset):
+        """Test that the XML formatting is applied correctly."""
         mock_load_dataset.return_value = [
             {
                 "problem": "This is a problem.",
