@@ -51,6 +51,7 @@ def train_pretraining(
     training_config: TrainingConfig,
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
+    tokenizer_name: str = "microsoft/CodeGPT-small-py",
 ):
     """
     Stage 1: Pretraining on Stack v2 dataset
@@ -76,6 +77,7 @@ def train_pretraining(
         logger.info("Loading Stack v2 pretraining dataset...")
         train_dataloader = create_dataloader(
             "bigcode/the-stack-v2",
+            tokenizer_name=tokenizer_name,
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
@@ -85,6 +87,7 @@ def train_pretraining(
         
         eval_dataloader = create_dataloader(
             "bigcode/the-stack-v2",
+            tokenizer_name=tokenizer_name,
             split="validation",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
@@ -138,6 +141,7 @@ def train_sft(
     checkpoint_path: Optional[str] = None,
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
+    tokenizer_name: str = "microsoft/CodeGPT-small-py",
 ):
     """
     Stage 2: Supervised Fine-Tuning on Magicoder + Code-Feedback
@@ -167,6 +171,7 @@ def train_sft(
         logger.info("Loading SFT dataset...")
         train_dataloader = create_dataloader(
             "ise-uiuc/Magicoder-Evol-Instruct-110K",
+            tokenizer_name=tokenizer_name,
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
@@ -174,6 +179,7 @@ def train_sft(
         
         eval_dataloader = create_dataloader(
             "ise-uiuc/Magicoder-Evol-Instruct-110K",
+            tokenizer_name=tokenizer_name,
             split="validation",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
@@ -224,6 +230,7 @@ def train_rlhf(
     checkpoint_path: Optional[str] = None,
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
+    tokenizer_name: str = "microsoft/CodeGPT-small-py",
 ):
     """
     Stage 3: RLHF training with GRPO
@@ -254,6 +261,7 @@ def train_rlhf(
         logger.info("Loading CodeUltraFeedback preference pairs...")
         train_dataloader = create_dataloader(
             "coseal/CodeUltraFeedback",
+            tokenizer_name=tokenizer_name,
             split="train",
             batch_size=training_config.batch_size,
             max_length=training_config.max_seq_length,
@@ -262,11 +270,11 @@ def train_rlhf(
         
         # Create eval loader
         eval_dataloader = create_dataloader(
-            "coseal/CodeUltraFeedback",
-            split="validation",
+            "coseal/codal-bench",
+            tokenizer_name=tokenizer_name,
+            split="test",
             batch_size=training_config.batch_size * 2,
             max_length=training_config.max_seq_length,
-            data_format="rlhf"
         )
     
     # Setup optimizer and scheduler
@@ -312,6 +320,7 @@ def evaluate_model(
     model: EnhancedDeepSeekModel,
     model_config: ModelConfig,
     output_dir: str = "./checkpoints",
+    tokenizer_name: str = "microsoft/CodeGPT-small-py",
 ):
     """
     Evaluate trained model
@@ -326,6 +335,7 @@ def evaluate_model(
     logger.info("Loading SWE-bench evaluation dataset...")
     eval_loader = create_dataloader(
         "princeton-nlp/SWE-bench",
+        tokenizer_name=tokenizer_name,
         split="test",
         batch_size=8,
         max_length=model_config.max_seq_length,
@@ -425,6 +435,7 @@ def main():
     parser.add_argument("--max-steps", type=int, default=100000)
     parser.add_argument("--eval", action="store_true", help="Run evaluation after training")
     parser.add_argument("--test", action="store_true", help="Run with mock data for testing infrastructure")
+    parser.add_argument("--tokenizer-name", default="microsoft/CodeGPT-small-py", help="The name of the tokenizer to use.")
 
     args = parser.parse_args()
     
@@ -454,19 +465,19 @@ def main():
         model = None
         
         if args.stage in ["pretrain", "full"]:
-            trainer, _ = train_pretraining(model_config, training_config, args.output_dir, use_mock_data=args.test)
+            trainer, _ = train_pretraining(model_config, training_config, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name)
             model = trainer.model
             checkpoint_path = f"{args.output_dir}/pretrained_model.pt"
         
         if args.stage in ["sft", "full"]:
             checkpoint_path = f"{args.output_dir}/pretrained_model.pt" if args.stage == "full" else None
-            trainer, _ = train_sft(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test)
+            trainer, _ = train_sft(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name)
             model = trainer.model
             checkpoint_path = f"{args.output_dir}/sft_model.pt"
         
         if args.stage in ["rlhf", "full"]:
             checkpoint_path = f"{args.output_dir}/sft_model.pt" if args.stage == "full" else None
-            trainer, _ = train_rlhf(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test)
+            trainer, _ = train_rlhf(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name)
             model = trainer.model
         
         if args.eval and model is not None:
@@ -482,7 +493,7 @@ def main():
                 # Type cast for type checker - this is safe because we've checked the attributes
                 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
                 enhanced_model: EnhancedDeepSeekModel = actual_model  # type: ignore
-                evaluate_model(enhanced_model, model_config, args.output_dir)
+                evaluate_model(enhanced_model, model_config, args.output_dir, tokenizer_name=args.tokenizer_name)
             else:
                 logger.warning("Model does not have required attributes for evaluation, skipping evaluation")
         
