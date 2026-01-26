@@ -53,6 +53,10 @@ class EnhancedMoETrainer:
         self.device = device
         self.use_enhanced_features = use_enhanced_features
         
+        if self.config.use_ring_attention:
+            self.model.config.use_ring_attention = True
+            self.model._replace_with_ring_attention(self.model.config, self.device)
+
         # Enhanced optimization managers
         if use_enhanced_features:
             # Expert specialization and monitoring

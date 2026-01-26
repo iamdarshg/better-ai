@@ -86,6 +86,21 @@ class ModelConfig:
     use_tool_heads: bool = True
     tool_vocab_size: int = 1000  # Number of tool tokens
     tool_hidden_dim: int = 192
+
+    # JSON+DBOps Head parameters
+    use_json_db_ops_head: bool = False
+    json_db_ops_ratio: float = 0.1
+    json_db_ops_internal_dim: int = 256
+
+    # Math Reasoning Head parameters
+    use_math_reasoning_head: bool = False
+    math_reasoning_ratio: float = 0.1
+    math_reasoning_internal_dim: int = 256
+
+    # Algorithm Head parameters
+    use_algorithm_head: bool = False
+    algorithm_ratio: float = 0.1
+    algorithm_internal_dim: int = 256
     
     # Grammar Constraint parameters
     use_grammar_constraints: bool = True
@@ -166,6 +181,9 @@ class TrainingConfig:
     # Pruning
     pruning_ratio: float = 0.1
     pruning_steps: Optional[List[int]] = None
+
+    # Ring Attention
+    use_ring_attention: bool = False
 
 @dataclass
 class InferenceConfig:

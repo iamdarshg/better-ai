@@ -33,11 +33,11 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 - [ ] Test dataset loading and preprocessing
 
 ### 1.5 Training Infrastructure Updates
-- [ ] Update trainer.py for new architecture
-- [ ] Add Ring Attention support to training loop
-- [ ] Update memory management for larger internal dimensions
-- [ ] Add distributed training setup for Ring Attention
-- [ ] Test basic training with new architecture
+- [x] Update trainer.py for new architecture
+- [x] Add Ring Attention support to training loop
+- [x] Update memory management for larger internal dimensions
+- [x] Add distributed training setup for Ring Attention
+- [x] Test basic training with new architecture
 
 ## Phase 2: RLHF Core Integration (2-3 weeks)
 
@@ -101,8 +101,8 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 
 ### 3.5 Specialising Attention Heads
 - [x] Implement specific attention heads for tool use
-- [ ] Implement specific attention heads for db-operations like SQL, redis and so on
-- [ ] Implement specific attention heads for math and algorithmic reasoning
+- [x] Implement specific attention heads for db-operations like SQL, redis and so on
+- [x] Implement specific attention heads for math and algorithmic reasoning
 
 ### 3.6 Syntactic Grammar Constraints (GBNF)
 - [x] Implement GBNF grammar enforcement at token level

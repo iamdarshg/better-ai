@@ -480,6 +480,20 @@ class ToolUseHeads(nn.Module):
         }
 
 
+class SpecializedHead(nn.Module):
+    def __init__(self, hidden_dim: int, internal_dim: int, ratio: float):
+        super().__init__()
+        self.ratio = ratio
+        self.head = nn.Sequential(
+            nn.Linear(hidden_dim, internal_dim),
+            nn.ReLU(),
+            nn.Linear(internal_dim, hidden_dim)
+        )
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        return self.head(hidden_states)
+
+
 class GBNFConstraint(nn.Module):
     """
     Grammar-based constraint enforcement using GBNF (GGML BNF)
