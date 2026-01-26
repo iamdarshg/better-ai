@@ -10,6 +10,7 @@ from transformers import AutoTokenizer
 import logging
 from itertools import islice
 import re
+from typing import Union, List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -110,25 +111,61 @@ class StreamingDataset(IterableDataset):
                     "rejected_attention_mask": rejected_encoding["attention_mask"].squeeze()
                 }
 
+
+class CombinedStreamingDataset(IterableDataset):
+    def __init__(self, dataset_configs, tokenizer, max_length=8192, split="train", streaming=True, data_format="text", languages=None):
+        self.datasets = [
+            StreamingDataset(
+                dataset_name=config['path'],
+                tokenizer=tokenizer,
+                max_length=config.get('max_seq_length', max_length),
+                split=config.get('split', split),
+                streaming=streaming,
+                data_format=config.get('data_format', data_format),
+                languages=config.get('languages', languages)
+            )
+            for config in dataset_configs
+        ]
+
+    def __iter__(self):
+        iterators = [iter(ds) for ds in self.datasets]
+        while iterators:
+            # Iterate over a copy of the list to allow safe removal
+            for it in list(iterators):
+                try:
+                    yield next(it)
+                except StopIteration:
+                    # This iterator is exhausted, remove it.
+                    iterators.remove(it)
+
+
 def create_dataloader(
-    dataset_config: dict,
+    dataset_config: Union[Dict[str, Any], List[Dict[str, Any]]],
     tokenizer,
     batch_size=8,
     split="train",
     streaming=True,
     num_workers=0,
 ):
-    """Create a dataloader for a streaming dataset from a configuration dictionary."""
+    """Create a dataloader from a single or multiple dataset configurations."""
 
-    dataset = StreamingDataset(
-        dataset_name=dataset_config['path'],
-        tokenizer=tokenizer,
-        max_length=dataset_config['max_seq_length'],
-        split=split,
-        streaming=streaming,
-        data_format=dataset_config.get('data_format', 'text'),
-        languages=dataset_config.get('languages')
-    )
+    if isinstance(dataset_config, list):
+        dataset = CombinedStreamingDataset(
+            dataset_configs=dataset_config,
+            tokenizer=tokenizer,
+            split=split,
+            streaming=streaming,
+        )
+    else:
+        dataset = StreamingDataset(
+            dataset_name=dataset_config['path'],
+            tokenizer=tokenizer,
+            max_length=dataset_config['max_seq_length'],
+            split=split,
+            streaming=streaming,
+            data_format=dataset_config.get('data_format', 'text'),
+            languages=dataset_config.get('languages')
+        )
 
     return DataLoader(
         dataset,
