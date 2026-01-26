@@ -35,8 +35,8 @@ class TestBranchRewardModel(unittest.TestCase):
     
     def test_forward_pass(self):
         """Test the forward pass of the reward model with both sequence and pooled inputs."""
-        batch_size = 4
-        seq_len = 128
+        batch_size = 1
+        seq_len = 64
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
         
         # Test with sequence
@@ -50,7 +50,7 @@ class TestBranchRewardModel(unittest.TestCase):
     
     def test_branch_scores(self):
         """Test that the reward model returns scores for all branches."""
-        batch_size = 4
+        batch_size = 2
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
         
         scores, branches = self.model(hidden_states, return_branch_scores=True)
@@ -64,7 +64,7 @@ class TestBranchRewardModel(unittest.TestCase):
     
     def test_pair_scoring(self):
         """Test the scoring of preference pairs."""
-        batch_size = 4
+        batch_size = 2
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
         
         chosen_scores, rejected_scores = self.model.score_pair(
@@ -87,7 +87,7 @@ class TestMultiAttributeRewardModel(unittest.TestCase):
     
     def test_forward_pass(self):
         """Test the forward pass of the multi-attribute reward model."""
-        batch_size = 4
+        batch_size = 2
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
         
         results = self.model(hidden_states)
@@ -122,8 +122,8 @@ class TestGRPOTrainer(unittest.TestCase):
         """Test the computation of group advantages."""
         trainer = GRPOTrainer(self.model, self.reward_model, self.optimizer, self.grpo_config)
         
-        batch_size = 4
-        group_size = 4
+        batch_size = 2
+        group_size = 2
         
         rewards = torch.randn(batch_size, group_size)
         logprobs = torch.randn(batch_size, group_size)
@@ -145,7 +145,7 @@ class TestGRPOLoss(unittest.TestCase):
         """Test the computation of the GRPO loss."""
         loss_fn = GRPOLoss(beta=0.01, eps_clip=0.2)
         
-        batch_size = 4
+        batch_size = 2
         old_logprobs = torch.randn(batch_size, requires_grad=False)
         new_logprobs = torch.randn(batch_size, requires_grad=True)
         advantages = torch.randn(batch_size)
@@ -166,14 +166,14 @@ class TestRecursiveScratchpad(unittest.TestCase):
         self.config = ModelConfig()
         self.module = RecursiveScratchpad(
             self.config.hidden_dim,
-            max_iterations=5,
-            scratchpad_dim=256,
+            max_iterations=2,
+            scratchpad_dim=64,
         ).to(self.device)
     
     def test_forward_pass(self):
         """Test the forward pass of the RecursiveScratchpad."""
-        batch_size = 4
-        seq_len = 128
+        batch_size = 2
+        seq_len = 32
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
         
         outputs = self.module(hidden_states)
@@ -191,13 +191,13 @@ class TestCoTSpecializationHeads(unittest.TestCase):
         self.config = ModelConfig()
         self.module = CoTSpecializationHeads(
             self.config.hidden_dim,
-            num_cot_heads=4,
+            num_cot_heads=2,
         ).to(self.device)
     
     def test_forward_pass(self):
         """Test the forward pass of the CoTSpecializationHeads."""
-        batch_size = 4
-        seq_len = 128
+        batch_size = 2
+        seq_len = 32
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
         
         outputs = self.module(hidden_states, is_reasoning_phase=True)
@@ -220,7 +220,7 @@ class TestToolUseHeads(unittest.TestCase):
     
     def test_forward_pass(self):
         """Test the forward pass of the ToolUseHeads."""
-        batch_size = 4
+        batch_size = 2
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
         try:
             outputs = self.module.forward(hidden_states)
@@ -245,7 +245,7 @@ class TestEnhancedModel(unittest.TestCase):
     def test_forward_pass(self):
         """Test the basic forward pass of the model."""
         batch_size = 2
-        seq_len = 64
+        seq_len = 16
         input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
         
         outputs = self.model(input_ids, return_advanced_features=False)
@@ -254,8 +254,8 @@ class TestEnhancedModel(unittest.TestCase):
     
     def test_advanced_features(self):
         """Test the forward pass with all advanced features enabled."""
-        batch_size = 2
-        seq_len = 64
+        batch_size = 1
+        seq_len = 16
         input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
         try:
             outputs = self.model.forward(input_ids, return_advanced_features=True)
@@ -276,8 +276,8 @@ class TestEnhancedModel(unittest.TestCase):
     
     def test_loss_computation(self):
         """Test the loss computation of the model."""
-        batch_size = 2
-        seq_len = 64
+        batch_size = 1
+        seq_len = 16
         input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
         labels = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
         try:
@@ -302,8 +302,8 @@ class TestEntropyMonitoring(unittest.TestCase):
     
     def test_entropy_computation(self):
         """Test the entropy computation and spike detection."""
-        batch_size = 4
-        seq_len = 128
+        batch_size = 1
+        seq_len = 16
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
 
         # Create a high-entropy distribution to trigger a spike

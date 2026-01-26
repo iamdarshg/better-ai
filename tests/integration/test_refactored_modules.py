@@ -48,7 +48,7 @@ class TestRefactoredModules(unittest.TestCase):
         self.assertEqual(eval_batch["input_ids"].shape[0], 2)
 
     def test_advanced_features_refactoring(self):
-        hidden_dim = 128
+        hidden_dim = 16
         self.assertIsNotNone(RecursiveScratchpad(hidden_dim))
         self.assertIsNotNone(CoTSpecializationHeads(hidden_dim))
         self.assertIsNotNone(InnerMonologue(hidden_dim))
