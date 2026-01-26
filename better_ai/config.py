@@ -13,10 +13,10 @@ class ModelConfig:
     
     # Architecture parameters
     vocab_size: int = 64000  # Increased for better coding coverage
-    hidden_dim: int = 8096  # Increased for better representation
+    hidden_dim: int = 8192  # Increased for better representation
     num_layers: int = 32  # Reduced for efficiency
-    num_attention_heads: int = 48  # Increased proportionally
-    num_key_value_heads: Optional[int] = 24  # For GQA, maintain 2:1 ratio
+    num_attention_heads: int = 64  # Increased proportionally
+    num_key_value_heads: Optional[int] = 32  # For GQA, maintain 2:1 ratio
     intermediate_dim: int = 768  # 4x hidden_dim for SwiGLU
     max_seq_length: int = 262144  # Increased with Ring Attention
     

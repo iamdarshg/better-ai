@@ -18,3 +18,4 @@ __all__ = [
     "JSONEnforcer",
     "EntropicSteering",
 ]
+SpecializedHead = CoTSpecializationHeads

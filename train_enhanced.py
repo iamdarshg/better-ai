@@ -491,6 +491,7 @@ def main():
     parser.add_argument("--test", action="store_true", help="Run with mock data for testing infrastructure")
     parser.add_argument("--tokenizer-name", default="microsoft/CodeGPT-small-py", help="The name of the tokenizer to use.")
     parser.add_argument("--languages", default="python,c,rust,cpp,python,java,javascript,go", help="A comma-separated list of languages to use for filtering the datasets.")
+    parser.add_argument("--use-ring-attention", default=True, action="store_true", help="Enable Ring Attention mechanism in the model.")
 
     args = parser.parse_args()
     
