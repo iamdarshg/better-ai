@@ -42,7 +42,7 @@ datasets:
     stage: "pretraining"
     split: "train"
     max_seq_length: 8192
-    num_training_steps: 50000
+    num_training_steps: 70000
 
   - name: "learn-rust"
     type: "huggingface"
@@ -80,6 +80,14 @@ datasets:
     max_seq_length: 16384
     num_training_steps: 50000
 
+  - name: "OpenMathInstruct"
+    type: "huggingface"
+    path: "nvidia/OpenMathInstruct-1"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 16384
+    num_training_steps: 50000
+
   - name: "opencodeinstruct"
     type: "huggingface"
     path: "HuggingFaceH4/OpenCodeInstruct"
@@ -93,7 +101,7 @@ datasets:
     path: "codeparrot/apps"
     stage: "sft"
     split: "train"
-    max_seq_length: 16384
+    max_seq_length: 32768
     num_training_steps: 25000
 
   - name: "bigcodebench"
@@ -109,7 +117,7 @@ datasets:
     path: "bigcode/stackoverflow-data"
     stage: "sft"
     split: "train"
-    max_seq_length: 16384
+    max_seq_length: 65536
     num_training_steps: 40000
 
   - name: "secure-code-v2"
@@ -142,6 +150,14 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 4096
+    num_training_steps: 25000
+  
+  - name: "Deepseek-Distilled"
+    type: "huggingface"
+    path: "ibndias/DeepSeek-Distilled-40M"
+    stage: "sft"
+    split: "train"
+    max_seq_length: 131072
     num_training_steps: 25000
 
   # -----------------------------------------------------------------------------
@@ -195,6 +211,14 @@ datasets:
     split: "train_prefs"
     max_seq_length: 16384
     num_training_steps: 10000
+  
+  - name: "thumbs-up"
+    type: "huggingface"
+    path: "recmeapp/thumbs-up"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 16384
+    num_training_steps: 5000
 
   # Evaluation Datasets (kept from original config)
   - name: "swe-bench"

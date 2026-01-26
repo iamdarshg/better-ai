@@ -26,11 +26,11 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 - [x] Test Ring Attention with multi-GPU setup
 
 ### 1.4 Dataset Integration Foundation
-- [ ] Add dataset loading utilities for all specified datasets
-- [ ] Create base dataset classes for Stack v2, Magicoder, Code-Feedback
-- [ ] Implement data preprocessing pipelines
-- [ ] Add dataset configuration management
-- [ ] Test dataset loading and preprocessing
+- [x] Add dataset loading utilities for all specified datasets
+- [x] Create base dataset classes for Stack v2, Magicoder, Code-Feedback
+- [x] Implement data preprocessing pipelines
+- [x] Add dataset configuration management
+- [x] Test dataset loading and preprocessing
 
 ### 1.5 Training Infrastructure Updates
 - [ ] Update trainer.py for new architecture
