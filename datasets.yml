@@ -9,16 +9,8 @@ datasets:
     path: "bigcode/the-stack-v2-dedup"
     stage: "pretraining"
     split: "train"
-    max_seq_length: 8192
-    num_training_steps: 100000
-
-  - name: "nemotron-code-v2"
-    type: "huggingface"
-    path: "nvidia/Nemotron-Pretraining-Code-v2"
-    stage: "pretraining"
-    split: "train"
-    max_seq_length: 8192
-    num_training_steps: 100000
+    max_seq_length: 4096
+    num_training_steps: 20000
 
   - name: "codesearchnet"
     type: "huggingface"
@@ -26,7 +18,7 @@ datasets:
     stage: "pretraining"
     split: "train"
     max_seq_length: 8192
-    num_training_steps: 50000
+    num_training_steps: 10000
 
   - name: "taco-algorithms"
     type: "huggingface"
@@ -34,15 +26,15 @@ datasets:
     stage: "pretraining"
     split: "train"
     max_seq_length: 8192
-    num_training_steps: 30000
+    num_training_steps: 6000
 
   - name: "github-code"
     type: "huggingface"
     path: "codeparrot/github-code"
     stage: "pretraining"
     split: "train"
-    max_seq_length: 8192
-    num_training_steps: 70000
+    max_seq_length: 16384
+    num_training_steps: 14000
 
   - name: "learn-rust"
     type: "huggingface"
@@ -50,7 +42,7 @@ datasets:
     stage: "pretraining"
     split: "train"
     max_seq_length: 8192
-    num_training_steps: 20000
+    num_training_steps: 4000
 
   - name: "the-vault"
     type: "huggingface"
@@ -58,7 +50,7 @@ datasets:
     stage: "pretraining"
     split: "train"
     max_seq_length: 8192
-    num_training_steps: 30000
+    num_training_steps: 6000
 
   - name: "jupyter-code-text"
     type: "huggingface"
@@ -66,7 +58,7 @@ datasets:
     stage: "pretraining"
     split: "train"
     max_seq_length: 8192
-    num_training_steps: 20000
+    num_training_steps: 4000
 
   # -----------------------------------------------------------------------------
   # SFT STAGE (Supervised Fine-Tuning)
@@ -78,7 +70,7 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 16384
-    num_training_steps: 50000
+    num_training_steps: 10000
 
   - name: "OpenMathInstruct"
     type: "huggingface"
@@ -86,7 +78,7 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 16384
-    num_training_steps: 50000
+    num_training_steps: 10000
 
   - name: "opencodeinstruct"
     type: "huggingface"
@@ -94,7 +86,7 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 16384
-    num_training_steps: 50000
+    num_training_steps: 10000
 
   - name: "apps-filtered"
     type: "huggingface"
@@ -102,7 +94,7 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 32768
-    num_training_steps: 25000
+    num_training_steps: 5000
 
   - name: "bigcodebench"
     type: "huggingface"
@@ -110,7 +102,7 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 16384
-    num_training_steps: 10000
+    num_training_steps: 2000
 
   - name: "stackoverflow-data"
     type: "huggingface"
@@ -118,7 +110,7 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 65536
-    num_training_steps: 40000
+    num_training_steps: 8000
 
   - name: "secure-code-v2"
     type: "huggingface"
@@ -126,7 +118,7 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 16384
-    num_training_steps: 10000
+    num_training_steps: 2000
 
   - name: "agent-tool-use"
     type: "huggingface"
@@ -134,7 +126,7 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 16384
-    num_training_steps: 20000
+    num_training_steps: 4000
 
   - name: "code-doc-pairs"
     type: "huggingface"
@@ -142,15 +134,15 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 4096
-    num_training_steps: 20000
+    num_training_steps: 4000
 
   - name: "self-oss-instruct"
     type: "huggingface"
     path: "bigcode/self-oss-instruct-sc2-exec-filter-50k"
     stage: "sft"
     split: "train"
-    max_seq_length: 4096
-    num_training_steps: 25000
+    max_seq_length: 16384
+    num_training_steps: 2500
   
   - name: "Deepseek-Distilled"
     type: "huggingface"
@@ -158,7 +150,7 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 131072
-    num_training_steps: 25000
+    num_training_steps: 7500
 
   # -----------------------------------------------------------------------------
   # RLHF / PREFERENCE STAGE
@@ -170,7 +162,7 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 12288
-    num_training_steps: 25000
+    num_training_steps: 7500
 
   - name: "ultrafeedback-curated"
     type: "huggingface"
@@ -178,7 +170,7 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 12288
-    num_training_steps: 25000
+    num_training_steps: 7500
 
   - name: "stackoverflow-preferences"
     type: "huggingface"
@@ -186,7 +178,7 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 12288
-    num_training_steps: 15000
+    num_training_steps: 5000
 
   - name: "agentic-dpo"
     type: "huggingface"
@@ -194,7 +186,7 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 8096
-    num_training_steps: 15000
+    num_training_steps: 5000
 
   - name: "helpsteer-code"
     type: "huggingface"
@@ -202,23 +194,23 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 8096
-    num_training_steps: 10000
+    num_training_steps: 4000
 
   - name: "github-issues-rlhf"
     type: "huggingface"
     path: "bigcode/github-issues"
     stage: "rlhf"
     split: "train_prefs"
-    max_seq_length: 16384
-    num_training_steps: 10000
+    max_seq_length: 65536
+    num_training_steps: 8000
   
   - name: "thumbs-up"
     type: "huggingface"
     path: "recmeapp/thumbs-up"
     stage: "rlhf"
     split: "train_prefs"
-    max_seq_length: 16384
-    num_training_steps: 5000
+    max_seq_length: 4096
+    num_training_steps: 750
 
   # Evaluation Datasets (kept from original config)
   - name: "swe-bench"
@@ -226,11 +218,12 @@ datasets:
     path: "princeton-nlp/swe-bench"
     stage: "eval"
     split: "test"
-    max_seq_length: 4096
+    max_seq_length: 8096
     num_training_steps: 0
   - name: "humaneval"
     type: "huggingface"
     path: "openai/humaneval"
     stage: "eval"
     split: "test"
-    max_seq_length: 4096
+    max_seq_length: 131072
+  
