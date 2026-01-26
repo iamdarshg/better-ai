@@ -55,7 +55,7 @@ def train_pretraining(
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
-    languages: str = "python,c,cpp,java,javascript,go,rust",
+    languages: str = "python,c,rust,cpp,python,java,javascript,go",
 ):
     """
     Stage 1: Pretraining on Stack v2 dataset
@@ -158,7 +158,7 @@ def train_sft(
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
-    languages: str = "python,c,cpp,java,javascript,go,rust",
+    languages: str = "python,c,rust,cpp,python,java,javascript,go",
 ):
     """
     Stage 2: Supervised Fine-Tuning on Magicoder + Code-Feedback
@@ -260,7 +260,7 @@ def train_rlhf(
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
-    languages: str = "python,c,cpp,java,javascript,go,rust",
+    languages: str = "python,c,rust,cpp,python,java,javascript,go",
 ):
     """
     Stage 3: RLHF training with GRPO
@@ -363,7 +363,7 @@ def evaluate_model(
     model_config: ModelConfig,
     output_dir: str = "./checkpoints",
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
-    languages: str = "python,c,cpp,java,javascript,go,rust",
+    languages: str = "python,c,rust,cpp,python,java,javascript,go",
 ):
     """
     Evaluate trained model
@@ -489,7 +489,7 @@ def main():
     parser.add_argument("--eval", action="store_true", help="Run evaluation after training")
     parser.add_argument("--test", action="store_true", help="Run with mock data for testing infrastructure")
     parser.add_argument("--tokenizer-name", default="microsoft/CodeGPT-small-py", help="The name of the tokenizer to use.")
-    parser.add_argument("--languages", default="python,c,cpp,java,javascript,go,rust", help="A comma-separated list of languages to use for filtering the datasets.")
+    parser.add_argument("--languages", default="python,c,rust,cpp,python,java,javascript,go", help="A comma-separated list of languages to use for filtering the datasets.")
 
     args = parser.parse_args()
     
