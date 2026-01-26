@@ -7,9 +7,9 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 
 ### 1.1 Repository Cleanup
 - [x] Create detailed todo.md with all subtasks
-- [ ] Remove redundant files (pycache, locks, old checkpoints/logs, test scripts)
-- [ ] Split large files into smaller modules
-- [ ] Verify repository structure after cleanup
+- [x] Remove redundant files (pycache, locks, old checkpoints/logs, test scripts)
+- [x] Split large files into smaller modules
+- [x] Verify repository structure after cleanup
 
 ### 1.2 Model Architecture Updates
 - [x] Update model config to maintain/increase internal dimensions
@@ -26,11 +26,11 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 - [x] Test Ring Attention with multi-GPU setup
 
 ### 1.4 Dataset Integration Foundation
-- [ ] Add dataset loading utilities for all specified datasets
-- [ ] Create base dataset classes for Stack v2, Magicoder, Code-Feedback
-- [ ] Implement data preprocessing pipelines
-- [ ] Add dataset configuration management
-- [ ] Test dataset loading and preprocessing
+- [x] Add dataset loading utilities for all specified datasets
+- [x] Create base dataset classes for Stack v2, Magicoder, Code-Feedback
+- [x] Implement data preprocessing pipelines
+- [x] Add dataset configuration management
+- [x] Test dataset loading and preprocessing
 
 ### 1.5 Training Infrastructure Updates
 - [x] Update trainer.py for new architecture
