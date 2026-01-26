@@ -156,21 +156,6 @@ datasets:
   # RLHF / PREFERENCE STAGE
   # Alignment data for preference optimization (DPO/ORPO).
   # -----------------------------------------------------------------------------
-  - name: "ultrafeedback-binarized"
-    type: "huggingface"
-    path: "argilla/ultrafeedback-binarized-preferences-cleaned"
-    stage: "rlhf"
-    split: "train_prefs"
-    max_seq_length: 12288
-    num_training_steps: 7500
-
-  - name: "ultrafeedback-curated"
-    type: "huggingface"
-    path: "argilla/ultrafeedback-curated"
-    stage: "rlhf"
-    split: "train_prefs"
-    max_seq_length: 12288
-    num_training_steps: 7500
 
   - name: "agentic-dpo"
     type: "huggingface"
@@ -180,12 +165,20 @@ datasets:
     max_seq_length: 8096
     num_training_steps: 5000
 
+  - name: "ultrafeedback-binarized"
+    type: "huggingface"
+    path: "argilla/ultrafeedback-binarized-preferences-cleaned"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 12288
+    num_training_steps: 7500
+
   - name: "helpsteer-code"
     type: "huggingface"
     path: "HelpSteer/code"
     stage: "rlhf"
     split: "train_prefs"
-    max_seq_length: 8096
+    max_seq_length: 32768
     num_training_steps: 4000
 
   - name: "stackoverflow-preferences"
@@ -195,14 +188,6 @@ datasets:
     split: "train_prefs"
     max_seq_length: 65536
     num_training_steps: 10000
-
-  - name: "github-issues-rlhf"
-    type: "huggingface"
-    path: "bigcode/github-issues"
-    stage: "rlhf"
-    split: "train_prefs"
-    max_seq_length: 131072
-    num_training_steps: 10000
   
   - name: "thumbs-up"
     type: "huggingface"
@@ -211,6 +196,22 @@ datasets:
     split: "train_prefs"
     max_seq_length: 4096
     num_training_steps: 750
+
+  - name: "github-issues-rlhf"
+    type: "huggingface"
+    path: "bigcode/github-issues"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 131072
+    num_training_steps: 50000
+
+  - name: "ultrafeedback-curated"
+    type: "huggingface"
+    path: "argilla/ultrafeedback-curated"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 262144
+    num_training_steps: 100000
 
   # Evaluation Datasets (kept from original config)
   - name: "swe-bench"
