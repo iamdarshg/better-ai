@@ -518,3 +518,17 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
     - Integrating the formal verification system with the RLHF training loop.
     - Ensuring the formal verification system is used correctly and does not introduce any performance overhead.
 - **Effort**: 2-3 weeks
+
+### 7.21 Integration of features
+- **Description**: Implement all new features and optimisations into a single, new model class and use it to replace the model currently in enhanced_training. 
+- **Steps**:
+    - [ ] Write a new model class that coherently implements all optimisations and mew fatrues into its inference, training
+    - [ ] Modify train_enhanced to use rhis new model class and associated new features 
+    - [ ] Creation if the associated integration tests
+- **Challenges**:
+    - Integration of many different features in an optimised manner
+    - Using new features in the intended manner and choosing their sizes and config parameters
+    - No errors during runtime, pytorch.compile actually optimising the training and inference loops
+- **Effort**: 5-7 days
+
+## Phase 8- Inference optimisations, api compatibility layers and maybe RAG
