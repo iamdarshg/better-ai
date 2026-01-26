@@ -7,9 +7,9 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 
 ### 1.1 Repository Cleanup
 - [x] Create detailed todo.md with all subtasks
-- [ ] Remove redundant files (pycache, locks, old checkpoints/logs, test scripts)
-- [ ] Split large files into smaller modules
-- [ ] Verify repository structure after cleanup
+- [x] Remove redundant files (pycache, locks, old checkpoints/logs, test scripts)
+- [x] Split large files into smaller modules
+- [x] Verify repository structure after cleanup
 
 ### 1.2 Model Architecture Updates
 - [x] Update model config to maintain/increase internal dimensions
