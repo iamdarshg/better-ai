@@ -93,24 +93,20 @@ def train_pretraining(
         # This is a simplified approach. A more advanced implementation would
         # handle dataset mixing and sampling.
 
-        # For now, we'll just use the first pretraining dataset
-        dataset_config = pretraining_datasets[0]
-
-        logger.info(f"Using dataset: {dataset_config['name']}")
-
-        training_config.max_steps = dataset_config['num_training_steps']
+        training_config.max_steps = sum(d['num_training_steps'] for d in pretraining_datasets)
 
         train_dataloader = create_dataloader(
-            dataset_config,
+            pretraining_datasets,
             tokenizer=tokenizer,
             split="train",
             batch_size=training_config.batch_size,
         )
         
+        eval_datasets = load_datasets_by_stage('eval')
         eval_dataloader = create_dataloader(
-            dataset_config,
+            eval_datasets,
             tokenizer=tokenizer,
-            split="validation",
+            split="test",
             batch_size=training_config.batch_size * 2,
         )
     
@@ -200,24 +196,20 @@ def train_sft(
         logger.info("Loading SFT datasets...")
         sft_datasets = load_datasets_by_stage('sft')
 
-        # Using the first SFT dataset
-        dataset_config = sft_datasets[0]
-
-        logger.info(f"Using dataset: {dataset_config['name']}")
-
-        training_config.max_steps = dataset_config['num_training_steps']
+        training_config.max_steps = sum(d['num_training_steps'] for d in sft_datasets)
 
         train_dataloader = create_dataloader(
-            dataset_config,
+            sft_datasets,
             tokenizer=tokenizer,
             split="train",
             batch_size=training_config.batch_size,
         )
         
+        eval_datasets = load_datasets_by_stage('eval')
         eval_dataloader = create_dataloader(
-            dataset_config,
+            eval_datasets,
             tokenizer=tokenizer,
-            split="validation",
+            split="test",
             batch_size=training_config.batch_size * 2,
         )
     
@@ -306,15 +298,10 @@ def train_rlhf(
         logger.info("Loading RLHF datasets...")
         rlhf_datasets = load_datasets_by_stage('rlhf')
 
-        # Using the first RLHF dataset
-        dataset_config = rlhf_datasets[0]
-
-        logger.info(f"Using dataset: {dataset_config['name']}")
-
-        training_config.max_steps = dataset_config['num_training_steps']
+        training_config.max_steps = sum(d['num_training_steps'] for d in rlhf_datasets)
 
         train_dataloader = create_dataloader(
-            dataset_config,
+            rlhf_datasets,
             tokenizer=tokenizer,
             split="train",
             batch_size=training_config.batch_size,
