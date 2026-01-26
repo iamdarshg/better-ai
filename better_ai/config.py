@@ -13,15 +13,15 @@ class ModelConfig:
     
     # Architecture parameters
     vocab_size: int = 64000  # Increased for better coding coverage
-    hidden_dim: int = 8096  # Increased for better representation
-    num_layers: int = 32  # Reduced for efficiency
-    num_attention_heads: int = 48  # Increased proportionally
-    num_key_value_heads: Optional[int] = 24  # For GQA, maintain 2:1 ratio
+    hidden_dim: int = 1024  # Increased for better representation
+    num_layers: int = 12  # Reduced for efficiency
+    num_attention_heads: int = 32  # Increased proportionally
+    num_key_value_heads: Optional[int] = 16  # For GQA, maintain 2:1 ratio
     intermediate_dim: int = 768  # 4x hidden_dim for SwiGLU
-    max_seq_length: int = 262144  # Increased with Ring Attention
+    max_seq_length: int = 2048  # Increased with Ring Attention
     
     # MoE parameters
-    num_experts: int = 18  # Reduced for efficiency
+    num_experts: int = 16  # Reduced for efficiency
     num_experts_per_token: int = 2
     expert_capacity_factor: float = 1.25
     shared_experts: int = 1
@@ -51,8 +51,8 @@ class ModelConfig:
     
     # Sparse attention
     use_sparse_attention: bool = True
-    local_window_size: int = 8192
-    global_stride: int = 1024
+    local_window_size: int = 1024
+    global_stride: int = 512
     
     # Memory optimization
     use_gradient_checkpointing: bool = True
@@ -61,7 +61,7 @@ class ModelConfig:
     
     # Ring Attention parameters
     use_ring_attention: bool = True
-    ring_block_size: int = 1024
+    ring_block_size: int = 2048
     ring_num_devices: Optional[int] = None  # Auto-detect
     
     # Linear Attention parameters
@@ -86,6 +86,21 @@ class ModelConfig:
     use_tool_heads: bool = True
     tool_vocab_size: int = 1000  # Number of tool tokens
     tool_hidden_dim: int = 192
+
+    # JSON+DBOps Head parameters
+    use_json_db_ops_head: bool = False
+    json_db_ops_ratio: float = 0.1
+    json_db_ops_internal_dim: int = 256
+
+    # Math Reasoning Head parameters
+    use_math_reasoning_head: bool = False
+    math_reasoning_ratio: float = 0.1
+    math_reasoning_internal_dim: int = 256
+
+    # Algorithm Head parameters
+    use_algorithm_head: bool = False
+    algorithm_ratio: float = 0.1
+    algorithm_internal_dim: int = 256
     
     # Grammar Constraint parameters
     use_grammar_constraints: bool = True
@@ -111,7 +126,7 @@ class TrainingConfig:
     gradient_accumulation_steps: int = 4
     learning_rate: float = 1e-4
     warmup_steps: int = 1
-    max_steps: int = 1000000
+    max_steps: int = 100000
     save_steps: int = 10
     eval_steps: int = 1000
     
@@ -166,6 +181,9 @@ class TrainingConfig:
     # Pruning
     pruning_ratio: float = 0.1
     pruning_steps: Optional[List[int]] = None
+
+    # Ring Attention
+    use_ring_attention: bool = False
 
 @dataclass
 class InferenceConfig:
