@@ -37,7 +37,7 @@ jobs:
 
     - name: Run Integration Tests
       run: |
-        python -m unittest tests.integration.test_rlhf_components
+        python -m unittest discover tests/integration
 
     - name: Run All Unit Tests
       run: |
