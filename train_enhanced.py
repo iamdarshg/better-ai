@@ -74,7 +74,7 @@ def train_pretraining(
 
     # Create tokenizer
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    special_tokens = ["[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
+    special_tokens = ["[CONTEXT]", "[/CONTEXT]", "[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
     tokenizer.add_tokens(special_tokens)
     model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
@@ -181,7 +181,7 @@ def train_sft(
 
     # Create tokenizer
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    special_tokens = ["[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
+    special_tokens = ["[CONTEXT]", "[/CONTEXT]", "[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
     tokenizer.add_tokens(special_tokens)
     model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
@@ -283,7 +283,7 @@ def train_rlhf(
 
     # Create tokenizer
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    special_tokens = ["[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
+    special_tokens = ["[CONTEXT]", "[/CONTEXT]", "[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
     tokenizer.add_tokens(special_tokens)
     model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
@@ -376,7 +376,7 @@ def evaluate_model(
 
     # Create tokenizer
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-    special_tokens = ["[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
+    special_tokens = ["[CONTEXT]", "[/CONTEXT]", "[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
     tokenizer.add_tokens(special_tokens)
     model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
