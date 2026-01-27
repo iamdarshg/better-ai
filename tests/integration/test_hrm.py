@@ -3,10 +3,11 @@ import torch
 import unittest
 from better_ai.models.reward_model import HierarchicalRewardModel
 from better_ai.config import ModelConfig
+from tests.test_config_utils import get_small_model_config
 
 class TestHierarchicalRewardModel(unittest.TestCase):
     def test_forward_pass(self):
-        config = ModelConfig()
+        config = get_small_model_config()
         model = HierarchicalRewardModel(config)
         hidden_states = torch.randn(1, 10, config.hidden_dim)
         attention_mask = torch.ones(1, 10)
@@ -14,7 +15,7 @@ class TestHierarchicalRewardModel(unittest.TestCase):
         self.assertEqual(reward.shape, (1,))
 
     def test_loss_computation(self):
-        config = ModelConfig()
+        config = get_small_model_config()
         model = HierarchicalRewardModel(config)
         chosen_rewards = torch.randn(4)
         rejected_rewards = torch.randn(4)

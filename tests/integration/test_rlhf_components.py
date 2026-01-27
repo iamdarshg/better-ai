@@ -23,6 +23,7 @@ from better_ai.models.advanced_features import (
     JSONEnforcer,
     EntropicSteering,
 )
+from tests.test_config_utils import get_small_model_config
 
 class TestBranchRewardModel(unittest.TestCase):
     """Integration tests for the BranchRewardModel."""
@@ -30,7 +31,7 @@ class TestBranchRewardModel(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
         self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.config = get_small_model_config()
         self.model = BranchRewardModel(self.config).to(self.device)
     
     def test_forward_pass(self):
@@ -82,7 +83,7 @@ class TestMultiAttributeRewardModel(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
         self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.config = get_small_model_config()
         self.model = MultiAttributeRewardModel(self.config, num_attributes=5).to(self.device)
     
     def test_forward_pass(self):
@@ -106,7 +107,7 @@ class TestGRPOTrainer(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
         self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.config = get_small_model_config()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
         self.reward_model = BranchRewardModel(self.config).to(self.device)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-4)
@@ -163,7 +164,7 @@ class TestRecursiveScratchpad(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
         self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.config = get_small_model_config()
         self.module = RecursiveScratchpad(
             self.config.hidden_dim,
             max_iterations=2,
@@ -188,7 +189,7 @@ class TestCoTSpecializationHeads(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
         self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.config = get_small_model_config()
         self.module = CoTSpecializationHeads(
             self.config.hidden_dim,
             num_cot_heads=2,
@@ -212,7 +213,7 @@ class TestToolUseHeads(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
         self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.config = get_small_model_config()
         self.module = ToolUseHeads(
             self.config.hidden_dim,
             tool_vocab_size=self.config.tool_vocab_size
@@ -239,7 +240,7 @@ class TestEnhancedModel(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
         self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.config = get_small_model_config()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
     
     def test_forward_pass(self):
@@ -297,7 +298,7 @@ class TestEntropyMonitoring(unittest.TestCase):
     def setUp(self):
         """Set up the test environment."""
         self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.config = get_small_model_config()
         self.module = EntropicSteering(self.config.hidden_dim).to(self.device)
     
     def test_entropy_computation(self):
