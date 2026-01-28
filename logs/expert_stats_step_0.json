@@ -1,8 +1,8 @@
 {
   "step": 0,
-  "timestamp": 1769625254.855922,
+  "timestamp": 1769627177.217539,
   "training_metrics": {
-    "recent_loss": 5.596682548522949,
+    "recent_loss": 5.7128705978393555,
     "recent_aux_loss": 0.0,
     "current_lr": 0.0001,
     "recent_gradient_norm": 0.0,
