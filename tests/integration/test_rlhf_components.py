@@ -9,7 +9,7 @@ import unittest
 import sys
 import subprocess
 sys.path.append(".")
-from better_ai.config import ModelConfig
+from better_ai.config import ModelConfig, TrainingConfig
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.models.reward_model import BranchRewardModel, MultiAttributeRewardModel
 from better_ai.training.grpo import GRPOTrainer, GRPOLoss
@@ -316,60 +316,3 @@ class TestEntropyMonitoring(unittest.TestCase):
         self.assertEqual(outputs["spike_detected"].shape, (batch_size, seq_len))
         self.assertTrue(outputs["spike_detected"].any(), "No entropy spike was detected")
 
-
-
-def run_tests():
-    """Run all tests"""
-    import re
-    
-    with open("better_ai/config.py", "r") as f:
-        config_code = f.read()
-    
-    # Define scaling ratios for test mode (much smaller for CI)
-    scaling_rules = {
-        r'hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'hidden_dim: int = {max(32, int(m.group(1)) // 64)}',
-        r'num_layers:\s*int\s*=\s*(\d+)': lambda m: f'num_layers: int = {max(1, int(m.group(1)) // 60)}',
-        r'num_attention_heads:\s*int\s*=\s*(\d+)': lambda m: f'num_attention_heads: int = {max(1, int(m.group(1)) // 8)}',
-        r'num_key_value_heads:\s*Optional\[int\]\s*=\s*(\d+)': lambda m: f'num_key_value_heads: Optional[int] = {max(1, int(m.group(1)) // 8)}',
-        r'intermediate_dim:\s*int\s*=\s*(\d+)': lambda m: f'intermediate_dim: int = {max(32, int(m.group(1)) // 48)}',
-        r'vocab_size:\s*int\s*=\s*(\d+)': lambda m: f'vocab_size: int = {max(256, int(m.group(1)) // 100)}',
-        r'max_seq_length:\s*int\s*=\s*(\d+)': lambda m: f'max_seq_length: int = {max(32, int(m.group(1)) // 256)}',
-        r'cot_num_heads:\s*int\s*=\s*(\d+)': lambda m: f'cot_num_heads: int = {max(1, int(m.group(1)) // 12)}',
-        r'tool_vocab_size:\s*int\s*=\s*(\d+)': lambda m: f'tool_vocab_size: int = {max(32, int(m.group(1)) // 50)}',
-        r'tool_hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'tool_hidden_dim: int = {max(32, int(m.group(1)) // 24)}',
-        r'scratchpad_hidden_dim:\s*int\s*=\s*(\d+)': lambda m: f'scratchpad_hidden_dim: int = {max(32, int(m.group(1)) // 64)}',
-        r'warmup_steps:\s*int\s*=\s*(\d+)': lambda m: f'warmup_steps: int = {max(1, int(m.group(1)) // 10000)}',
-        r'max_steps:\s*int\s*=\s*(\d+)': lambda m: f'max_steps: int = {max(1, int(m.group(1)) // 5000)}',
-        r'save_steps:\s*int\s*=\s*(\d+)': lambda m: f'save_steps: int = {max(1, int(m.group(1)) // 1000)}',
-        r'eval_steps:\s*int\s*=\s*(\d+)': lambda m: f'eval_steps: int = {max(1, int(m.group(1)) // 1000)}',
-    }
-    
-    # Apply all scaling rules dynamically
-    scaled_config = config_code
-    for pattern, replacement_fn in scaling_rules.items():
-        scaled_config = re.sub(pattern, replacement_fn, scaled_config)
-    
-    with open("better_ai/config.py", "w") as f:
-        f.write(scaled_config)
-    
-    try:
-        unittest.main(argv=['--locals'], exit=False, verbosity=2)
-        with open("better_ai/config.py", "w") as f:
-            f.write(config_code)
-    except Exception as e:
-        with open("better_ai/config.py", "w") as f:
-            f.write(config_code)
-        raise e
-    except SystemExit as e:
-        with open("better_ai/config.py", "w") as f:
-            f.write(config_code)
-        if e.code != 0:
-            raise e
-    except KeyboardInterrupt:
-        with open("better_ai/config.py", "w") as f:
-            f.write(config_code)
-        raise KeyboardInterrupt
-
-
-if __name__ == "__main__":
-    run_tests()

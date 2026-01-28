@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import time
 import os
+import logging
 from typing import Dict, List, Optional, Any, Union, Tuple
 from collections import deque
 import json
@@ -18,6 +19,8 @@ from .trainer_utils.rl import rl_forward_pass
 from .trainer_utils.data import process_batch
 from .trainer_utils.optimization import handle_gradients_and_optimize, update_optimization_managers
 from .trainer_utils.callbacks import _should_log_step, _should_early_stop, _enhanced_logging, _get_final_results, save_checkpoint, load_checkpoint
+
+logger = logging.getLogger(__name__)
 
 
 class EnhancedMoETrainer:
@@ -54,8 +57,14 @@ class EnhancedMoETrainer:
         self.use_enhanced_features = use_enhanced_features
         
         if self.config.use_ring_attention:
-            self.model.config.use_ring_attention = True
-            self.model._replace_with_ring_attention(self.model.config, self.device)
+            # Ensure model has config attribute
+            if hasattr(self.model, 'config'):
+                self.model.config.use_ring_attention = True
+            if hasattr(self.model, '_replace_with_ring_attention'):
+                try:
+                    self.model._replace_with_ring_attention(self.model.config, self.device)
+                except Exception as e:
+                    logger.warning(f"Failed to replace with ring attention: {e}")
 
         # Enhanced optimization managers
         if use_enhanced_features:
@@ -157,18 +166,37 @@ class EnhancedMoETrainer:
 
     def _enhanced_forward_pass(self, batch: Dict[str, Any]) -> tuple:
         """Enhanced forward pass with attention selection and RLHF"""
-
+        
+        # Debug logging for batch validation
+        logger.debug(f"Processing batch with keys: {list(batch.keys())}")
+        
         if 'chosen' in batch and 'rejected' in batch:
              input_ids = batch['chosen_input_ids']
              labels = batch['chosen_labels']
              batch['input_ids'] = input_ids
              batch['labels'] = labels
+             logger.debug(f"RLHF batch: input_ids shape {input_ids.shape if input_ids is not None else 'None'}")
         elif 'prompt' in batch and 'response' in batch:
+            logger.debug("RLHF batch detected, using RL forward pass")
             return self._rl_forward_pass(batch)
 
         input_ids = batch.get('input_ids')
         if input_ids is not None:
-            seq_length = input_ids.size(1) if len(input_ids.shape) > 1 else input_ids.size(0)
+            # Validate input_ids shape
+            if len(input_ids.shape) != 2:
+                logger.error(f"Invalid input_ids shape: {input_ids.shape}, expected 2D tensor")
+                raise ValueError(f"Invalid input_ids shape: {input_ids.shape}")
+            
+            seq_length = input_ids.size(1)
+            batch_size = input_ids.size(0)
+            
+            logger.debug(f"Batch size: {batch_size}, Sequence length: {seq_length}")
+            
+            # Validate sequence length
+            if seq_length <= 0:
+                logger.error(f"Invalid sequence length: {seq_length}")
+                raise ValueError(f"Invalid sequence length: {seq_length}")
+            
             memory_usage = torch.cuda.memory_allocated() / torch.cuda.get_device_properties(0).total_memory if torch.cuda.is_available() else 0
 
             if self.use_enhanced_features:
@@ -176,11 +204,22 @@ class EnhancedMoETrainer:
                     seq_length=seq_length,
                     memory_usage=memory_usage
                 )
-                print(f"🧠 Attention Type: {attention_type.upper()} (seq_len={seq_length}, mem={memory_usage:.2f})")
+                logger.info(f"🧠 Attention Type: {attention_type.upper()} (seq_len={seq_length}, mem={memory_usage:.2f})")
 
         model_batch = {k: v for k, v in batch.items() if k not in ['labels', 'pixel_values', 'label_ids']}
 
-        outputs = self.model(**model_batch)
+        # Debug logging for model batch
+        logger.debug(f"Model batch keys: {list(model_batch.keys())}")
+        for key, value in model_batch.items():
+            if hasattr(value, 'shape'):
+                logger.debug(f"  {key}: {value.shape}")
+
+        try:
+            outputs = self.model(**model_batch)
+        except Exception as e:
+            logger.error(f"Model forward pass failed: {e}")
+            logger.error(f"Model batch: {model_batch}")
+            raise
 
         if isinstance(outputs, dict):
             loss = outputs.get('loss', torch.tensor(0.0, device=self.device))
@@ -201,7 +240,22 @@ class EnhancedMoETrainer:
                     ignore_index=-100
                 )
 
+        logger.debug(f"Forward pass completed: loss={loss.item():.4f}, aux_loss={aux_loss.item():.4f}")
         return loss, aux_loss, expert_ids
+
+    def _calculate_expert_utilization(self, expert_ids):
+        """Calculate expert utilization for coherence scheduler"""
+        if expert_ids is None:
+            return 0.5  # Default utilization
+        
+        try:
+            if hasattr(expert_ids, 'numel'):
+                total_experts = expert_ids.numel()
+                unique_experts = expert_ids.unique().numel()
+                return unique_experts / max(total_experts, 1)
+            return 0.5
+        except:
+            return 0.5
 
     def train(self, ) -> Dict[str, Any]:
         """Enhanced training loop with all optimizations"""
@@ -213,7 +267,7 @@ class EnhancedMoETrainer:
             
             # Start TUI
             self.training_ui.start_training_ui(
-                total_steps=getattr(self.config, 'max_steps', 10000)
+                total_steps=getattr(self.config, 'max_steps', 10)
             )
         
         try:
