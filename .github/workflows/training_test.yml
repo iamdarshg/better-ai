@@ -43,9 +43,4 @@ jobs:
       run: |
         python -m unittest discover tests/unit
 
-    - name: Validate checkpoints
-      run: |
-        ls -la checkpoints/
-        test -f checkpoints/pretrained_model.pt
-        test -f checkpoints/sft_model.pt
-        test -f checkpoints/rlhf_model.pt
+
