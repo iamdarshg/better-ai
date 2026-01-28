@@ -140,7 +140,7 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 - [ ] Test Ring Attention scaling
 
 ### 3.4 Think In Diffusion,, Output using transofrmers
-- [ ] Add an experimental module that acts as a seperate MoE model also operating on the scratchpad, that then feeds into a seperate, much smaller transformer to cnvert its ouput into the desired format which then goes onto the scratchpad, which is then reprocessed by the larger transformer model and is outputted base on the fomrat of the larger tarnsformer.
+- [x] Add an experimental module that acts as a seperate MoE model also operating on the scratchpad, that then feeds into a seperate, much smaller transformer to cnvert its ouput into the desired format which then goes onto the scratchpad, which is then reprocessed by the larger transformer model and is outputted base on the fomrat of the larger tarnsformer.
 
 ## Phase 4: Training Pipeline Integration (1-2 weeks)
 
@@ -184,7 +184,7 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 ### 5.3 Memory & Compute Optimization
 - [ ] Profile memory usage with larger internal dimensions
 - [ ] Optimize compute for increased vocabulary
-- [ ] Add memory-efficient Ring Attention variants
+- [x] Add memory-efficient Ring Attention variants
 - [ ] Implement gradient checkpointing optimizations
 - [ ] Test optimization effectiveness
 
