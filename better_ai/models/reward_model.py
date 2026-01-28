@@ -199,7 +199,9 @@ class MultiAttributeRewardModel(nn.Module):
             "efficiency", 
             "readability",
             "robustness",
-            "creativity"
+            "creativity",
+            "format",
+            "reasoning_soundness"
         ][:num_attributes]
     
     def _build_quantile_head(self, hidden_dim: int, num_quantiles: int) -> nn.Module:

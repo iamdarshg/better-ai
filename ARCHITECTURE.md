@@ -28,6 +28,7 @@ These architectural choices, combined with a suite of advanced reasoning feature
 │  │ • Inner Monologue       • STaR Bootstrapping        │   │
 │  │ • Tool-Use Heads        • GBNF Constraints          │   │
 │  │ • JSON Enforcement      • Entropic Steering         │   │
+│  │ • TiDAR Diffusion       • Striped Attention         │   │
 │  └─────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────┐   │

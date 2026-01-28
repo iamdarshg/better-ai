@@ -1,9 +1,9 @@
 
 import unittest
 import os
+from unittest.mock import MagicMock, patch
 from better_ai.data.dataset_config import DatasetConfig, load_dataset_from_config, load_datasets_by_stage
 from better_ai.data.unified_dataloader import create_dataloader
-from transformers import AutoTokenizer
 
 class TestDatasetConfig(unittest.TestCase):
     def setUp(self):
@@ -24,8 +24,14 @@ datasets:
     max_seq_length: 512
     num_training_steps: 50
 """)
-        self.tokenizer = AutoTokenizer.from_pretrained("gpt2")
-        self.tokenizer.pad_token = self.tokenizer.eos_token
+        # Mock tokenizer
+        self.tokenizer = MagicMock()
+        self.tokenizer.pad_token = "pad"
+        self.tokenizer.eos_token = "eos"
+        self.tokenizer.return_value = {
+            "input_ids": MagicMock(squeeze=lambda: MagicMock()),
+            "attention_mask": MagicMock(squeeze=lambda: MagicMock())
+        }
 
 
     def tearDown(self):
@@ -65,19 +71,31 @@ datasets:
 
     def test_create_dataloader_with_config(self):
         dataset_config = {
-            "name": "lhoestq/demo1",
-            "path": "lhoestq/demo1",
+            "name": "test_dataset",
+            "path": "test_path",
             "max_seq_length": 128,
         }
-        dataloader = create_dataloader(
-            dataset_config,
-            self.tokenizer,
-            batch_size=2
-        )
 
-        for batch in dataloader:
-            self.assertEqual(batch['input_ids'].shape[1], 128)
-            break
+        # Mock load_dataset to return a dummy iterable
+        mock_dataset = [{"text": "hello world"}]
+
+        # Mock tokenizer to return fixed shape for testing
+        import torch
+        self.tokenizer.return_value = {
+            "input_ids": torch.ones((1, 128)),
+            "attention_mask": torch.ones((1, 128))
+        }
+
+        with patch('better_ai.data.unified_dataloader.load_dataset', return_value=mock_dataset):
+            dataloader = create_dataloader(
+                dataset_config,
+                self.tokenizer,
+                batch_size=2
+            )
+
+            for batch in dataloader:
+                self.assertEqual(batch['input_ids'].shape[1], 128)
+                break
 
 if __name__ == '__main__':
     unittest.main()

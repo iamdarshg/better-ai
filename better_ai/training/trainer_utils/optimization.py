@@ -34,18 +34,26 @@ def handle_gradients_and_optimize(self) -> float:
 
 def update_optimization_managers(self, loss, aux_loss, grad_norm, expert_ids, batch, step_start_time):
     """Update all optimization managers with current step data"""
-    if not self.use_enhanced_features:
-        return
-
-    step_time = time.time() - step_start_time
-    memory_usage = torch.cuda.memory_allocated() / 1024**3 if torch.cuda.is_available() else 0
-    throughput = self._estimate_throughput(batch, step_time)
-    language_tokens = batch.get('language', [])
-
     # Convert tensors to python types for compatibility
     loss_val = loss.item() if hasattr(loss, 'item') else float(loss)
     aux_loss_val = aux_loss.item() if hasattr(aux_loss, 'item') else float(aux_loss)
     grad_norm_val = float(grad_norm) if isinstance(grad_norm, (int, float)) else (grad_norm.item() if hasattr(grad_norm, 'item') else 0.0)
+
+    step_time = time.time() - step_start_time
+    throughput = self._estimate_throughput(batch, step_time)
+
+    # Update basic metrics history regardless of enhanced features
+    self.metrics_history['loss'].append(loss_val)
+    self.metrics_history['aux_loss'].append(aux_loss_val)
+    self.metrics_history['learning_rate'].append(self._get_current_lr())
+    self.metrics_history['gradient_norm'].append(grad_norm_val)
+    self.metrics_history['throughput'].append(throughput)
+
+    if not self.use_enhanced_features:
+        return
+
+    memory_usage = torch.cuda.memory_allocated() / 1024**3 if torch.cuda.is_available() else 0
+    language_tokens = batch.get('language', [])
 
     # Update expert manager
     if expert_ids is not None:
@@ -139,13 +147,8 @@ def update_optimization_managers(self, loss, aux_loss, grad_norm, expert_ids, ba
                 # Fallback to dict
                 self.capacity_manager.update_expert_loads(expert_loads)
 
-    # Update metrics history
-    self.metrics_history['loss'].append(loss_val)
-    self.metrics_history['aux_loss'].append(aux_loss_val)
-    self.metrics_history['learning_rate'].append(self._get_current_lr())
-    self.metrics_history['gradient_norm'].append(grad_norm_val)
+    # Memory usage for enhanced features
     self.metrics_history['memory_usage'].append(memory_usage)
-    self.metrics_history['throughput'].append(throughput)
 
     if expert_ids is not None:
         expert_loads = self._calculate_expert_loads(expert_ids)
