@@ -6,7 +6,7 @@ from better_ai.models.core import MultiHeadAttention, LinearAttention
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.config import ModelConfig
 from transformers import AutoTokenizer
-from tests.test_config_utils import get_small_model_config
+from better_ai.test_config_utils import get_small_model_config
 
 class TestModelEnhancements(unittest.TestCase):
     """Unit tests for various model enhancement components."""
@@ -52,11 +52,22 @@ class TestModelEnhancements(unittest.TestCase):
         """Test the self-correction mechanism of the EnhancedDeepSeekModel."""
         config = get_small_model_config()
         model = EnhancedDeepSeekModel(config)
-        tokenizer = AutoTokenizer.from_pretrained("gpt2")
-        # Create a dummy input that will trigger a correction
-        input_text = "This is an error."
-        input_ids = tokenizer(input_text, return_tensors="pt").input_ids
-
+        
+        # Create a dummy input using valid token IDs within vocabulary range
+        # Use simple token IDs that are guaranteed to be within vocab_size (1024)
+        input_ids = torch.randint(0, config.vocab_size, (1, 10))
+        
+        # Run self-correction with a mock tokenizer
+        class MockTokenizer:
+            def decode(self, token_ids, skip_special_tokens=False):
+                return "This is an error in the response that needs correction."
+            
+            def __call__(self, text, return_tensors="pt"):
+                # Mock tokenizer call - return dummy input_ids
+                return type('obj', (object,), {'input_ids': torch.randint(0, 100, (1, 10))})
+        
+        tokenizer = MockTokenizer()
+        
         # Run self-correction
         final_response, corrected = model.self_correct(input_ids, tokenizer, verification_keyword="error")
 

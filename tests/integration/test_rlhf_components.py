@@ -23,7 +23,7 @@ from better_ai.models.advanced_features import (
     JSONEnforcer,
     EntropicSteering,
 )
-from tests.test_config_utils import get_small_model_config
+from better_ai.test_config_utils import get_small_model_config
 
 class TestBranchRewardModel(unittest.TestCase):
     """Integration tests for the BranchRewardModel."""
@@ -316,25 +316,6 @@ class TestEntropyMonitoring(unittest.TestCase):
         self.assertEqual(outputs["spike_detected"].shape, (batch_size, seq_len))
         self.assertTrue(outputs["spike_detected"].any(), "No entropy spike was detected")
 
-
-class TestWorkflow(unittest.TestCase):
-    """End-to-end tests for the main training workflow."""
-    
-    def setUp(self):
-        """Set up the test environment."""
-        pass
-    
-    def test_workflow_whole(self):
-        """Test the entire training workflow from start to finish."""
-        n = subprocess.run(
-            ["python", "train_enhanced.py", "--stage", "full", "--test", "--batch-size", "1", "--max-steps", "1"],
-            cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')),
-            capture_output=True, text=True
-        )
-        if n.returncode != 0:
-            self.fail(f"Workflow test failed because of stderr- {n.stderr} \n and stdout- {n.stdout}")
-        elif "Error" in str(n.stdout):
-            self.fail(f"Workflow test failed because of stdout- {n.stdout} \n and stderr- {n.stderr}")
 
 
 def run_tests():

@@ -92,8 +92,8 @@ class EnhancedDeepSeekModel(nn.Module):
         
         if config.use_json_db_ops_head:
             self.json_db_ops_head = SpecializedHead(
-                config.hidden_dim,
-                internal_dim=config.json_db_ops_internal_dim,
+                hidden_dim=config.hidden_dim,
+                cot_hidden_dim=config.json_db_ops_internal_dim,
                 ratio=config.json_db_ops_ratio
             )
 

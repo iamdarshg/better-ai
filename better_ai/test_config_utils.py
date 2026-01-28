@@ -17,13 +17,13 @@ def get_small_model_config():
     """
     return ModelConfig(
         # Architecture parameters - reduced 32-64x
-        vocab_size=2048,  # 64000 -> 2048
-        hidden_dim=256,   # 8192 -> 256
+        vocab_size=1024,  # 64000 -> 1024 (increased from 128 to prevent index errors)
+        hidden_dim=48,   # 8192 -> 256
         num_layers=2,     # 32 -> 2
-        num_attention_heads=8,  # 64 -> 8
-        num_key_value_heads=4,  # 32 -> 4
+        num_attention_heads=6,  # 64 -> 8
+        num_key_value_heads=2,  # 32 -> 4
         intermediate_dim=24,    # 768 -> 24 (4x hidden_dim)
-        max_seq_length=2048,    # 262144 -> 2048
+        max_seq_length=128,    # 262144 -> 2048
         
         # MoE parameters - reduced
         num_experts=4,  # 18 -> 4
@@ -60,9 +60,9 @@ def get_small_model_config():
         global_stride=32,  # 1024 -> 32
         
         # Memory optimization
-        use_gradient_checkpointing=False,  # Disable for testing
+        use_gradient_checkpointing=True,  # Disable for testing
         use_flash_attention=True,  # Keep same
-        use_paged_attention=False,  # Disable for testing
+        use_paged_attention=True,  # Disable for testing
         
         # Ring Attention parameters
         use_ring_attention=False,  # Disable for testing
@@ -74,8 +74,8 @@ def get_small_model_config():
         
         # CoT Specialization parameters
         use_cot_specialization=False,  # Disable for faster testing
-        cot_num_heads=8,  # 64 -> 8
-        cot_hidden_dim=24,  # 768 -> 24
+        cot_num_heads=2,  # 64 -> 8
+        cot_hidden_dim=8,  # 768 -> 24
         
         # Inner Monologue parameters
         use_inner_monologue=False,  # Disable for faster testing
@@ -89,7 +89,7 @@ def get_small_model_config():
         
         # Tool-Use parameters
         use_tool_heads=False,  # Disable for faster testing
-        tool_vocab_size=100,  # 1000 -> 100
+        tool_vocab_size=10,  # 1000 -> 100
         tool_hidden_dim=24,  # 192 -> 24
         
         # JSON+DBOps Head parameters

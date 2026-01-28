@@ -7,6 +7,7 @@ from .features.tool_use import ToolUseHeads
 from .features.gbnf_constraint import GBNFConstraint
 from .features.json_enforcer import JSONEnforcer
 from .features.entropic_steering import EntropicSteering
+from .features.specialized_head import SpecializedHead
 
 __all__ = [
     "RecursiveScratchpad",
@@ -17,5 +18,5 @@ __all__ = [
     "GBNFConstraint",
     "JSONEnforcer",
     "EntropicSteering",
+    "SpecializedHead",
 ]
-SpecializedHead = CoTSpecializationHeads

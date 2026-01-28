@@ -522,7 +522,7 @@ def main():
         model = None
         
         if args.stage in ["pretrain", "full"]:
-            trainer, _ = train_pretraining(model_config, training_config, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name, languages=args.languages, use_ring_attention=args.use_ring_attention)
+            trainer, _ = train_pretraining(model_config, training_config, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name, languages=args.languages)
             model = trainer.model
             checkpoint_path = f"{args.output_dir}/pretrained_model.pt"
         
