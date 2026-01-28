@@ -6,14 +6,15 @@ from better_ai.models.core import MultiHeadAttention, LinearAttention
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.config import ModelConfig
 from transformers import AutoTokenizer
+from better_ai.test_config_utils import get_small_model_config
 
 class TestModelEnhancements(unittest.TestCase):
     """Unit tests for various model enhancement components."""
 
     def test_multi_turn_reward_model(self):
         """Test the forward pass of the BranchRewardModel."""
-        config = ModelConfig()
-        model = BranchRewardModel(config, hidden_dim=512)
+        config = get_small_model_config()
+        model = BranchRewardModel(config, hidden_dim=256)
         hidden_states = torch.randn(1, 10, config.hidden_dim)
         attention_mask = torch.ones(1, 10)
         reward = model(hidden_states, attention_mask)
@@ -21,7 +22,7 @@ class TestModelEnhancements(unittest.TestCase):
 
     def test_pre_moe_router(self):
         """Test the ExpertRouter's output shapes."""
-        router = ExpertRouter(hidden_size=512, num_experts=8, pre_router_dim=128)
+        router = ExpertRouter(hidden_size=256, num_experts=4, pre_router_dim=64)
         hidden_states = torch.randn(1, 10, 512)
         routing_weights, selected_experts, router_logits = router(hidden_states)
         self.assertEqual(routing_weights.shape, (1, 10, 2))
@@ -30,32 +31,43 @@ class TestModelEnhancements(unittest.TestCase):
     def test_hybrid_attention(self):
         """Test both RoPE and NoPE attention mechanisms."""
         # Test with RoPE
-        attention_rope = MultiHeadAttention(hidden_size=512, num_heads=8, num_key_value_heads=4, head_dim=64, use_nope=False)
-        hidden_states = torch.randn(1, 10, 512)
+        attention_rope = MultiHeadAttention(hidden_size=256, num_heads=8, num_key_value_heads=4, head_dim=32, use_nope=False)
+        hidden_states = torch.randn(1, 10, 256)
         output_rope, _, _ = attention_rope(hidden_states)
-        self.assertEqual(output_rope.shape, (1, 10, 512))
+        self.assertEqual(output_rope.shape, (1, 10, 256))
 
         # Test with NoPE
-        attention_nope = MultiHeadAttention(hidden_size=512, num_heads=8, num_key_value_heads=4, head_dim=64, use_nope=True)
+        attention_nope = MultiHeadAttention(hidden_size=256, num_heads=8, num_key_value_heads=4, head_dim=32, use_nope=True)
         output_nope, _, _ = attention_nope(hidden_states)
-        self.assertEqual(output_nope.shape, (1, 10, 512))
+        self.assertEqual(output_nope.shape, (1, 10, 256))
 
     def test_qk_normalization(self):
         """Test the forward pass of MultiHeadAttention with QK normalization."""
-        attention = MultiHeadAttention(hidden_size=512, num_heads=8, num_key_value_heads=4, head_dim=64)
-        hidden_states = torch.randn(1, 10, 512)
+        attention = MultiHeadAttention(hidden_size=256, num_heads=8, num_key_value_heads=4, head_dim=32)
+        hidden_states = torch.randn(1, 10, 256)
         output, _, _ = attention(hidden_states)
-        self.assertEqual(output.shape, (1, 10, 512))
+        self.assertEqual(output.shape, (1, 10, 256))
 
     def test_self_correction(self):
         """Test the self-correction mechanism of the EnhancedDeepSeekModel."""
-        config = ModelConfig()
+        config = get_small_model_config()
         model = EnhancedDeepSeekModel(config)
-        tokenizer = AutoTokenizer.from_pretrained("gpt2")
-        # Create a dummy input that will trigger a correction
-        input_text = "This is an error."
-        input_ids = tokenizer(input_text, return_tensors="pt").input_ids
-
+        
+        # Create a dummy input using valid token IDs within vocabulary range
+        # Use simple token IDs that are guaranteed to be within vocab_size (1024)
+        input_ids = torch.randint(0, config.vocab_size, (1, 10))
+        
+        # Run self-correction with a mock tokenizer
+        class MockTokenizer:
+            def decode(self, token_ids, skip_special_tokens=False):
+                return "This is an error in the response that needs correction."
+            
+            def __call__(self, text, return_tensors="pt"):
+                # Mock tokenizer call - return dummy input_ids
+                return type('obj', (object,), {'input_ids': torch.randint(0, 100, (1, 10))})
+        
+        tokenizer = MockTokenizer()
+        
         # Run self-correction
         final_response, corrected = model.self_correct(input_ids, tokenizer, verification_keyword="error")
 
@@ -66,7 +78,9 @@ class TestModelEnhancements(unittest.TestCase):
 
     def test_linear_attention(self):
         """Test the integration and forward pass of the LinearAttention module."""
-        config = ModelConfig(use_linear_attention=True, use_ring_attention=False)
+        config = get_small_model_config()
+        config.use_linear_attention = True
+        config.use_ring_attention = False
         model = EnhancedDeepSeekModel(config)
 
         # Check if the attention layer is replaced

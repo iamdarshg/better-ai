@@ -10,7 +10,7 @@ class CoTSpecializationHeads(nn.Module):
     Prevents reasoning token pollution in final outputs
     """
 
-    def __init__(self, hidden_dim: int, num_cot_heads: int = 4, cot_hidden_dim: int = 384):
+    def __init__(self, hidden_dim: int, num_cot_heads: int = 6, cot_hidden_dim: int = 384):
         super().__init__()
 
         self.hidden_dim = hidden_dim

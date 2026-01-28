@@ -50,23 +50,21 @@ class ExpertRouter(nn.Module):
         self.hidden_size = hidden_size
         self.num_experts = num_experts
         self.num_experts_per_token = num_experts_per_token
+        self.pre_router_dim = pre_router_dim
+        self.router_bias = router_bias
+        self.router_dtype = router_dtype
         
-        if pre_router_dim:
-            self.pre_router_net = nn.Sequential(
-                nn.Linear(hidden_size, pre_router_dim),
-                nn.ReLU(),
-                nn.Linear(pre_router_dim, hidden_size)
-            )
-        else:
-            self.pre_router_net = nn.Identity()
-
-        # Router projection
+        # Initialize router projection - this will be updated in forward if needed
         self.router_linear = nn.Linear(
             hidden_size,
             num_experts,
             bias=router_bias,
             dtype=router_dtype
         )
+        
+        # Pre-router network will be created dynamically in forward pass
+        self.pre_router_net = None
+        self._input_dim = None
     
     def forward(
         self, 
@@ -74,6 +72,11 @@ class ExpertRouter(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         
         batch_size, sequence_length, hidden_dim = hidden_states.shape
+        
+        # Dynamic pre-router network creation based on actual input dimension
+        if self.pre_router_net is None or self._input_dim != hidden_dim:
+            self._create_pre_router_network(hidden_dim)
+            self._input_dim = hidden_dim
         
         # Pre-router processing
         hidden_states = self.pre_router_net(hidden_states)
@@ -95,6 +98,27 @@ class ExpertRouter(nn.Module):
         routing_weights = routing_weights / routing_weights.sum(dim=-1, keepdim=True)
         
         return routing_weights, selected_experts, router_logits
+    
+    def _create_pre_router_network(self, input_dim: int):
+        """Create or update the pre-router network based on input dimension"""
+        if self.pre_router_dim is None:
+            # Use identity if no pre-router dimension specified
+            self.pre_router_net = nn.Identity()
+        else:
+            # Create adaptive pre-router network
+            self.pre_router_net = nn.Sequential(
+                nn.Linear(input_dim, self.pre_router_dim),
+                nn.ReLU(),
+                nn.Linear(self.pre_router_dim, input_dim)
+            )
+        
+        # Also update the router linear layer to match the input dimension
+        self.router_linear = nn.Linear(
+            input_dim,
+            self.num_experts,
+            bias=self.router_bias,
+            dtype=self.router_dtype
+        )
 
 
 class MoELayer(nn.Module):
