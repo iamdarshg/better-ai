@@ -1,5 +1,5 @@
 {
-  "timestamp": 1769617469.8377879,
+  "timestamp": 1769625254.9454052,
   "scheduler_config": {
     "base_lr": 0.0001,
     "min_lr": 1e-06,
@@ -15,12 +15,12 @@
       0.001
     ],
     "total_adjustments": 0,
-    "step_count": 0,
+    "step_count": 4,
     "coherence_metrics": {
-      "current": 0.0,
-      "stability": 0.0,
-      "specialization": 0.0,
-      "convergence": 0.0,
+      "current": 0.5,
+      "stability": 0.5,
+      "specialization": 0.5,
+      "convergence": 0.5,
       "trends": {
         "loss": 0.0,
         "expert_util": 0.0,
@@ -30,7 +30,7 @@
     "training_phase": {
       "current": "WARMUP",
       "durations": {
-        "WARMUP": 0,
+        "WARMUP": 4,
         "TRAINING": 0,
         "STABILIZING": 0,
         "FINE_TUNING": 0
@@ -39,10 +39,10 @@
     "recommendations": {
       "reduce_lr": false,
       "increase_lr": false,
-      "adjust_expert_capacity": true,
+      "adjust_expert_capacity": false,
       "change_attention_mechanism": false,
       "early_stop": false,
-      "change_batch_size": true
+      "change_batch_size": false
     }
   },
   "adjustment_history": [],

@@ -61,6 +61,7 @@ class ModelConfig:
     
     # Ring Attention parameters
     use_ring_attention: bool = True
+    use_striped_attention: bool = True
     ring_block_size: int = 1024
     ring_num_devices: Optional[int] = None  # Auto-detect
     max_seq_length: int = 32  # Reduced from 262144 for training stability
@@ -117,6 +118,12 @@ class ModelConfig:
     use_recursive_scratchpad: bool = True
     scratchpad_max_iterations: int = 8
     scratchpad_hidden_dim: int = 32
+
+    # TiDAR parameters
+    use_tidar: bool = True
+    tidar_num_steps: int = 5
+    tidar_diffusion_dim: int = 128
+    tidar_num_layers: int = 2
 
 @dataclass
 class TrainingConfig:
@@ -178,6 +185,12 @@ class TrainingConfig:
     # Monitoring
     profile_memory: bool = True
     profile_time: bool = True
+
+    # RLHF
+    rl_stage: int = 1  # 1 for standard reward, 2 for multi-attribute
+
+    # Testing
+    use_mock_data: bool = False
 
     # Pruning
     pruning_ratio: float = 0.1

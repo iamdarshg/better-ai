@@ -352,3 +352,92 @@ class RotaryEmbedding(nn.Module):
         x_rot = torch.cat([x_rot_real, x_rot_imag], dim=-1)
         
         return x_rot
+
+
+class StripedAttention(RingAttention):
+    """
+    Striped Attention: A faster variant of Ring Attention for causal models.
+    Distributes tokens uniformly throughout the sequence (interleaved) to balance
+    the triangular causal computation workload across devices.
+    """
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        past_key_value: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+        output_attentions: bool = False
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]], Optional[torch.Tensor]]:
+
+        batch_size, seq_len, _ = hidden_states.shape
+
+        # If single device, Striped Attention is equivalent to standard attention
+        if self.world_size <= 1:
+            return super().forward(
+                hidden_states, attention_mask, past_key_value, use_cache, output_attentions
+            )
+
+        # Striping: device i processes tokens [i, i+world_size, i+2*world_size, ...]
+        # This implementation simulates the logic by reordering tokens
+
+        # 1. Reorder hidden states for striped processing
+        indices = torch.arange(seq_len, device=hidden_states.device)
+        striped_indices = []
+        for i in range(self.world_size):
+            striped_indices.append(indices[i::self.world_size])
+        striped_indices = torch.cat(striped_indices)
+
+        # Map original positions to striped positions
+        rev_indices = torch.zeros_like(indices)
+        rev_indices[striped_indices] = torch.arange(seq_len, device=hidden_states.device)
+
+        reordered_hidden = hidden_states[:, striped_indices, :]
+
+        # 2. Run standard Ring Attention on reordered states
+        # Note: We need to ensure RoPE uses original position indices!
+        # Our RotaryEmbedding uses seq_len which might be wrong if we just pass reordered_hidden.
+        # So we project and apply RoPE BEFORE reordering.
+
+        # Project to Q, K, V
+        query_states = self.q_proj(hidden_states)
+        key_states = self.k_proj(hidden_states)
+        value_states = self.v_proj(hidden_states)
+
+        # Reshape
+        query_states = query_states.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = value_states.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+
+        # Apply RoPE on ORIGINAL positions
+        query_states, key_states = self.rotary_emb(query_states, key_states)
+
+        # Reorder AFTER RoPE
+        query_states = query_states[:, :, striped_indices, :]
+        key_states = key_states[:, :, striped_indices, :]
+        value_states = value_states[:, :, striped_indices, :]
+
+        # Expand KV heads
+        if self.num_key_value_heads != self.num_heads:
+            key_states = self.repeat_kv(key_states, self.num_heads // self.num_key_value_heads)
+            value_states = self.repeat_kv(value_states, self.num_heads // self.num_key_value_heads)
+
+        # 3. Distributed Ring forward pass
+        # Since we are simulating, we use the standard ring_attention_forward but it now
+        # operates on striped blocks.
+        attn_output, attn_weights = self.ring_attention_forward(
+            query_states, key_states, value_states, attention_mask
+        )
+
+        # 4. Un-stripe output
+        attn_output = attn_output[:, :, rev_indices, :]
+
+        # Reshape and project
+        attn_output = attn_output.transpose(1, 2).contiguous()
+        attn_output = attn_output.view(batch_size, seq_len, self.hidden_dim)
+        attn_output = self.o_proj(attn_output)
+        attn_output = self.output_dropout(attn_output)
+
+        past_key_value = (key_states, value_states) if use_cache else None
+
+        return attn_output, past_key_value, attn_weights

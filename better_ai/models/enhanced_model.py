@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, List, Tuple, Dict, Any
 from .core import DeepSeekModel, TransformerBlock, LinearAttention
-from .ring_attention import RingAttention
+from .ring_attention import RingAttention, StripedAttention
 from .reward_model import BranchRewardModel, MultiAttributeRewardModel
 from .advanced_features import (
     RecursiveScratchpad,
@@ -21,6 +21,7 @@ from .advanced_features import (
     JSONEnforcer,
     EntropicSteering,
 )
+from .tidar import TiDAR
 from ..config import ModelConfig
 from .generation import generate, compute_loss, self_correct
 
@@ -63,6 +64,14 @@ class EnhancedDeepSeekModel(nn.Module):
                 scratchpad_dim=config.scratchpad_hidden_dim,
             )
         
+        if config.use_tidar:
+            self.tidar = TiDAR(
+                hidden_dim=config.hidden_dim,
+                num_steps=config.tidar_num_steps,
+                diffusion_dim=config.tidar_diffusion_dim,
+                num_layers=config.tidar_num_layers
+            )
+
         if config.use_cot_specialization:
             self.cot_heads = CoTSpecializationHeads(
                 config.hidden_dim,
@@ -122,7 +131,7 @@ class EnhancedDeepSeekModel(nn.Module):
         
         # Reward models
         self.reward_model = BranchRewardModel(config, hidden_dim=512)
-        self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=5, num_quantiles=5)
+        self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=7, num_quantiles=5)
 
         # Value head for PPO
         self.value_head = nn.Linear(config.hidden_dim, 1, bias=False, device=device)
@@ -148,10 +157,12 @@ class EnhancedDeepSeekModel(nn.Module):
             layer.self_attn = linear_attn
     
     def _replace_with_ring_attention(self, config: ModelConfig, device: Optional[torch.device] = None):
-        """Replace standard attention with Ring Attention"""
+        """Replace standard attention with Ring Attention or Striped Attention"""
+        attn_class = StripedAttention if config.use_striped_attention else RingAttention
+
         for i, layer in enumerate(self.model.layers):
             # Create Ring Attention module
-            ring_attn = RingAttention(
+            ring_attn = attn_class(
                 hidden_dim=config.hidden_dim,
                 num_heads=config.num_attention_heads,
                 num_key_value_heads=config.num_key_value_heads,
@@ -223,6 +234,14 @@ class EnhancedDeepSeekModel(nn.Module):
             advanced_outputs["scratchpad"] = scratchpad_out
             hidden_states = scratchpad_out["scratchpad_output"]
         
+        # TiDAR (Think In Diffusion, Output using transformers)
+        if self.config.use_tidar:
+            # We use mean pooling for the prompt representation if not provided
+            prompt_repr = hidden_states.mean(dim=1)
+            tidar_out = self.tidar(hidden_states, prompt_repr)
+            advanced_outputs["tidar"] = tidar_out
+            hidden_states = tidar_out["refined_scratchpad"]
+
         # CoT Specialization
         if self.config.use_cot_specialization:
             cot_out = self.cot_heads(hidden_states, is_reasoning_phase=True)

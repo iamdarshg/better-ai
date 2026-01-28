@@ -164,12 +164,12 @@ class ExpertSpecializationManager:
             underutilized = (recent_loads < 0.5 * self.target_load_per_expert).nonzero(as_tuple=True)[0]
             overutilized = (recent_loads > 1.5 * self.target_load_per_expert).nonzero(as_tuple=True)[0]
             
-            recommendations['underutilized_experts'] = underutilized
-            recommendations['overutilized_experts'] = overutilized
+            recommendations['underutilized_experts'] = underutilized.tolist()
+            recommendations['overutilized_experts'] = overutilized.tolist()
         
         # Highly specialized experts
         highly_specialized = (self.expert_specialization_scores > self.specialization_threshold).nonzero(as_tuple=True)[0]
-        recommendations['specialized_experts'] = highly_specialized
+        recommendations['specialized_experts'] = highly_specialized.tolist()
         
         # Expert pairs that activate together
         if self.expert_activation_patterns.sum() > 0:
@@ -366,11 +366,11 @@ class MoETrainingMonitor:
             'step': step,
             'timestamp': time.time(),
             'training_metrics': {
-                'recent_loss': np.mean(list(self.training_metrics['loss'])[-20:]) if len(self.training_metrics['loss']) > 0 else 0,
-                'recent_aux_loss': np.mean(list(self.training_metrics['aux_loss'])[-20:]) if len(self.training_metrics['aux_loss']) > 0 else 0,
-                'current_lr': list(self.training_metrics['learning_rate'])[-1] if len(self.training_metrics['learning_rate']) > 0 else 0,
-                'recent_gradient_norm': np.mean(list(self.training_metrics['gradient_norm'])[-20:]) if len(self.training_metrics['gradient_norm']) > 0 else 0,
-                'memory_usage_gb': list(self.training_metrics['memory_usage'])[-1] if len(self.training_metrics['memory_usage']) > 0 else 0,
+                'recent_loss': float(np.mean(list(self.training_metrics['loss'])[-20:])) if len(self.training_metrics['loss']) > 0 else 0.0,
+                'recent_aux_loss': float(np.mean(list(self.training_metrics['aux_loss'])[-20:])) if len(self.training_metrics['aux_loss']) > 0 else 0.0,
+                'current_lr': float(list(self.training_metrics['learning_rate'])[-1]) if len(self.training_metrics['learning_rate']) > 0 else 0.0,
+                'recent_gradient_norm': float(np.mean(list(self.training_metrics['gradient_norm'])[-20:])) if len(self.training_metrics['gradient_norm']) > 0 else 0.0,
+                'memory_usage_gb': float(list(self.training_metrics['memory_usage'])[-1]) if len(self.training_metrics['memory_usage']) > 0 else 0.0,
             },
             'expert_stats': {
                 'specialization_scores': self.expert_manager.expert_specialization_scores.tolist(),

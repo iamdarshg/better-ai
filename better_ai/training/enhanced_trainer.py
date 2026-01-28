@@ -15,7 +15,7 @@ from .adaptive_optimizations import DynamicExpertCapacityManager, AdaptiveAttent
 from .coherence_scheduler import CoherenceBasedScheduler
 from .tui import MoETrainingTUI, ColoredText
 from .pruning import prune_expert_widths
-from .trainer_utils.rl import rl_forward_pass
+from .trainer_utils.rl import rl_forward_pass, rl_stage2_forward_pass
 from .trainer_utils.data import process_batch
 from .trainer_utils.optimization import handle_gradients_and_optimize, update_optimization_managers
 from .trainer_utils.callbacks import _should_log_step, _should_early_stop, _enhanced_logging, _get_final_results, save_checkpoint, load_checkpoint
@@ -154,6 +154,7 @@ class EnhancedMoETrainer:
         os.makedirs(self.save_dir, exist_ok=True)
     
     _rl_forward_pass = rl_forward_pass
+    _rl_stage2_forward_pass = rl_stage2_forward_pass
     _process_batch = process_batch
     _handle_gradients_and_optimize = handle_gradients_and_optimize
     _update_optimization_managers = update_optimization_managers
@@ -163,6 +164,35 @@ class EnhancedMoETrainer:
     _get_final_results = _get_final_results
     save_checkpoint = save_checkpoint
     load_checkpoint = load_checkpoint
+
+    def _estimate_throughput(self, batch, step_time):
+        """Estimate tokens per second"""
+        if 'input_ids' in batch:
+            num_tokens = batch['input_ids'].numel()
+        elif 'chosen_input_ids' in batch:
+            num_tokens = batch['chosen_input_ids'].numel() + batch['rejected_input_ids'].numel()
+        else:
+            num_tokens = 0
+        return num_tokens / step_time if step_time > 0 else 0
+
+    def _get_current_lr(self):
+        """Get current learning rate"""
+        if hasattr(self.optimizer, 'param_groups'):
+            return self.optimizer.param_groups[0]['lr']
+        return getattr(self.config, 'learning_rate', 1e-4)
+
+    def _calculate_expert_loads(self, expert_ids):
+        """Calculate load per expert"""
+        if expert_ids is None:
+            return {}
+        num_experts = getattr(self.config, 'num_experts', 8)
+        loads = {i: 0 for i in range(num_experts)}
+        if torch.is_tensor(expert_ids):
+            unique, counts = torch.unique(expert_ids, return_counts=True)
+            for u, c in zip(unique, counts):
+                if int(u) < num_experts:
+                    loads[int(u)] = int(c)
+        return loads
 
     def _enhanced_forward_pass(self, batch: Dict[str, Any]) -> tuple:
         """Enhanced forward pass with attention selection and RLHF"""
@@ -177,7 +207,9 @@ class EnhancedMoETrainer:
              batch['labels'] = labels
              logger.debug(f"RLHF batch: input_ids shape {input_ids.shape if input_ids is not None else 'None'}")
         elif 'prompt' in batch and 'response' in batch:
-            logger.debug("RLHF batch detected, using RL forward pass")
+            logger.debug(f"RLHF batch detected, using RL Stage {getattr(self.config, 'rl_stage', 1)} forward pass")
+            if getattr(self.config, 'rl_stage', 1) == 2:
+                return self._rl_stage2_forward_pass(batch)
             return self._rl_forward_pass(batch)
 
         input_ids = batch.get('input_ids')
