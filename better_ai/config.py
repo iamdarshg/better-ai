@@ -12,13 +12,13 @@ class ModelConfig:
     """Configuration for the transformer model"""
     
     # Architecture parameters
-    vocab_size: int = 64000  # Increased for better coding coverage
-    hidden_dim: int = 8096  # Increased for better representation
-    num_layers: int = 32  # Reduced for efficiency
-    num_attention_heads: int = 48  # Increased proportionally
-    num_key_value_heads: Optional[int] = 24  # For GQA, maintain 2:1 ratio
-    intermediate_dim: int = 768  # 4x hidden_dim for SwiGLU
-    max_seq_length: int = 262144  # Increased with Ring Attention
+    vocab_size: int = 640  # Increased for better coding coverage
+    hidden_dim: int = 128  # Increased for better representation
+    num_layers: int = 1  # Reduced for efficiency
+    num_attention_heads: int = 8  # Increased proportionally
+    num_key_value_heads: Optional[int] = 4  # For GQA, maintain 2:1 ratio
+    intermediate_dim: int = 32  # 4x hidden_dim for SwiGLU
+    max_seq_length: int = 1024  # Increased with Ring Attention
     
     # MoE parameters
     num_experts: int = 18  # Reduced for efficiency
@@ -63,14 +63,15 @@ class ModelConfig:
     use_ring_attention: bool = True
     ring_block_size: int = 1024
     ring_num_devices: Optional[int] = None  # Auto-detect
+    max_seq_length: int = 32  # Reduced from 262144 for training stability
     
     # Linear Attention parameters
     use_linear_attention: bool = False
 
     # CoT Specialization parameters
     use_cot_specialization: bool = True
-    cot_num_heads: int = 64
-    cot_hidden_dim: int = 768
+    cot_num_heads: int = 5
+    cot_hidden_dim: int = 32
     
     # Inner Monologue parameters
     use_inner_monologue: bool = True
@@ -84,8 +85,23 @@ class ModelConfig:
     
     # Tool-Use parameters
     use_tool_heads: bool = True
-    tool_vocab_size: int = 1000  # Number of tool tokens
-    tool_hidden_dim: int = 192
+    tool_vocab_size: int = 32  # Number of tool tokens
+    tool_hidden_dim: int = 32
+
+    # JSON+DBOps Head parameters
+    use_json_db_ops_head: bool = False
+    json_db_ops_ratio: float = 0.1
+    json_db_ops_internal_dim: int = 256
+
+    # Math Reasoning Head parameters
+    use_math_reasoning_head: bool = False
+    math_reasoning_ratio: float = 0.1
+    math_reasoning_internal_dim: int = 256
+
+    # Algorithm Head parameters
+    use_algorithm_head: bool = False
+    algorithm_ratio: float = 0.1
+    algorithm_internal_dim: int = 256
     
     # Grammar Constraint parameters
     use_grammar_constraints: bool = True
@@ -100,7 +116,7 @@ class ModelConfig:
     # Recursive Scratchpad parameters
     use_recursive_scratchpad: bool = True
     scratchpad_max_iterations: int = 8
-    scratchpad_hidden_dim: int = 8192
+    scratchpad_hidden_dim: int = 32
 
 @dataclass
 class TrainingConfig:
@@ -111,9 +127,9 @@ class TrainingConfig:
     gradient_accumulation_steps: int = 4
     learning_rate: float = 1e-4
     warmup_steps: int = 1
-    max_steps: int = 1000000
-    save_steps: int = 10
-    eval_steps: int = 1000
+    max_steps: int = 100
+    save_steps: int = 1
+    eval_steps: int = 1
     
     # Optimizer
     optimizer: str = "adamw"  # "adamw", "lion", "adafactor"
@@ -136,7 +152,7 @@ class TrainingConfig:
     # Data
     data_path: str = "./data"
     tokenizer_path: Optional[str] = None
-    max_seq_length: int = 8192
+    max_seq_length: int = 1024
     shuffle_buffer_size: int = 10000
     
     # Logging
@@ -167,6 +183,9 @@ class TrainingConfig:
     pruning_ratio: float = 0.1
     pruning_steps: Optional[List[int]] = None
 
+    # Ring Attention
+    use_ring_attention: bool = False
+
 @dataclass
 class InferenceConfig:
     """Configuration for inference"""
@@ -187,7 +206,7 @@ class InferenceConfig:
     
     # Memory
     max_batch_size: int = 32
-    max_seq_length: int = 8192
+    max_seq_length: int = 1024
     cache_size: Optional[int] = None
     
     # Quantization
@@ -199,4 +218,4 @@ class InferenceConfig:
     # Serving
     serve_port: int = 8080
     serve_host: str = "0.0.0.0"
-    max_concurrent_requests: int = 10
+    max_concurrent_requests: int =  10

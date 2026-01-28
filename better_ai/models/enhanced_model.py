@@ -16,6 +16,7 @@ from .advanced_features import (
     InnerMonologue,
     STaRModule,
     ToolUseHeads,
+    SpecializedHead,
     GBNFConstraint,
     JSONEnforcer,
     EntropicSteering,
@@ -89,6 +90,27 @@ class EnhancedDeepSeekModel(nn.Module):
                 tool_hidden_dim=config.tool_hidden_dim,
             )
         
+        if config.use_json_db_ops_head:
+            self.json_db_ops_head = SpecializedHead(
+                hidden_dim=config.hidden_dim,
+                cot_hidden_dim=config.json_db_ops_internal_dim,
+                ratio=config.json_db_ops_ratio
+            )
+
+        if config.use_math_reasoning_head:
+            self.math_reasoning_head = SpecializedHead(
+                config.hidden_dim,
+                internal_dim=config.math_reasoning_internal_dim,
+                ratio=config.math_reasoning_ratio
+            )
+
+        if config.use_algorithm_head:
+            self.algorithm_head = SpecializedHead(
+                config.hidden_dim,
+                internal_dim=config.algorithm_internal_dim,
+                ratio=config.algorithm_ratio
+            )
+
         if config.use_grammar_constraints:
             self.gbnf_constraint = GBNFConstraint(config.hidden_dim, grammar_type=config.grammar_type)
         
@@ -229,6 +251,26 @@ class EnhancedDeepSeekModel(nn.Module):
             tool_out = self.tool_heads(hidden_states)
             advanced_outputs["tool_use"] = tool_out
         
+        # Specialized Heads
+        specialized_outputs = []
+        if self.config.use_json_db_ops_head:
+            json_db_ops_out = self.json_db_ops_head(hidden_states)
+            specialized_outputs.append(json_db_ops_out * self.json_db_ops_head.ratio)
+            advanced_outputs["json_db_ops_head"] = json_db_ops_out
+
+        if self.config.use_math_reasoning_head:
+            math_reasoning_out = self.math_reasoning_head(hidden_states)
+            specialized_outputs.append(math_reasoning_out * self.math_reasoning_head.ratio)
+            advanced_outputs["math_reasoning_head"] = math_reasoning_out
+
+        if self.config.use_algorithm_head:
+            algorithm_out = self.algorithm_head(hidden_states)
+            specialized_outputs.append(algorithm_out * self.algorithm_head.ratio)
+            advanced_outputs["algorithm_head"] = algorithm_out
+
+        if specialized_outputs:
+            hidden_states = hidden_states + sum(specialized_outputs)
+
         # Grammar Constraints
         if self.config.use_grammar_constraints:
             gbnf_out = self.gbnf_constraint(hidden_states, logits)

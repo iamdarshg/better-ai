@@ -328,11 +328,23 @@ class RotaryEmbedding(nn.Module):
         sin: torch.Tensor
     ) -> torch.Tensor:
         
-        # Split into real and imaginary parts
-        x_real = x[..., :x.size(-1) // 2]
-        x_imag = x[..., x.size(-1) // 2:]
+        # Get the dimensions
+        batch_size, num_heads, seq_len, head_dim = x.shape
         
-        # Apply rotation
+        # Ensure cos and sin have the right shape with bounds checking
+        cos_seq_len = min(seq_len, cos.size(2))
+        cos_head_dim = min(head_dim // 2, cos.size(3))
+        sin_seq_len = min(seq_len, sin.size(2))
+        sin_head_dim = min(head_dim // 2, sin.size(3))
+        
+        cos = cos[:, :, :cos_seq_len, :cos_head_dim]
+        sin = sin[:, :, :sin_seq_len, :sin_head_dim]
+        
+        # Split into real and imaginary parts
+        x_real = x[..., :head_dim // 2]
+        x_imag = x[..., head_dim // 2:]
+        
+        # Apply rotation with proper broadcasting
         x_rot_real = x_real * cos - x_imag * sin
         x_rot_imag = x_real * sin + x_imag * cos
         

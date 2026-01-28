@@ -327,8 +327,13 @@ class DeepSeekModel(nn.Module):
         # Prepare attention mask for the layers
         if attention_mask is not None:
             if len(attention_mask.shape) == 2:
-                # Convert to causal mask
-                causal_mask = torch.tril(torch.ones(seq_length, seq_length, device=attention_mask.device)).bool()
+                # Convert to causal mask with bounds checking
+                if seq_length <= 0:
+                    raise ValueError(f"Invalid sequence length: {seq_length}")
+                
+                # Ensure device consistency
+                device = inputs_embeds.device
+                causal_mask = torch.tril(torch.ones(seq_length, seq_length, device=device)).bool()
                 attention_mask = attention_mask.unsqueeze(1).unsqueeze(2) * causal_mask.unsqueeze(0)
                 attention_mask = attention_mask.to(dtype=hidden_states.dtype)
             else:
@@ -353,10 +358,10 @@ class DeepSeekModel(nn.Module):
             hidden_states = layer_outputs[0]
             
             if use_cache:
-                next_cache += (layer_outputs[-1],)
+                next_cache = next_cache + (layer_outputs[-1],)
             
             if output_attentions:
-                all_self_attns += (layer_outputs[1],)
+                all_self_attns = all_self_attns + (layer_outputs[1],)
         
         hidden_states = self.norm(hidden_states)
         
