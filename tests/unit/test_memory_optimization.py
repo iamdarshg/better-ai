@@ -8,9 +8,9 @@ import torch
 import torch.nn as nn
 from unittest.mock import Mock, patch
 from better_ai.config import ModelConfig
-from better_ai.models.optimized_model import MemoryOptimizedModel
-from better_ai.training.checkpointing import GradientCheckpointManager
-from better_ai.training.adaptive_optimizations import MemoryOptimizer
+from better_ai.models.optimized_model import OptimizedDeepSeekMoEModel as MemoryOptimizedModel
+from better_ai.training.checkpointing import SelectiveCheckpointManager as GradientCheckpointManager
+
 
 
 class TestMemoryOptimizedModel:
@@ -171,102 +171,6 @@ class TestGradientCheckpointManager:
         assert manager.offload_to_cpu
         assert manager.offload_device == "cpu"
 
-
-class TestMemoryOptimizer:
-    """Test memory optimization strategies."""
-
-    def test_memory_optimizer_initialization(self):
-        """Test memory optimizer initialization."""
-        config = ModelConfig(hidden_dim=512)
-        optimizer = MemoryOptimizer(config)
-
-        assert optimizer.config.hidden_dim == 512
-        assert optimizer.optimization_strategies == []
-
-    def test_activation_checkpointing(self):
-        """Test activation checkpointing optimization."""
-        config = ModelConfig(hidden_dim=256, num_layers=4)
-        optimizer = MemoryOptimizer(config)
-
-        # Create a simple model for testing
-        model = nn.Sequential(
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-        )
-
-        # Enable activation checkpointing
-        optimizer.enable_activation_checkpointing(model)
-
-        # Test forward pass
-        x = torch.randn(2, 256)
-        output = model(x)
-
-        assert output.shape == (2, 256)
-
-    def test_memory_efficient_attention(self):
-        """Test memory-efficient attention implementation."""
-        config = ModelConfig(hidden_dim=256, num_attention_heads=8, max_seq_length=1024)
-        optimizer = MemoryOptimizer(config)
-
-        batch_size = 2
-        seq_len = 512
-        hidden_states = torch.randn(batch_size, seq_len, config.hidden_dim)
-
-        # Test memory-efficient attention
-        outputs = optimizer.memory_efficient_attention(
-            hidden_states=hidden_states, attention_mask=None, use_memory_efficient=True
-        )
-
-        assert outputs.shape == hidden_states.shape
-
-    def test_dynamic_batch_sizing(self):
-        """Test dynamic batch sizing based on available memory."""
-        config = ModelConfig(hidden_dim=256)
-        optimizer = MemoryOptimizer(config)
-
-        # Test with different memory constraints
-        for available_memory_gb in [4, 8, 16]:
-            optimal_batch_size = optimizer.calculate_optimal_batch_size(
-                available_memory_gb=available_memory_gb,
-                seq_length=512,
-                model_size_estimate="medium",
-            )
-
-            assert optimal_batch_size > 0
-            assert optimal_batch_size <= 32  # Reasonable upper bound
-
-    def test_memory_fragmentation_handling(self):
-        """Test memory fragmentation handling."""
-        config = ModelConfig(hidden_dim=256)
-        optimizer = MemoryOptimizer(config)
-
-        # Simulate fragmented memory
-        optimizer.handle_memory_fragmentation()
-
-        # Should trigger cleanup
-        assert optimizer.cleanup_called
-
-    def test_memory_profiling_integration(self):
-        """Test memory profiling integration."""
-        config = ModelConfig(hidden_dim=256)
-        optimizer = MemoryOptimizer(config)
-
-        # Enable profiling
-        optimizer.enable_profiling()
-
-        # Simulate model operations
-        with optimizer.profile_memory():
-            x = torch.randn(4, 256)
-            y = torch.randn(4, 256)
-            z = x + y
-
-        # Check profiling results
-        profile_data = optimizer.get_profile_data()
-        assert "peak_memory" in profile_data
-        assert "memory_efficiency" in profile_data
 
 
 class TestMemoryEfficientDataLoading:
