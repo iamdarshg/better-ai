@@ -199,6 +199,38 @@ class TrainingConfig:
     # Ring Attention
     use_ring_attention: bool = False
 
+    # Enhanced MoE Training Features
+    # Expert specialization and monitoring
+    num_experts: int = 8
+    num_languages: int = 3
+    expert_monitor_log_frequency: int = 50
+    expert_monitor_save_frequency: int = 500
+    
+    # Checkpointing and memory management
+    checkpoint_memory_threshold: float = 0.7
+    checkpoint_frequency: int = 2
+    memory_cleanup_frequency: int = 50
+    memory_target: float = 0.8
+    enable_dynamic_batching: bool = True
+    
+    # Dynamic optimizations
+    expert_capacity_factor: float = 1.25
+    
+    # Adaptive attention selection
+    seq_length_threshold_mla: int = 2048
+    seq_length_threshold_dsa: int = 4096
+    memory_threshold_mla: float = 0.6
+    
+    # Coherence-based scheduler
+    coherence_target: float = 0.7
+    coherence_adjustment_frequency: int = 50
+    
+    # Enhanced TUI
+    tui_update_frequency: int = 1
+    tui_save_frequency: int = 100
+    tui_log_file: str = "./logs/enhanced_training.json"
+    tui_show_plots: bool = False
+
 @dataclass
 class InferenceConfig:
     """Configuration for inference"""

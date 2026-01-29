@@ -12,7 +12,7 @@ def _should_log_step(self) -> bool:
 
 def _should_early_stop(self) -> bool:
     """Enhanced early stopping criteria"""
-    max_steps = getattr(self.config, 'max_steps', 10000)
+    max_steps = getattr(self.config, 'max_steps', 100)
 
     # Step limit
     if self.global_step >= max_steps:

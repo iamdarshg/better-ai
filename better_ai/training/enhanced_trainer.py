@@ -71,29 +71,29 @@ class EnhancedMoETrainer:
             # Expert specialization and monitoring
             self.expert_manager = ExpertSpecializationManager(
                 num_experts=getattr(config, 'num_experts', 8),
-                num_languages=3,
+                num_languages=getattr(config, 'num_languages', 3),
                 device=device
             )
             
             self.training_monitor = MoETrainingMonitor(
                 num_experts=getattr(config, 'num_experts', 8),
-                num_languages=3,
-                log_frequency=50,
-                save_frequency=500,
-                log_dir="./logs"
+                num_languages=getattr(config, 'num_languages', 3),
+                log_frequency=getattr(config, 'expert_monitor_log_frequency', 50),
+                save_frequency=getattr(config, 'expert_monitor_save_frequency', 500),
+                log_dir=getattr(config, 'log_dir', "./logs")
             )
             
             # Checkpointing and memory management
             self.checkpoint_manager = SelectiveCheckpointManager(
-                memory_threshold=0.7,
-                checkpoint_frequency=2,
+                memory_threshold=getattr(config, 'checkpoint_memory_threshold', 0.7),
+                checkpoint_frequency=getattr(config, 'checkpoint_frequency', 2),
                 device=device
             )
             
             self.memory_manager = AdaptiveMemoryManager(
-                cleanup_frequency=50,
-                memory_target=0.8,
-                enable_dynamic_batching=True
+                cleanup_frequency=getattr(config, 'memory_cleanup_frequency', 50),
+                memory_target=getattr(config, 'memory_target', 0.8),
+                enable_dynamic_batching=getattr(config, 'enable_dynamic_batching', True)
             )
             
             # Dynamic optimizations
@@ -104,26 +104,26 @@ class EnhancedMoETrainer:
             )
             
             self.attention_selector = AdaptiveAttentionSelector(
-                seq_length_threshold_mla=2048,
-                seq_length_threshold_dsa=4096,
-                memory_threshold_mla=0.6,
+                seq_length_threshold_mla=getattr(config, 'seq_length_threshold_mla', 2048),
+                seq_length_threshold_dsa=getattr(config, 'seq_length_threshold_dsa', 4096),
+                memory_threshold_mla=getattr(config, 'memory_threshold_mla', 0.6),
                 device=device
             )
             
             # Coherence-based scheduler
             self.coherence_scheduler = CoherenceBasedScheduler(
                 base_lr=getattr(config, 'learning_rate', 1e-4),
-                coherence_target=0.7,
-                adjustment_frequency=50,
+                coherence_target=getattr(config, 'coherence_target', 0.7),
+                adjustment_frequency=getattr(config, 'coherence_adjustment_frequency', 50),
                 device=device
             )
             
             # Enhanced TUI
             self.training_ui = MoETrainingTUI(
-                update_frequency=1,
-                save_frequency=100,
-                log_file="./logs/enhanced_training.json",
-                show_plots=False
+                update_frequency=getattr(config, 'tui_update_frequency', 1),
+                save_frequency=getattr(config, 'tui_save_frequency', 100),
+                log_file=getattr(config, 'tui_log_file', "./logs/enhanced_training.json"),
+                show_plots=getattr(config, 'tui_show_plots', False)
             )
         
         # Training state
