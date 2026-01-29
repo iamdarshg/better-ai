@@ -135,6 +135,10 @@ class BranchRewardModel(nn.Module):
         
         # Apply rethinking module for multi-turn analysis
         # The hidden_repr is treated as the input for all time steps
+        # Ensure hidden_repr is 2D (batch, hidden)
+        if hidden_repr.dim() > 2:
+            hidden_repr = hidden_repr.view(hidden_repr.size(0), -1)
+
         rethinking_input = hidden_repr.unsqueeze(1).repeat(1, self.num_turns, 1)
         rethinking_output, _ = self.rethinking_module(rethinking_input)
 
