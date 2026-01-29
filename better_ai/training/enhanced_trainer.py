@@ -15,7 +15,7 @@ from .adaptive_optimizations import DynamicExpertCapacityManager, AdaptiveAttent
 from .coherence_scheduler import CoherenceBasedScheduler
 from .tui import MoETrainingTUI, ColoredText
 from .pruning import prune_expert_widths
-from .trainer_utils.rl import rl_forward_pass, rl_stage2_forward_pass
+from .trainer_utils.rl import rl_forward_pass, rl_stage2_forward_pass, compute_length_aware_dpo_loss
 from .trainer_utils.data import process_batch
 from .trainer_utils.optimization import handle_gradients_and_optimize, update_optimization_managers
 from .trainer_utils.callbacks import _should_log_step, _should_early_stop, _enhanced_logging, _get_final_results, save_checkpoint, load_checkpoint
@@ -155,6 +155,7 @@ class EnhancedMoETrainer:
     
     _rl_forward_pass = rl_forward_pass
     _rl_stage2_forward_pass = rl_stage2_forward_pass
+    _compute_length_aware_dpo_loss = compute_length_aware_dpo_loss
     _process_batch = process_batch
     _handle_gradients_and_optimize = handle_gradients_and_optimize
     _update_optimization_managers = update_optimization_managers
@@ -200,6 +201,15 @@ class EnhancedMoETrainer:
         # Debug logging for batch validation
         logger.debug(f"Processing batch with keys: {list(batch.keys())}")
         
+        if 'chosen_input_ids' in batch and 'rejected_input_ids' in batch:
+            logger.debug("DPO batch detected, computing length-aware DPO loss")
+            loss = self._compute_length_aware_dpo_loss(
+                self.model,
+                getattr(self, "ref_model", self.model), # Mock ref_model for now
+                batch
+            )
+            return loss, torch.tensor(0.0, device=self.device), None
+
         if 'chosen' in batch and 'rejected' in batch:
              input_ids = batch['chosen_input_ids']
              labels = batch['chosen_labels']

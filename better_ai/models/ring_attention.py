@@ -104,8 +104,9 @@ class RingAttention(nn.Module):
         key_states = key_states.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         
-        # Apply rotary embeddings
-        query_states, key_states = self.rotary_emb(query_states, key_states)
+        # Apply rotary embeddings, handle offset if past_key_value is present
+        offset = past_key_value[0].size(2) if past_key_value is not None else 0
+        query_states, key_states = self.rotary_emb(query_states, key_states, offset=offset)
         
         # Expand KV heads for grouped-query attention if needed
         if self.num_key_value_heads != self.num_heads:
@@ -305,15 +306,16 @@ class RotaryEmbedding(nn.Module):
         self,
         query_states: torch.Tensor,
         key_states: torch.Tensor,
-        seq_len: Optional[int] = None
+        seq_len: Optional[int] = None,
+        offset: int = 0
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         
         if seq_len is None:
             seq_len = query_states.size(-2)
         
-        # Use cached cos/sin if available
-        cos = self.cos_cached[:seq_len].unsqueeze(0).unsqueeze(0)
-        sin = self.sin_cached[:seq_len].unsqueeze(0).unsqueeze(0)
+        # Use cached cos/sin if available, handle offset for KV cache
+        cos = self.cos_cached[offset:offset+seq_len].unsqueeze(0).unsqueeze(0)
+        sin = self.sin_cached[offset:offset+seq_len].unsqueeze(0).unsqueeze(0)
         
         # Apply rotary embeddings
         query_states = self.apply_rotary_pos_emb(query_states, cos, sin)
@@ -410,7 +412,8 @@ class StripedAttention(RingAttention):
         value_states = value_states.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         # Apply RoPE on ORIGINAL positions
-        query_states, key_states = self.rotary_emb(query_states, key_states)
+        offset = past_key_value[0].size(2) if past_key_value is not None else 0
+        query_states, key_states = self.rotary_emb(query_states, key_states, offset=offset)
 
         # Reorder AFTER RoPE
         query_states = query_states[:, :, striped_indices, :]

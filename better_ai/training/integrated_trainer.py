@@ -12,6 +12,7 @@ from .arpo import ARPOTrainer, EntropyMonitor, AdaptiveRolloutManager
 from .cleaner import CLEANERDataCollector, create_cleaner_pipeline
 from .kv_cache_grpo import OptimizedGRPOWithKVCache, KVCacheManager
 from .grpo import GRPOTrainer
+from .machine_feedback import MachineFeedbackTrainer
 
 
 class IntegratedAdvancedTrainer:
@@ -74,8 +75,16 @@ class IntegratedAdvancedTrainer:
         else:
             self.kv_optimized_trainer = None
 
+        # Machine Feedback component
+        if self.config.get("enable_machine_feedback", False):
+            self.mf_trainer = MachineFeedbackTrainer(
+                self.model, self.config
+            )
+        else:
+            self.mf_trainer = None
+
         # Fallback to standard GRPO
-        if not any([self.arpo_trainer, self.kv_optimized_trainer]):
+        if not any([self.arpo_trainer, self.kv_optimized_trainer, self.mf_trainer]):
             self.grpo_trainer = GRPOTrainer(
                 self.model, self.reward_model, self.optimizer, self.config
             )
@@ -94,7 +103,11 @@ class IntegratedAdvancedTrainer:
             batch = self._preprocess_batch_with_cleaner(batch)
 
         # Choose training approach based on enabled components
-        if self.kv_optimized_trainer:
+        if self.mf_trainer and self.config.get("current_stage") == "machine_feedback":
+            mf_metrics = self.mf_trainer.train_step(batch)
+            step_metrics.update(mf_metrics)
+
+        elif self.kv_optimized_trainer:
             # Use KV-cache optimized training
             kv_metrics = self.kv_optimized_trainer.train_step_with_cache_optimization(
                 batch

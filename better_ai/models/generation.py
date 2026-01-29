@@ -1,7 +1,7 @@
 
 import torch
 import torch.nn.functional as F
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple, Dict, Any
 
 def generate(
     self,
@@ -185,3 +185,113 @@ def self_correct(
     corrected_response_text = tokenizer.decode(corrected_response_ids[0], skip_special_tokens=True)
 
     return corrected_response_text, True
+
+def generate_group(
+    self,
+    input_ids: torch.Tensor,
+    group_size: int = 4,
+    max_new_tokens: int = 512,
+    temperature: float = 0.8,
+    top_k: int = 50,
+    top_p: float = 0.9,
+    use_cache: bool = True,
+) -> torch.Tensor:
+    """
+    Generate a group of responses for the same prompt, reusing the prompt's KV cache.
+
+    Args:
+        input_ids: (1, seq_len) prompt token IDs.
+        group_size: Number of responses to generate.
+        max_new_tokens: Maximum number of new tokens per response.
+        temperature, top_k, top_p: Sampling parameters.
+        use_cache: Whether to use KV cache.
+
+    Returns:
+        (group_size, seq_len + max_new_tokens) generated token IDs.
+    """
+    if input_ids.size(0) != 1:
+        # If batch size > 1, we only take the first one or handle it specifically.
+        # For GRPO, usually we have one prompt and many completions.
+        input_ids = input_ids[0:1]
+
+    device = input_ids.device
+    seq_len = input_ids.size(1)
+
+    # 1. Compute prompt KV cache once
+    with torch.no_grad():
+        outputs = self.forward(
+            input_ids=input_ids,
+            use_cache=True,
+            return_dict=True,
+            return_advanced_features=False
+        )
+        prompt_past_key_values = outputs.get("past_key_values")
+
+    # 2. Expand input and KV cache for the group
+    # We want to generate group_size responses in parallel starting from the last token of the prompt
+
+    # Expand past_key_values: (num_layers, 2, batch, num_heads, seq_len, head_dim)
+    # Actually it is a tuple of (key, value) pairs for each layer.
+    group_past_key_values = []
+    for layer_past in prompt_past_key_values:
+        # layer_past is (key, value)
+        k, v = layer_past
+        # k: (batch, num_heads, seq_len, head_dim)
+        group_k = k.expand(group_size, -1, -1, -1).contiguous()
+        group_v = v.expand(group_size, -1, -1, -1).contiguous()
+        group_past_key_values.append((group_k, group_v))
+
+    # Prepare first tokens for generation (the last token of prompt)
+    last_tokens = input_ids[:, -1:].expand(group_size, 1)
+
+    # Store all generated tokens
+    # We start with the full prompt and will append new tokens
+    all_generated = input_ids.expand(group_size, -1).clone()
+
+    current_tokens = last_tokens
+    current_past_key_values = group_past_key_values
+
+    finished = torch.zeros(group_size, dtype=torch.bool, device=device)
+
+    for _ in range(max_new_tokens):
+        with torch.no_grad():
+            outputs = self.forward(
+                input_ids=current_tokens,
+                past_key_values=current_past_key_values,
+                use_cache=True,
+                return_dict=True,
+                return_advanced_features=False
+            )
+
+        logits = outputs["logits"][:, -1, :]
+        current_past_key_values = outputs.get("past_key_values")
+
+        # Apply sampling
+        logits = logits / temperature
+        if top_k > 0:
+            top_k_logits, top_k_indices = torch.topk(logits, top_k, dim=-1)
+            logits = torch.full_like(logits, float('-inf'))
+            logits.scatter_(-1, top_k_indices, top_k_logits)
+
+        if top_p < 1.0:
+            sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+            cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+            sorted_indices_to_remove = cumulative_probs > top_p
+            sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+            sorted_indices_to_remove[..., 0] = 0
+            indices_to_remove = torch.zeros_like(logits, dtype=torch.bool).scatter_(dim=1, index=sorted_indices, src=sorted_indices_to_remove)
+            logits[indices_to_remove] = float("-inf")
+
+        probs = F.softmax(logits, dim=-1)
+        next_tokens = torch.multinomial(probs, num_samples=1) # (group_size, 1)
+
+        # Update generated tokens
+        all_generated = torch.cat([all_generated, next_tokens], dim=-1)
+        current_tokens = next_tokens
+
+        # Check for EOS
+        finished |= (next_tokens.squeeze(-1) == 2) # Assuming 2 is EOS
+        if finished.all():
+            break
+
+    return all_generated

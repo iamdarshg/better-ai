@@ -64,7 +64,7 @@ class ModelConfig:
     use_striped_attention: bool = True
     ring_block_size: int = 1024
     ring_num_devices: Optional[int] = None  # Auto-detect
-    max_seq_length: int = 32  # Reduced from 262144 for training stability
+    # max_seq_length: int = 1024  # Keep the value from above
     
     # Linear Attention parameters
     use_linear_attention: bool = False
@@ -76,7 +76,8 @@ class ModelConfig:
     
     # Inner Monologue parameters
     use_inner_monologue: bool = True
-    thought_token_id: Optional[int] = None  # Will be set during tokenization
+    thought_token_id: Optional[int] = 100  # Default for testing
+    thought_end_token_id: Optional[int] = 101  # Default for testing
     private_subspace_dim: int = 4096
     
     # STaR parameters

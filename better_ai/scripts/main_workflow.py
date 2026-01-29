@@ -21,7 +21,7 @@ if sys.platform == 'win32':
         pass
 
 from better_ai.config import ModelConfig, TrainingConfig
-from better_ai.models.enhanced_model import EnhancedDeepSeekModel
+from better_ai.models.core import DeepSeekModel
 from better_ai.training.enhanced_trainer import EnhancedMoETrainer
 from better_ai.training.evaluation import (
     RLHFEvaluator,
@@ -69,7 +69,7 @@ def train_pretraining(
     logger.info(f"Using device: {device}")
     
     # Initialize model
-    model = EnhancedDeepSeekModel(model_config, device=device)
+    model = DeepSeekModel(model_config, device=device)
     model = model.to(device)
 
     # Create tokenizer
@@ -172,7 +172,7 @@ def train_sft(
     logger.info(f"Using device: {device}")
     
     # Initialize model
-    model = EnhancedDeepSeekModel(model_config, device=device)
+    model = DeepSeekModel(model_config, device=device)
     model = model.to(device)
     
     # Load checkpoint from pretraining if available
@@ -274,7 +274,7 @@ def train_rlhf(
     logger.info(f"Using device: {device}")
     
     # Initialize model
-    model = EnhancedDeepSeekModel(model_config, device=device)
+    model = DeepSeekModel(model_config, device=device)
     model = model.to(device)
     
     # Load checkpoint
@@ -360,7 +360,7 @@ def train_rlhf(
 
 
 def evaluate_model(
-    model: EnhancedDeepSeekModel,
+    model: DeepSeekModel,
     model_config: ModelConfig,
     output_dir: str = "./checkpoints",
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
@@ -560,12 +560,12 @@ def main():
             else:
                 actual_model = model
             
-            # Ensure it's an EnhancedDeepSeekModel by checking for required attributes
+            # Ensure it's a DeepSeekModel by checking for required attributes
             if hasattr(actual_model, 'config') and hasattr(actual_model, 'forward'):
                 # Type cast for type checker - this is safe because we've checked the attributes
-                from better_ai.models.enhanced_model import EnhancedDeepSeekModel
-                enhanced_model: EnhancedDeepSeekModel = actual_model  # type: ignore
-                evaluate_model(enhanced_model, model_config, args.output_dir, tokenizer_name=args.tokenizer_name, languages=args.languages)
+                from better_ai.models.core import DeepSeekModel
+                deepseek_model: DeepSeekModel = actual_model  # type: ignore
+                evaluate_model(deepseek_model, model_config, args.output_dir, tokenizer_name=args.tokenizer_name, languages=args.languages)
             else:
                 logger.warning("Model does not have required attributes for evaluation, skipping evaluation")
         
