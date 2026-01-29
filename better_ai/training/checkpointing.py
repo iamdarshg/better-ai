@@ -274,7 +274,7 @@ class AdaptiveMemoryManager:
     def __init__(
         self,
         cleanup_frequency: int = 50,
-        memory_target: float = 0.8,  # Target 80% GPU utilization
+        memory_target: float = 0.9,  # Target 80% GPU utilization
         enable_dynamic_batching: bool = True
     ):
         self.cleanup_frequency = cleanup_frequency
