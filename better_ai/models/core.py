@@ -267,6 +267,7 @@ class DeepSeekModel(nn.Module):
         self.config = config
         self.padding_idx = 0
         self.hidden_size = config.hidden_dim
+        self.vocab_size = config.vocab_size
         self.num_heads = config.num_attention_heads
         self.num_key_value_heads = config.num_key_value_heads
         self.head_dim = self.hidden_size // self.num_heads
@@ -472,6 +473,7 @@ class DeepSeekModel(nn.Module):
         hidden_states = inputs_embeds
         
         # Prepare attention mask for the layers
+        raw_attention_mask = attention_mask
         if attention_mask is not None:
             if len(attention_mask.shape) == 2:
                 # Convert to causal mask with bounds checking
@@ -535,7 +537,7 @@ class DeepSeekModel(nn.Module):
         # Compute advanced features if requested
         advanced_features = {}
         if return_advanced_features:
-            advanced_features = self._compute_advanced_features(hidden_states, input_ids, attention_mask, logits=logits)
+            advanced_features = self._compute_advanced_features(hidden_states, input_ids, raw_attention_mask, logits=logits)
 
         if not return_dict:
             res = [logits, hidden_states, next_cache, all_hidden_states, all_self_attns]
