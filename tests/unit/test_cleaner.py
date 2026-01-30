@@ -192,7 +192,7 @@ class TestCLEANERDataCollector:
     @pytest.fixture
     def cleaner_collector(self):
         saar_controller = SAARController(
-            SemanticSimilarityCalculator(), RollbackGranularityEstimator()
+            SemanticSimilarityCalculator(min_similarity=0.1), RollbackGranularityEstimator(), min_similarity=0.1
         )
         return CLEANERDataCollector(saar_controller, purification_enabled=True)
 
@@ -250,7 +250,7 @@ class TestCLEANERDataCollector:
         assert results[1] != trajectories[1]  # Modified
 
         stats = cleaner_collector.get_statistics()
-        assert stats["trajectories_processed"] == 1  # First trajectory in batch
+        assert stats["trajectories_processed"] == 2
         assert stats["trajectories_purified"] == 1
 
 

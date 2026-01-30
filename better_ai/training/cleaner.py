@@ -17,8 +17,8 @@ class SemanticSimilarityCalculator:
     Computes semantic similarity between text segments for SAAR
     """
 
-    def __init__(self, similarity_threshold: float = 0.7):
-        self.similarity_threshold = similarity_threshold
+    def __init__(self, min_similarity: float = 0.7):
+        self.min_similarity = min_similarity
 
     def compute_textual_similarity(self, text1: str, text2: str) -> float:
         """Compute text similarity using multiple metrics"""
@@ -329,7 +329,8 @@ class CLEANERDataCollector:
         self, trajectory: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Detect errors and apply corrections using SAAR"""
-        purified_trajectory = trajectory.copy()
+        import copy
+        purified_trajectory = copy.deepcopy(trajectory)
         errors_found = 0
 
         for i, step in enumerate(trajectory):

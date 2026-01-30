@@ -16,7 +16,7 @@ from .features.gbnf_constraint import GBNFConstraint
 from .features.json_enforcer import JSONEnforcer
 from .features.entropic_steering import EntropicSteering
 from .tidar import TiDAR
-from .reward_model import BranchRewardModel, MultiAttributeRewardModel
+from .reward_model import BranchRewardModel, MultiAttributeRewardModel, HierarchicalRewardModel
 from .generation import generate, compute_loss, self_correct
 
 
@@ -391,6 +391,7 @@ class DeepSeekModel(nn.Module):
         # Reward models
         self.reward_model = BranchRewardModel(config, hidden_dim=512)
         self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=7, num_quantiles=5)
+        self.hrm = HierarchicalRewardModel(config)
 
         # Value head for PPO/GRPO
         self.value_head = nn.Linear(config.hidden_dim, 1, bias=False)

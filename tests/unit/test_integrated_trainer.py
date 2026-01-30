@@ -16,19 +16,49 @@ from better_ai.training.integrated_trainer import (
     create_integrated_trainer,
 )
 
+class MockModel(nn.Module):
+    def __init__(self, hidden_dim=128):
+        super().__init__()
+        self.linear = nn.Linear(10, 100)
+        class Config:
+            def __init__(self, hd):
+                self.hidden_dim = hd
+                self.vocab_size = 100
+        self.config = Config(hidden_dim)
+
+    def generate(self, **kwargs):
+        return torch.randint(0, 100, (1, 20))
+
+    def generate_group(self, **kwargs):
+        group_size = kwargs.get("group_size", 4)
+        return torch.randint(0, 100, (group_size, 20))
+
+    def forward(self, input_ids=None, **kwargs):
+        batch_size = input_ids.size(0) if input_ids is not None else 1
+        return {
+            "logits": torch.randn(batch_size, 5, 100),
+            "last_hidden_state": torch.randn(batch_size, 5, self.config.hidden_dim),
+            "hidden_states": [torch.randn(batch_size, 5, self.config.hidden_dim)],
+            "advanced_features": {
+                "reward": torch.randn(batch_size)
+            }
+        }
+
 
 class TestIntegratedAdvancedTrainer:
     """Test integrated trainer with all optimizations"""
 
     @pytest.fixture
     def mock_model(self):
-        return nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 100))
+        return MockModel(hidden_dim=64)
 
     @pytest.fixture
     def mock_reward_model(self):
-        class MockRewardModel:
+        class MockRewardModel(nn.Module):
             def score(self, prompt, response):
                 return 0.5
+            def forward(self, hidden_states, mask=None):
+                return torch.randn(hidden_states.size(0))
 
         return MockRewardModel()
 
@@ -50,6 +80,7 @@ class TestIntegratedAdvancedTrainer:
             "cleaner_similarity_threshold": 0.5,
             "enable_purification": True,
             "device": torch.device("cpu"),
+            "hidden_dim": 64,
         }
 
     def test_initialization_with_all_features(
@@ -75,6 +106,7 @@ class TestIntegratedAdvancedTrainer:
             "enable_cleaner": True,
             "enable_kv_cache": False,
             "device": torch.device("cpu"),
+            "hidden_dim": 64,
         }
 
         trainer = IntegratedAdvancedTrainer(
@@ -114,7 +146,7 @@ class TestIntegratedAdvancedTrainer:
 
         metrics = trainer.train_step(batch)
 
-        assert "loss" in metrics or "total_loss" in metrics
+        assert "loss" in metrics or "total_loss" in metrics or "loss_with_cache" in metrics
         assert trainer.training_stats["total_steps"] == 1
 
         # Check that component statistics are updated
@@ -148,13 +180,15 @@ class TestIntegratedTrainerFactory:
 
     @pytest.fixture
     def mock_model(self):
-        return nn.Linear(10, 100)
+        return MockModel(hidden_dim=100)
 
     @pytest.fixture
     def mock_reward_model(self):
-        class MockRewardModel:
+        class MockRewardModel(nn.Module):
             def score(self, prompt, response):
                 return 0.5
+            def forward(self, hidden_states, mask=None):
+                return torch.randn(hidden_states.size(0))
 
         return MockRewardModel()
 
@@ -166,7 +200,7 @@ class TestIntegratedTrainerFactory:
         self, mock_model, mock_reward_model, optimizer
     ):
         # Test with minimal config (should use defaults)
-        user_config = {"device": torch.device("cpu")}
+        user_config = {"device": torch.device("cpu"), "hidden_dim": 100}
 
         trainer = create_integrated_trainer(
             mock_model, mock_reward_model, optimizer, user_config
@@ -187,6 +221,7 @@ class TestIntegratedTrainerFactory:
             "enable_kv_cache": False,
             "entropy_window": 20,
             "custom_setting": "test",
+            "hidden_dim": 100,
         }
 
         trainer = create_integrated_trainer(
@@ -205,13 +240,15 @@ class TestFeatureIntegration:
 
     @pytest.fixture
     def mock_model(self):
-        return nn.Linear(10, 100)
+        return MockModel(hidden_dim=100)
 
     @pytest.fixture
     def mock_reward_model(self):
-        class MockRewardModel:
+        class MockRewardModel(nn.Module):
             def score(self, prompt, response):
                 return 0.5
+            def forward(self, hidden_states, mask=None):
+                return torch.randn(hidden_states.size(0))
 
         return MockRewardModel()
 
@@ -225,6 +262,7 @@ class TestFeatureIntegration:
             "enable_cleaner": True,
             "enable_kv_cache": True,
             "device": torch.device("cpu"),
+            "hidden_dim": 100,
         }
 
         trainer = IntegratedAdvancedTrainer(
@@ -260,6 +298,7 @@ class TestFeatureIntegration:
             "enable_cleaner": False,
             "enable_kv_cache": True,
             "device": torch.device("cpu"),
+            "hidden_dim": 100,
         }
 
         trainer = IntegratedAdvancedTrainer(

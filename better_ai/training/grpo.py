@@ -40,7 +40,8 @@ class GRPOTrainer:
         self.device = config.get("device", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
         
         # Value function for baseline
-        self.value_head = nn.Linear(config["hidden_dim"], 1).to(self.device)
+        hidden_dim = config.get("hidden_dim", getattr(model, "config", None).hidden_dim if hasattr(model, "config") else 128)
+        self.value_head = nn.Linear(hidden_dim, 1).to(self.device)
         self.value_optimizer = torch.optim.Adam(self.value_head.parameters(), lr=config.get("value_lr", 5e-5))
         
         # Ref policy for KL divergence computation

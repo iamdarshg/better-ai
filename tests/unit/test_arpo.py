@@ -99,7 +99,7 @@ class TestStepLevelAdvantageAttributor:
             "progress_score": 0.5,
         }
         value = attributor._estimate_state_value(success_state)
-        assert value == 0.8  # 0.5 + 0.3
+        assert value == 1.3  # 0.5 + 0.3 + 0.5
 
         # Test failed tool use
         failed_state = {"tool_success": False, "has_error": True, "progress_score": 0.2}

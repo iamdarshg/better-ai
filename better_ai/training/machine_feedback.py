@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from typing import Dict, List, Any, Optional, Tuple
 import re
+import ast
 
 class MachineFeedbackReward:
     """
@@ -21,37 +22,84 @@ class MachineFeedbackReward:
 
     def check_grammar(self, code: str) -> float:
         """
-        Check for basic syntax/grammar errors (e.g., balanced brackets, quotes).
+        Check for basic syntax/grammar errors using AST.
         """
         score = 1.0
-        # Simple balanced brackets check
+        try:
+            ast.parse(code)
+        except SyntaxError as e:
+            # Penalize based on how early the error occurs
+            lines = code.split('\n')
+            error_line = getattr(e, 'lineno', 1)
+            score = 0.5 * (error_line / max(len(lines), 1))
+
+        # Check for balanced brackets even if AST fails to give more detail
         for open_b, close_b in [('(', ')'), ('[', ']'), ('{', '}')]:
             if code.count(open_b) != code.count(close_b):
-                score -= 0.2
-
-        # Check for unclosed quotes
-        if (code.count("'") % 2 != 0) or (code.count('"') % 2 != 0):
-            score -= 0.2
+                score = min(score, 0.5)
 
         return max(0.0, score)
 
     def run_linter(self, code: str) -> float:
         """
-        Check for common code style and potential bug patterns.
+        Check for common code style and potential bug patterns using AST.
         """
         score = 1.0
-        # Check for common "bad" patterns in Python/C-like languages
-        if "pass" in code and len(code.split('\n')) > 10:
-            score -= 0.1
+        try:
+            tree = ast.parse(code)
 
-        # Check for undefined variables (very simplified)
-        # In a real prod environment, we'd use pylint or flake8
+            # 1. Check for undefined variables (very simplified using AST)
+            defined_names = set()
+            used_names = set()
 
-        # Check for indentation consistency (simplified)
-        lines = code.split('\n')
-        indentations = [len(line) - len(line.lstrip()) for line in lines if line.strip()]
-        if len(set(i % 4 for i in indentations if i > 0)) > 1:
-            score -= 0.2
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Name):
+                    if isinstance(node.ctx, ast.Store):
+                        defined_names.add(node.id)
+                    elif isinstance(node.ctx, ast.Load):
+                        used_names.add(node.id)
+                elif isinstance(node, ast.FunctionDef):
+                    defined_names.add(node.name)
+                elif isinstance(node, ast.ClassDef):
+                    defined_names.add(node.name)
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        defined_names.add(alias.asname or alias.name)
+                elif isinstance(node, ast.ImportFrom):
+                    for alias in node.names:
+                        defined_names.add(alias.asname or alias.name)
+
+            # Built-ins
+            import builtins
+            defined_names.update(dir(builtins))
+
+            undefined = used_names - defined_names
+            if undefined:
+                score -= 0.1 * len(undefined)
+
+            # 2. Check for empty except blocks
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ExceptHandler):
+                    if len(node.body) == 1 and isinstance(node.body[0], ast.Pass):
+                        score -= 0.1
+
+            # 3. Check for too many 'pass' statements (often indicates incomplete code)
+            pass_count = sum(1 for node in ast.walk(tree) if isinstance(node, ast.Pass))
+            if pass_count > 5:
+                score -= 0.05 * min(pass_count, 10)
+
+        except:
+            # If it doesn't parse, we can't run the AST linter
+            score = 0.5
+
+        # Check for indentation consistency
+        lines = [line for line in code.split('\n') if line.strip()]
+        if lines:
+            indentations = [len(line) - len(line.lstrip()) for line in lines]
+            # Heuristic: indentation should generally be multiples of 4 or 2
+            inconsistent = [i for i in indentations if i % 2 != 0]
+            if len(inconsistent) > len(lines) * 0.2:
+                score -= 0.2
 
         return max(0.0, score)
 
@@ -91,41 +139,94 @@ class MachineFeedbackTrainer:
     """
     Trainer that uses MachineFeedbackReward for RLHF.
     """
-    def __init__(self, model: nn.Module, config: Dict[str, Any]):
+    def __init__(self, model: nn.Module, config: Dict[str, Any], optimizer: Optional[torch.optim.Optimizer] = None):
         self.model = model
         self.reward_engine = MachineFeedbackReward(config)
         self.tokenizer = getattr(model, "tokenizer", None)
+        self.optimizer = optimizer
         self.config = config
 
     def train_step(self, batch: Dict[str, Any]) -> Dict[str, float]:
         """
         Perform a training step using machine feedback as reward.
         """
-        # 1. Generate responses (using KV-cache reuse if available)
+        # 1. Generate responses
         input_ids = batch['input_ids']
-        if hasattr(self.model, "generate_group"):
-            responses = self.model.generate_group(
-                input_ids,
-                group_size=self.config.get("group_size", 4),
-                max_new_tokens=self.config.get("max_new_tokens", 128)
-            )
-        else:
-            responses = self.model.generate(input_ids, max_new_tokens=128)
+        batch_size = input_ids.size(0)
+        group_size = self.config.get("group_size", 4)
+
+        # Ensure we are in eval mode for generation
+        self.model.eval()
+        with torch.no_grad():
+            if hasattr(self.model, "generate_group"):
+                responses = self.model.generate_group(
+                    input_ids,
+                    group_size=group_size,
+                    max_new_tokens=self.config.get("max_new_tokens", 128)
+                )
+            else:
+                # Fallback to multiple generations
+                all_responses = []
+                max_len = 0
+                for _ in range(group_size):
+                    resp = self.model.generate(input_ids, max_new_tokens=128)
+                    all_responses.append(resp)
+                    max_len = max(max_len, resp.size(1))
+
+                # Pad to same length
+                padded_responses = []
+                for resp in all_responses:
+                    if resp.size(1) < max_len:
+                        padding = torch.zeros((resp.size(0), max_len - resp.size(1)), device=resp.device, dtype=resp.dtype)
+                        resp = torch.cat([resp, padding], dim=1)
+                    padded_responses.append(resp)
+                responses = torch.cat(padded_responses, dim=0)
 
         # 2. Decode and get rewards
         rewards = []
         for i in range(responses.size(0)):
-            text = self.tokenizer.decode(responses[i], skip_special_tokens=True) if self.tokenizer else str(responses[i])
+            text = self.tokenizer.decode(responses[i], skip_special_tokens=True) if self.tokenizer else str(responses[i].tolist())
             reward = self.reward_engine.compute_reward(text)
             rewards.append(reward)
 
-        # 3. Use rewards for GRPO update (simplified)
         reward_tensor = torch.tensor(rewards, device=input_ids.device)
 
-        # Here we would normally perform the GRPO backward pass
-        # For this pipeline, we just return the metrics
+        # 3. Perform Policy Optimization Step
+        self.model.train()
+
+        # Compute logprobs for generated responses
+        # responses shape: [batch_size * group_size, seq_len]
+        outputs = self.model(responses)
+        logits = outputs["logits"]
+        log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
+
+        # Get logprobs of actually generated tokens
+        # Shift responses to align with logits
+        target_ids = responses[:, 1:].contiguous()
+        log_probs = log_probs[:, :-1, :].contiguous()
+
+        per_token_logprobs = log_probs.gather(dim=-1, index=target_ids.unsqueeze(-1)).squeeze(-1)
+        # Sum over sequence, then average over group
+        # (Assuming we want to optimize the whole response)
+        response_logprobs = per_token_logprobs.sum(dim=-1)
+
+        # Advantage estimation (Group Relative)
+        mean_reward = reward_tensor.mean()
+        std_reward = reward_tensor.std() if len(rewards) > 1 else torch.tensor(1.0, device=input_ids.device)
+        advantages = (reward_tensor - mean_reward) / (std_reward + 1e-8)
+
+        # Policy Loss: -Advantage * log_prob
+        loss = -(advantages.detach() * response_logprobs).mean()
+
+        if self.optimizer:
+            self.optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            self.optimizer.step()
 
         return {
-            "mf_reward_mean": reward_tensor.mean().item(),
-            "mf_reward_std": reward_tensor.std().item() if len(rewards) > 1 else 0.0
+            "mf_loss": loss.item(),
+            "mf_reward_mean": mean_reward.item(),
+            "mf_reward_std": std_reward.item(),
+            "mf_max_advantage": advantages.max().item()
         }

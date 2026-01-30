@@ -65,7 +65,7 @@ class InnerMonologue(nn.Module):
         private_reasoning = self.to_private(hidden_states)  # (batch_size, seq_len, private_dim)
 
         # Blend public and private
-        is_private_expanded = is_private.float()
+        is_private_expanded = is_private.float().unsqueeze(-1) if is_private.dim() < 3 else is_private.float()
         public_hidden = hidden_states * (1 - is_private_expanded)
         private_projected = self.from_private(private_reasoning) * is_private_expanded
 
