@@ -39,7 +39,8 @@ class TiDAR(nn.Module):
         )
         self.steering_transformer = nn.TransformerEncoder(
             encoder_layer,
-            num_layers=num_layers
+            num_layers=num_layers,
+            enable_nested_tensor=False
         )
 
         # Projections

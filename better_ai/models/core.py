@@ -445,6 +445,7 @@ class DeepSeekModel(nn.Module):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         return_advanced_features: bool = False,
+        use_compiled_mask: bool = False,
     ) -> Any:
         
         output_attentions = output_attentions if output_attentions is not None else False
@@ -538,7 +539,10 @@ class DeepSeekModel(nn.Module):
         # Compute advanced features if requested
         advanced_features = {}
         if return_advanced_features:
-            advanced_features = self._compute_advanced_features(hidden_states, input_ids, raw_attention_mask, logits=logits)
+            advanced_features = self._compute_advanced_features(
+                hidden_states, input_ids, raw_attention_mask,
+                logits=logits, use_compiled_mask=use_compiled_mask
+            )
 
         if not return_dict:
             res = [logits, hidden_states, next_cache, all_hidden_states, all_self_attns]
@@ -594,7 +598,7 @@ class DeepSeekModel(nn.Module):
             # Replace attention in layer
             layer.self_attn = ring_attn
 
-    def _compute_advanced_features(self, hidden_states, input_ids, attention_mask, logits=None):
+    def _compute_advanced_features(self, hidden_states, input_ids, attention_mask, logits=None, use_compiled_mask: bool = False):
         """Compute all advanced features and return them in a dictionary"""
         advanced_outputs = {}
 
@@ -659,7 +663,7 @@ class DeepSeekModel(nn.Module):
 
         # Grammar Constraints
         if hasattr(self, "gbnf_constraint") and logits is not None:
-            gbnf_out = self.gbnf_constraint(hidden_states, logits)
+            gbnf_out = self.gbnf_constraint(hidden_states, logits, input_ids=input_ids, use_compiled_mask=use_compiled_mask)
             advanced_outputs["gbnf"] = gbnf_out
             logits = gbnf_out["constrained_logits"]
 
