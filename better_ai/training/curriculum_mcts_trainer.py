@@ -260,7 +260,7 @@ class CurriculumMCTSTrainer:
     def _extract_questions_from_batch(
         self, batch: Dict[str, torch.Tensor]
     ) -> List[str]:
-        """Extract questions from batch using tokenizer decoding"""
+        """Extract questions from batch using tokenizer decoding and GBNF hints"""
         questions = []
         input_ids = batch.get("input_ids")
 
@@ -269,9 +269,19 @@ class CurriculumMCTSTrainer:
             batch_size = input_ids.shape[0]
             for i in range(min(batch_size, 2)):
                 text = self.tokenizer.decode(input_ids[i], skip_special_tokens=True)
-                # Simple heuristic: take everything before the first "Answer:" or similar
-                question = text.split("Answer:")[0].strip()
+
+                # Use GBNF-style hints: look for structured tags
+                # (e.g., [PROBLEM]...[/PROBLEM] or Answer:)
+                if "[PROBLEM]" in text and "[/PROBLEM]" in text:
+                    question = text.split("[/PROBLEM]")[0].split("[PROBLEM]")[-1].strip()
+                else:
+                    # Fallback to simple heuristic
+                    question = text.split("Answer:")[0].strip()
+
                 if question:
+                    # Further refine: remove thought blocks if they leaked into question
+                    if "<thought>" in question:
+                        question = question.split("<thought>")[0].strip()
                     questions.append(question)
 
         return questions

@@ -138,6 +138,7 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 - [ ] Implement attention computation overlapping
 - [ ] Add Ring Attention profiling and debugging
 - [ ] Test Ring Attention scaling
+- [ ] Implement complex mask slicing for distributed attention shards
 
 ### 3.4 Think In Diffusion,, Output using transofrmers
 - [ ] Add an experimental module that acts as a seperate MoE model also operating on the scratchpad, that then feeds into a seperate, much smaller transformer to cnvert its ouput into the desired format which then goes onto the scratchpad, which is then reprocessed by the larger transformer model and is outputted base on the fomrat of the larger tarnsformer.

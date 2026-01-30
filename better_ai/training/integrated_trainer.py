@@ -180,26 +180,61 @@ class IntegratedAdvancedTrainer:
     def _extract_trajectories_from_batch(
         self, batch: Dict[str, torch.Tensor]
     ) -> List[List[Dict[str, Any]]]:
-        """Extract real trajectory format from batch data"""
-        # A real implementation would look for 'trajectories' key or parse from text
+        """Extract real trajectory format from batch data by decoding input_ids"""
         if 'trajectories' in batch:
             return batch['trajectories']
 
-        # Fallback: attempt to reconstruct from input_ids/labels if it's a notebook format
-        # For now, we return empty if not found, but avoiding pure mock data.
-        return []
+        # Implement real parsing from input_ids
+        input_ids = batch.get("input_ids")
+        if input_ids is None or not hasattr(self, "tokenizer") or self.tokenizer is None:
+            return []
+
+        trajectories = []
+        for i in range(input_ids.size(0)):
+            text = self.tokenizer.decode(input_ids[i], skip_special_tokens=True)
+
+            # Parse trajectory: split into steps based on markers
+            # Markers could be "Step N:", "<thought>", or just newline segments
+            steps_text = text.split("\n\n") # Simplified heuristic for steps
+            trajectory = []
+            for step_text in steps_text:
+                if step_text.strip():
+                    trajectory.append({
+                        "content": step_text.strip(),
+                        "metadata": {"batch_idx": i}
+                    })
+            trajectories.append(trajectory)
+
+        return trajectories
 
     def _convert_trajectories_to_batch(
         self, trajectories: List[List[Dict[str, Any]]], original_batch: Dict[str, torch.Tensor]
     ) -> Dict[str, torch.Tensor]:
-        """Convert purified trajectories back to batch format"""
-        if not trajectories:
+        """Convert purified trajectories back to batch format via re-tokenization"""
+        if not trajectories or not hasattr(self, "tokenizer") or self.tokenizer is None:
             return original_batch
 
-        # Real conversion logic would involve tokenizing the purified text
-        # For this step, we return the original batch if we can't do a full reconversion
-        # but the infrastructure is now in place for real trajectories.
-        return original_batch
+        device = original_batch["input_ids"].device
+        purified_texts = []
+        for traj in trajectories:
+            # Reconstruct text from trajectory steps
+            purified_text = "\n\n".join([step["content"] for step in traj])
+            purified_texts.append(purified_text)
+
+        # Re-tokenize
+        tokens = self.tokenizer(
+            purified_texts,
+            padding=True,
+            truncation=True,
+            max_length=original_batch["input_ids"].size(1),
+            return_tensors="pt"
+        ).to(device)
+
+        new_batch = original_batch.copy()
+        new_batch["input_ids"] = tokens["input_ids"]
+        new_batch["attention_mask"] = tokens["attention_mask"]
+
+        return new_batch
 
     def train_epoch(
         self, dataloader: torch.utils.data.DataLoader, num_epochs: int = 1

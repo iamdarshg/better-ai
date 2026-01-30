@@ -42,10 +42,41 @@ def rl_forward_pass(self, batch: Dict[str, Any]) -> tuple:
     log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
     ref_log_probs = torch.nn.functional.log_softmax(ref_logits, dim=-1)
 
-    # Sample actions (here we use the input_ids as the action taken for simplicity in this step)
-    # In real rollouts, these would be generated.
-    action_log_probs = log_probs.gather(dim=-1, index=input_ids.unsqueeze(-1)).squeeze(-1)
-    old_action_log_probs = ref_log_probs.gather(dim=-1, index=input_ids.unsqueeze(-1)).squeeze(-1)
+    # Sample actions from real rollouts if not provided
+    generated_ids = batch.get('generated_ids')
+    if generated_ids is None:
+        # Perform real rollout generation
+        self.model.eval()
+        with torch.no_grad():
+            # Use model's internal generation or a simplified sampler
+            # For this step, we'll assume we generate a few tokens
+            generated_ids = self.model.generate(
+                input_ids=input_ids,
+                max_new_tokens=64,
+                do_sample=True,
+                temperature=0.8
+            )
+        self.model.train()
+
+    # Align logits with generated tokens
+    # Note: logits from forward pass might only be for input_ids
+    # We need to perform a forward pass on the full generated sequence to get action logprobs
+    full_outputs = self.model(input_ids=generated_ids)
+    full_logits = full_outputs["logits"]
+
+    with torch.no_grad():
+        full_ref_outputs = self.ref_model(input_ids=generated_ids)
+        full_ref_logits = full_ref_outputs["logits"]
+
+    def get_action_logprobs(logits, ids):
+        # Shift to align prediction with target
+        shift_logits = logits[:, :-1, :].contiguous()
+        shift_ids = ids[:, 1:].contiguous()
+        log_probs = F.log_softmax(shift_logits, dim=-1)
+        return log_probs.gather(dim=-1, index=shift_ids.unsqueeze(-1)).squeeze(-1)
+
+    action_log_probs = get_action_logprobs(full_logits, generated_ids)
+    old_action_log_probs = get_action_logprobs(full_ref_logits, generated_ids)
 
     # ratio = exp(log_p - log_p_old)
     ratio = torch.exp(action_log_probs - old_action_log_probs)

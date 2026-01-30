@@ -16,16 +16,16 @@ class ModelConfig:
     """Configuration for the transformer model"""
     
     # Architecture parameters
-    vocab_size: int = 10000  # Increased for better coding coverage
-    hidden_dim: int = 512  # Increased for better representation
-    num_layers: int = 1  # Reduced for efficiency
-    num_attention_heads: int = 8  # Increased proportionally
-    num_key_value_heads: Optional[int] = 4  # For GQA, maintain 2:1 ratio
-    intermediate_dim: int = 32  # 4x hidden_dim for SwiGLU
-    max_seq_length: int = 1024  # Increased with Ring Attention
+    vocab_size: int = 64000  # Increased for better coding coverage
+    hidden_dim: int = 1536  # Increased for better representation
+    num_layers: int = 12  # Maintain depth for reasoning
+    num_attention_heads: int = 24  # Consistent with hidden_dim / 64
+    num_key_value_heads: Optional[int] = 12  # For GQA, maintain 2:1 ratio
+    intermediate_dim: int = 6144  # 4x hidden_dim for SwiGLU
+    max_seq_length: int = 8192  # Increased with Ring Attention
     
     # MoE parameters
-    num_experts: int = 18  # Reduced for efficiency
+    num_experts: int = 8  # Maintain MoE efficiency
     num_experts_per_token: int = 2
     expert_capacity_factor: float = 1.25
     shared_experts: int = 1

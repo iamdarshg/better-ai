@@ -22,12 +22,14 @@ class TiDAR(nn.Module):
         num_steps: int = 5,
         diffusion_dim: int = 256,
         num_layers: int = 2,
-        num_heads: int = 4
+        num_heads: int = 4,
+        schedule_type: str = "cosine"
     ):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.num_steps = num_steps
         self.diffusion_dim = diffusion_dim
+        self.schedule_type = schedule_type
 
         # Steering transformer (denoising network)
         encoder_layer = nn.TransformerEncoderLayer(
@@ -65,6 +67,15 @@ class TiDAR(nn.Module):
         if dim % 2 == 1:
             emb = F.pad(emb, (0, 1))
         return emb
+
+    def _get_alpha(self, t: int) -> float:
+        """Get alpha based on schedule type"""
+        if self.schedule_type == "linear":
+            return 1.0 - (t / self.num_steps)
+        elif self.schedule_type == "cosine":
+            # Standard cosine schedule from Improved DDPM
+            return math.cos((t / self.num_steps + 0.008) / 1.008 * math.pi / 2) ** 2
+        return 1.0
 
     def forward(
         self,
@@ -105,8 +116,7 @@ class TiDAR(nn.Module):
             delta = self.output_proj(epsilon_theta)
 
             # Refinement step: x_{t-1} = x_t - alpha * delta + noise
-            # We use a simple linear schedule for alpha
-            alpha = 1.0 - (t / self.num_steps)
+            alpha = self._get_alpha(t)
 
             # Update state
             x_t = x_t + 0.1 * alpha * delta

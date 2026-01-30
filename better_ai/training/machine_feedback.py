@@ -20,30 +20,36 @@ class MachineFeedbackReward:
         self.linter_weight = self.config.get("linter_weight", 0.3)
         self.compiler_weight = self.config.get("compiler_weight", 0.4)
 
-    def check_grammar(self, code: str) -> float:
+    def check_grammar(self, code: str, is_python: bool = True) -> float:
         """
-        Check for basic syntax/grammar errors using AST.
+        Check for basic syntax/grammar errors. Uses AST for Python.
         """
         score = 1.0
-        try:
-            ast.parse(code)
-        except SyntaxError as e:
-            # Penalize based on how early the error occurs
-            lines = code.split('\n')
-            error_line = getattr(e, 'lineno', 1)
-            score = 0.5 * (error_line / max(len(lines), 1))
 
-        # Check for balanced brackets even if AST fails to give more detail
+        if is_python:
+            try:
+                ast.parse(code)
+            except SyntaxError as e:
+                # Heavily penalize syntax errors
+                lines = code.split('\n')
+                error_line = getattr(e, 'lineno', 1)
+                # Max score is 0.2 if there is a syntax error, lower if it happens early
+                score = 0.2 * (error_line / max(len(lines), 1))
+
+        # Check for balanced brackets (language independent)
         for open_b, close_b in [('(', ')'), ('[', ']'), ('{', '}')]:
             if code.count(open_b) != code.count(close_b):
-                score = min(score, 0.5)
+                score = min(score, 0.1) # Even heavier penalty for unbalanced brackets
 
         return max(0.0, score)
 
-    def run_linter(self, code: str) -> float:
+    def run_linter(self, code: str, is_python: bool = True) -> float:
         """
-        Check for common code style and potential bug patterns using AST.
+        Check for common code style and potential bug patterns. Uses AST for Python.
         """
+        if not is_python:
+            return 1.0 # Skip linter for non-python for now
+
         score = 1.0
         try:
             tree = ast.parse(code)
@@ -119,14 +125,25 @@ class MachineFeedbackReward:
         """
         Compute aggregate machine feedback reward.
         """
+        is_python = False
         # Extract code block if it's in markdown
-        code_match = re.search(r'```(?:python|py)?\n(.*?)\n```', code, re.DOTALL)
+        code_match = re.search(r'```(python|py|rust|c|cpp|java|js|javascript|go)?\n(.*?)\n```', code, re.DOTALL)
         if code_match:
-            code = code_match.group(1)
+            lang = code_match.group(1)
+            is_python = lang in ["python", "py", None]
+            code = code_match.group(2)
+        else:
+            # If no markdown, assume based on config or content
+            is_python = self.config.get("grammar_type") == "python"
 
-        grammar_score = self.check_grammar(code)
-        linter_score = self.run_linter(code)
-        compiler_score = self.run_compilation(code)
+        grammar_score = self.check_grammar(code, is_python=is_python)
+        linter_score = self.run_linter(code, is_python=is_python)
+
+        if is_python:
+            compiler_score = self.run_compilation(code)
+        else:
+            compiler_score = 1.0 # Assume valid if we don't have a compiler for it
+
 
         total_reward = (
             self.grammar_weight * grammar_score +

@@ -68,8 +68,25 @@ class RingAttention(nn.Module):
         # Ring communication setup
         self.rank = 0
         self.world_size = 1
-        self.setup_ring_communication()
+        self._detect_distributed_env()
     
+    def _detect_distributed_env(self):
+        """Automatically detect distributed environment parameters"""
+        if dist.is_initialized():
+            self.rank = dist.get_rank()
+            self.world_size = dist.get_world_size()
+        else:
+            # Fallback for local testing/single GPU
+            self.rank = 0
+            self.world_size = 1
+
+    def shard_for_striped_attention(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """Shard the full hidden states into a stripe for the current rank"""
+        batch_size, seq_len, hidden_dim = hidden_states.shape
+        indices = torch.arange(seq_len, device=hidden_states.device)
+        my_indices = indices[self.rank::self.world_size]
+        return hidden_states[:, my_indices, :]
+
     def repeat_kv(self, x: torch.Tensor, num_rep: int) -> torch.Tensor:
         """Repeat KV heads to match query heads (grouped-query attention)"""
         batch, num_kv_heads, seq_len, head_dim = x.shape
@@ -77,12 +94,6 @@ class RingAttention(nn.Module):
             return x
         return x[:, :, None, :, :].expand(batch, num_kv_heads, num_rep, seq_len, head_dim).reshape(batch, num_kv_heads * num_rep, seq_len, head_dim)
         
-    def setup_ring_communication(self):
-        """Setup distributed ring communication"""
-        if dist.is_initialized():
-            self.rank = dist.get_rank()
-            self.world_size = dist.get_world_size()
-            
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -347,17 +358,22 @@ class StripedAttention(RingAttention):
                 hidden_states, attention_mask, past_key_value, use_cache, output_attentions
             )
 
-        # In truly distributed Striped Attention, each rank i only holds tokens i, i+world_size...
-        # Here we assume hidden_states passed to this rank is already sharded OR we shard it.
-        # For simplicity in this implementation, we assume we receive the full hidden_states
-        # and we pick our stripe.
-
-        indices = torch.arange(seq_len, device=hidden_states.device)
-        my_indices = indices[self.rank::self.world_size]
+        # Striped Attention sharding logic
+        if hidden_states.size(1) == seq_len:
+            # Input is full sequence, we must shard it
+            striped_hidden = self.shard_for_striped_attention(hidden_states)
+            local_seq_len = striped_hidden.size(1)
+            indices = torch.arange(seq_len, device=hidden_states.device)
+            my_indices = indices[self.rank::self.world_size]
+        else:
+            # Input is already sharded
+            striped_hidden = hidden_states
+            local_seq_len = striped_hidden.size(1)
+            # Reconstruct global indices based on rank and world size
+            # (Assuming standard interleaving)
+            my_indices = torch.arange(self.rank, seq_len, self.world_size, device=hidden_states.device)
 
         # Local Q, K, V
-        striped_hidden = hidden_states[:, my_indices, :]
-
         query_states = self.q_proj(striped_hidden)
         key_states = self.k_proj(striped_hidden)
         value_states = self.v_proj(striped_hidden)
