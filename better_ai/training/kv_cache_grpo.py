@@ -4,6 +4,7 @@ Optimizes Group Reward Policy Optimization with sequential generation and cache 
 """
 
 import torch
+import time
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Dict, Tuple, List, Any, Union
