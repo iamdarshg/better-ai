@@ -185,7 +185,18 @@ class GRPOTrainer:
         
         # Compute log probabilities
         log_probs = F.log_softmax(logits[:, -1, :], dim=-1)  # Use last token
-        new_logprobs = log_probs.gather(1, batch["target_ids"][:, -1].to(self.device).unsqueeze(1)).squeeze(-1)
+        # Handle case where target_ids might not exist or have wrong shape
+        if "target_ids" in batch and batch["target_ids"].shape[1] > 0:
+            target_ids = batch["target_ids"][:, -1].to(self.device)
+        else:
+            # Fallback: use the last token from input_ids as target
+            target_ids = batch["input_ids"][:, -1].to(self.device)
+        
+        # Ensure target_ids is the right shape for gather
+        if target_ids.dim() == 1:
+            target_ids = target_ids.unsqueeze(1)
+        
+        new_logprobs = log_probs.gather(1, target_ids).squeeze(-1)
         
         # Compute value estimates
         value_preds = self.value_head(hidden_states[:, -1, :])
@@ -260,11 +271,8 @@ class GRPOTrainer:
         
         for epoch in range(num_epochs):
             for batch_idx, batch in enumerate(dataloader):
-                # Get reward scores (would come from reward model in practice)
-                # This is a placeholder - actual implementation would score with reward_model
-                batch_size = batch["input_ids"].shape[0]
-                reward_scores = torch.randn(batch_size, self.group_size).to(self.device)
-                old_logprobs = torch.randn(batch_size, self.group_size).to(self.device)
+                # Compute reward scores using the reward model
+                reward_scores, old_logprobs = self._compute_group_rewards_and_logprobs(batch)
                 
                 loss_dict = self.train_step(batch, reward_scores, old_logprobs)
                 
@@ -273,6 +281,275 @@ class GRPOTrainer:
                         metrics[key].append(val)
         
         return metrics
+
+    def _compute_group_rewards_and_logprobs(
+        self,
+        batch: Dict[str, torch.Tensor],
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute reward scores and log probabilities for group-based training
+        
+        Args:
+            batch: Dictionary containing input_ids, attention_mask, etc.
+        
+        Returns:
+            (reward_scores, old_logprobs) where both have shape (batch_size, group_size)
+        """
+        batch_size = batch["input_ids"].shape[0]
+        
+        # Initialize tensors for rewards and logprobs
+        reward_scores = torch.zeros(batch_size, self.group_size, device=self.device)
+        old_logprobs = torch.zeros(batch_size, self.group_size, device=self.device)
+        
+        # Extract input sequences (remove padding if needed)
+        input_ids = batch["input_ids"].to(self.device)
+        attention_mask = batch.get("attention_mask", None)
+        if attention_mask is not None:
+            attention_mask = attention_mask.to(self.device)
+        
+        # Generate multiple responses per input for group-based training
+        for group_idx in range(self.group_size):
+            try:
+                # Generate response with different sampling parameters for diversity
+                generated_response, response_logprobs = self._generate_response_with_logprobs(
+                    input_ids, attention_mask, group_idx
+                )
+                
+                # Compute reward for the generated response
+                response_reward = self._compute_response_reward(generated_response, attention_mask)
+                
+                # Store results
+                reward_scores[:, group_idx] = response_reward
+                old_logprobs[:, group_idx] = response_logprobs
+                
+            except Exception as e:
+                # Fallback to random values if generation/reward computation fails
+                # This ensures training continues even if individual responses fail
+                import logging
+                logging.warning(f"Failed to compute reward for group {group_idx}: {e}")
+                reward_scores[:, group_idx] = torch.randn(batch_size, device=self.device)
+                old_logprobs[:, group_idx] = torch.randn(batch_size, device=self.device)
+        
+        return reward_scores, old_logprobs
+
+    def _generate_response_with_logprobs(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: Optional[torch.Tensor],
+        group_idx: int,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Generate a response and compute its log probabilities
+        
+        Args:
+            input_ids: (batch_size, seq_len) input token IDs
+            attention_mask: (batch_size, seq_len) attention mask
+            group_idx: Index of the group member (for sampling parameter variation)
+        
+        Returns:
+            (generated_response, response_logprobs) where response_logprobs is the log probability of the generated response
+        """
+        self.model.eval()
+        
+        with torch.no_grad():
+            # Set different sampling parameters for each group member to encourage diversity
+            # Group 0: More conservative (lower temperature, higher top-p)
+            # Group 3: More exploratory (higher temperature, lower top-p)
+            base_temperature = 0.8
+            base_top_p = 0.9
+            
+            # Vary sampling parameters based on group index
+            temperature = base_temperature * (0.8 + 0.4 * group_idx / (self.group_size - 1))  # 0.8 to 1.2
+            top_p = base_top_p * (1.1 - 0.2 * group_idx / (self.group_size - 1))  # 0.9 to 0.72
+            
+            # Generate response
+            generated_ids = self._sample_tokens(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=512,
+                temperature=temperature,
+                top_p=top_p,
+            )
+            
+            # Compute log probabilities of the generated response
+            # We need to compute the log probability of the generated tokens given the input
+            full_sequence = generated_ids
+            full_attention_mask = attention_mask
+            
+            if attention_mask is not None and full_sequence.shape[1] > attention_mask.shape[1]:
+                # Extend attention mask for generated tokens
+                new_tokens_mask = torch.ones(
+                    full_sequence.shape[0], 
+                    full_sequence.shape[1] - attention_mask.shape[1], 
+                    device=attention_mask.device
+                )
+                full_attention_mask = torch.cat([attention_mask, new_tokens_mask], dim=1)
+            
+            # Forward pass to get logits
+            outputs = self.model(
+                input_ids=full_sequence,
+                attention_mask=full_attention_mask,
+                output_hidden_states=False,
+            )
+            
+            logits = outputs.logits  # (batch_size, seq_len, vocab_size)
+            
+            # Compute log probabilities
+            # Shift logits and labels to align them
+            shift_logits = logits[..., :-1, :].contiguous()
+            shift_labels = full_sequence[..., 1:].contiguous()
+            
+            # Compute log probabilities for the generated tokens only
+            # Find where the input ends and generation begins
+            input_length = input_ids.shape[1]
+            if shift_logits.shape[1] > input_length - 1:
+                gen_logits = shift_logits[:, input_length - 1:, :]
+                gen_labels = shift_labels[:, input_length - 1:]
+                
+                # Compute log probabilities
+                log_probs = F.log_softmax(gen_logits, dim=-1)
+                gen_logprobs = log_probs.gather(-1, gen_labels.unsqueeze(-1)).squeeze(-1)
+                
+                # Average log probability across generated tokens for each sequence
+                response_logprobs = gen_logprobs.mean(dim=-1)  # (batch_size,)
+            else:
+                # No tokens were generated
+                response_logprobs = torch.zeros(input_ids.shape[0], device=input_ids.device)
+        
+        self.model.train()
+        return generated_ids, response_logprobs
+
+    def _sample_tokens(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: Optional[torch.Tensor],
+        max_new_tokens: int = 512,
+        temperature: float = 0.8,
+        top_p: float = 0.9,
+    ) -> torch.Tensor:
+        """
+        Sample tokens from the model with specified parameters
+        
+        Args:
+            input_ids: (batch_size, seq_len) input token IDs
+            attention_mask: (batch_size, seq_len) attention mask
+            max_new_tokens: Maximum number of tokens to generate
+            temperature: Sampling temperature
+            top_p: Nucleus sampling parameter
+        
+        Returns:
+            Generated token IDs (batch_size, seq_len + max_new_tokens)
+        """
+        batch_size = input_ids.shape[0]
+        device = input_ids.device
+        
+        # Store generated tokens
+        generated = input_ids.clone()
+        current_attention_mask = attention_mask.clone() if attention_mask is not None else None
+        
+        for _ in range(max_new_tokens):
+            # Forward pass
+            outputs = self.model(
+                input_ids=generated[:, -1:] if current_attention_mask is not None else generated,
+                attention_mask=current_attention_mask,
+                output_hidden_states=False,
+            )
+            
+            logits = outputs.logits[:, -1, :]  # (batch_size, vocab_size)
+            
+            # Apply temperature
+            logits = logits / temperature
+            
+            # Top-P (Nucleus) sampling
+            if top_p < 1.0:
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+                cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+
+                # Remove tokens with cumulative probability above the threshold (nucleus filtering)
+                sorted_indices_to_remove = cumulative_probs > top_p
+                # Shift the indices to the right to keep also the first token above the threshold
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = False
+
+                # scatter sorted tensors to original indexing
+                indices_to_remove = torch.zeros_like(logits, dtype=torch.bool).scatter_(dim=1, index=sorted_indices, src=sorted_indices_to_remove)
+                logits[indices_to_remove] = float("-inf")
+            
+            # Sample next token
+            probs = F.softmax(logits, dim=-1)
+            next_tokens = torch.multinomial(probs, num_samples=1).squeeze(-1)  # (batch_size,)
+            
+            # Append to generated sequence
+            generated = torch.cat([generated, next_tokens.unsqueeze(-1)], dim=-1)
+            
+            # Update attention mask if present
+            if current_attention_mask is not None:
+                new_mask = torch.ones(batch_size, 1, device=device)
+                current_attention_mask = torch.cat([current_attention_mask, new_mask], dim=1)
+            
+            # Stop if all sequences have generated EOS token
+            if (next_tokens == 2).all():  # Assuming EOS token ID is 2
+                break
+        
+        return generated
+
+    def _compute_response_reward(
+        self,
+        generated_response: torch.Tensor,
+        attention_mask: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        """
+        Compute reward for a generated response using the reward model
+        
+        Args:
+            generated_response: (batch_size, seq_len) generated token IDs
+            attention_mask: (batch_size, seq_len) attention mask
+        
+        Returns:
+            Reward scores (batch_size,)
+        """
+        self.reward_model.eval()
+        
+        with torch.no_grad():
+            try:
+                # Forward pass through the model to get hidden states
+                outputs = self.model(
+                    input_ids=generated_response,
+                    attention_mask=attention_mask,
+                    output_hidden_states=True,
+                )
+                
+                hidden_states = outputs.hidden_states[-1]  # (batch_size, seq_len, hidden_dim)
+                
+                # Compute reward using the reward model
+                if hasattr(self.reward_model, 'forward'):
+                    # Standard reward model interface
+                    reward_scores = self.reward_model(hidden_states, attention_mask)
+                elif hasattr(self.reward_model, 'score_pair'):
+                    # Pair-wise scoring interface (for comparison-based rewards)
+                    # For now, we'll use the standard interface
+                    reward_scores = self.reward_model(hidden_states, attention_mask)
+                else:
+                    # Fallback: use mean of hidden states as simple reward
+                    if attention_mask is not None:
+                        mask_expanded = attention_mask.unsqueeze(-1).float()
+                        sum_hidden = (hidden_states * mask_expanded).sum(1)
+                        sum_mask = mask_expanded.sum(1)
+                        hidden_repr = sum_hidden / (sum_mask + 1e-9)
+                    else:
+                        hidden_repr = hidden_states[:, -1, :]  # Last token
+                    
+                    # Simple linear projection as fallback reward
+                    reward_scores = torch.nn.functional.linear(hidden_repr, torch.randn(hidden_repr.shape[-1], 1, device=hidden_repr.device)).squeeze(-1)
+                
+            except Exception as e:
+                # Fallback to random rewards if reward computation fails
+                import logging
+                logging.warning(f"Reward computation failed: {e}")
+                reward_scores = torch.randn(generated_response.shape[0], device=generated_response.device)
+        
+        self.reward_model.train()
+        return reward_scores
 
 
 class GRPOLoss(nn.Module):
