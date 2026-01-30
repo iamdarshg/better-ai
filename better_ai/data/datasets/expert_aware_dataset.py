@@ -1,3 +1,4 @@
+
 import torch
 from torch.utils.data import IterableDataset
 from typing import List, Dict, Optional, Iterator
@@ -18,7 +19,7 @@ class ExpertAwareRollingDataset(RollingWindowCodeDataset):
         expert_buffer_size: int = 200,
         load_balance_weight: float = 0.01,
         batch_size: int = 32,
-        **kwargs,
+        **kwargs
     ):
         super().__init__(**kwargs)
 
@@ -39,36 +40,19 @@ class ExpertAwareRollingDataset(RollingWindowCodeDataset):
         print(f"  Batch size: {batch_size}")
 
     def _route_sample_to_experts(self, sample: Dict) -> List[int]:
-        """Route a sample to experts using a deterministic gating heuristic.
+        """Simple routing based on language hash (in real implementation, use actual gating)"""
+        content = sample.get('content', '')
+        language = sample.get('language', '')
 
-        This implementation mirrors a simple, robust gating strategy used in
-        production MoE setups: compute a stable hash of the sample content and
-        language, combine them, and select the top-k experts with the smallest
-        distance to the combined gate. It's deterministic and avoids Python's
-        non-deterministic hash() across runs.
-        """
-        content = sample.get("content", "")
-        language = sample.get("language", "")
+        # Simple hash-based routing for demonstration
+        content_hash = hash(content) % self.num_experts
+        lang_hash = hash(language) % self.num_experts
 
-        def _stable_hash(s: str) -> int:
-            # Simple 64-bit FNV-1a like hash for deterministic routing
-            h = 0xCBF29CE484222325  # 1469598103934665603
-            for ch in s:
-                h ^= ord(ch)
-                h = (h * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF  # 1099511628211
-            return h
-
-        content_hash = _stable_hash(content) % self.num_experts
-        lang_hash = _stable_hash(language) % self.num_experts
-
-        # Combine hashes to a single gate value in a deterministic way
-        gate = (content_hash + lang_hash) % self.num_experts
-
-        # Score experts by distance to the gate and pick top-k
-        scores = [(i, abs(i - gate)) for i in range(self.num_experts)]
+        # Return top-k experts
+        scores = [(i, abs(i - content_hash) + abs(i - lang_hash)) for i in range(self.num_experts)]
         scores.sort(key=lambda x: x[1])
 
-        return [expert_id for expert_id, _ in scores[: self.experts_per_token]]
+        return [expert_id for expert_id, _ in scores[:self.experts_per_token]]
 
     def __iter__(self) -> Iterator[Dict]:
         """Iterate with expert-aware routing"""
@@ -92,10 +76,7 @@ class ExpertAwareRollingDataset(RollingWindowCodeDataset):
                 dataset_iter = iter(self.dataset)
 
         for raw_sample in dataset_iter:
-            if (
-                self.max_total_samples
-                and self.samples_processed >= self.max_total_samples
-            ):
+            if self.max_total_samples and self.samples_processed >= self.max_total_samples:
                 break
 
             # Process sample
@@ -114,27 +95,18 @@ class ExpertAwareRollingDataset(RollingWindowCodeDataset):
 
                         # Maintain buffer size
                         if len(expert_buffer) > self.expert_buffer_size:
-                            expert_buffer = expert_buffer[-self.expert_buffer_size :]
+                            expert_buffer = expert_buffer[-self.expert_buffer_size:]
                         self.expert_buffers[expert_id] = expert_buffer
 
                     self.samples_processed += 1
 
             # Emit batches when experts have enough data
             min_buffer_size = min(len(buf) for buf in self.expert_buffers.values())
-            if (
-                min_buffer_size >= self.batch_size
-                if hasattr(self, "batch_size")
-                else 32
-            ):
+            if min_buffer_size >= self.batch_size if hasattr(self, 'batch_size') else 32:
                 # Create balanced batch across experts
                 batch = []
                 for expert_id, buffer in self.expert_buffers.items():
-                    samples_to_take = min(
-                        len(buffer),
-                        self.batch_size // self.num_experts
-                        if hasattr(self, "batch_size")
-                        else 4,
-                    )
+                    samples_to_take = min(len(buffer), self.batch_size // self.num_experts if hasattr(self, 'batch_size') else 4)
                     batch.extend(buffer[-samples_to_take:])
 
                 # Shuffle batch
@@ -146,15 +118,8 @@ class ExpertAwareRollingDataset(RollingWindowCodeDataset):
 
                 # Clear used samples from buffers
                 for expert_id in self.expert_buffers:
-                    samples_to_remove = min(
-                        len(self.expert_buffers[expert_id]),
-                        self.batch_size // self.num_experts
-                        if hasattr(self, "batch_size")
-                        else 4,
-                    )
-                    self.expert_buffers[expert_id] = self.expert_buffers[expert_id][
-                        samples_to_remove:
-                    ]
+                    samples_to_remove = min(len(self.expert_buffers[expert_id]), self.batch_size // self.num_experts if hasattr(self, 'batch_size') else 4)
+                    self.expert_buffers[expert_id] = self.expert_buffers[expert_id][samples_to_remove:]
 
                 self.window_count += 1
 
@@ -163,9 +128,7 @@ class ExpertAwareRollingDataset(RollingWindowCodeDataset):
 
                 # Progress
                 if self.window_count % 5 == 0:
-                    print(
-                        f"Expert window {self.window_count}, Samples: {self.samples_processed}"
-                    )
+                    print(f"Expert window {self.window_count}, Samples: {self.samples_processed}")
                     print(f"Expert usage: {self.expert_usage}")
 
         # Emit remaining samples

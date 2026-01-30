@@ -167,10 +167,11 @@ class RingAttention(nn.Module):
             attn_scores = torch.matmul(local_q, curr_k.transpose(-2, -1)) / math.sqrt(self.head_dim)
 
             if attention_mask is not None:
-                # Handling attention mask in ring attention requires global index awareness.
-                # Here we assume a simple causal or padding mask that might need slicing.
-                # For brevity, we skip complex mask slicing logic.
-                pass
+                # Proper slicing of attention mask for distributed shards
+                # attention_mask: [B, 1, S_q, S_total]
+                kv_offset = step * seq_len
+                mask_slice = attention_mask[..., kv_offset : kv_offset + seq_len]
+                attn_scores = attn_scores + mask_slice
 
             # Online softmax update logic
             # mi: max of current block

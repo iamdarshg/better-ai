@@ -406,6 +406,17 @@ class ARPOTrainer:
             return "Generated response"
         return "Generated response"
 
+    def _extract_prompts_from_batch(self, batch: Dict[str, torch.Tensor]) -> List[str]:
+        """Extract prompt strings from batch"""
+        if "prompts" in batch:
+            return batch["prompts"]
+
+        # Default fallback: use input_ids if possible
+        if "input_ids" in batch and hasattr(self.model, "tokenizer") and self.model.tokenizer:
+            return [self.model.tokenizer.decode(ids, skip_special_tokens=True) for ids in batch["input_ids"]]
+
+        return ["Default prompt"]
+
     def train_step(self, batch: Dict[str, torch.Tensor]) -> Dict[str, float]:
         """
         Single ARPO training step with adaptive rollouts and step-level attribution
