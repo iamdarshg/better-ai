@@ -19,12 +19,12 @@ class OptimizedDeepSeekMoEModel(nn.Module):
     
     def __init__(
         self,
-        vocab_size: int,
-        hidden_size: int,
-        num_layers: int,
-        num_heads: int,
-        num_key_value_heads: int,
-        intermediate_size: int,
+        vocab_size: Union[int, Any] = None,
+        hidden_size: int = None,
+        num_layers: int = None,
+        num_heads: int = None,
+        num_key_value_heads: int = None,
+        intermediate_size: int = None,
         num_experts: int = 8,
         num_experts_per_token: int = 2,
         expert_capacity_factor: float = 1.25,
@@ -39,9 +39,29 @@ class OptimizedDeepSeekMoEModel(nn.Module):
         use_mla: bool = True,
         use_dsa: bool = False,
         mla_compression_ratio: float = 4.0,
-        dsa_config: Optional[Dict] = None
+        dsa_config: Optional[Dict] = None,
+        config: Any = None
     ):
         super().__init__()
+
+        # Handle the case where the first argument is the config object
+        if not isinstance(vocab_size, int) and vocab_size is not None:
+            config = vocab_size
+            vocab_size = None
+
+        if config is not None:
+            vocab_size = getattr(config, "vocab_size", vocab_size)
+            hidden_size = getattr(config, "hidden_dim", hidden_size)
+            num_layers = getattr(config, "num_layers", num_layers)
+            num_heads = getattr(config, "num_attention_heads", num_heads)
+            num_key_value_heads = getattr(config, "num_key_value_heads", num_key_value_heads)
+            intermediate_size = getattr(config, "intermediate_dim", intermediate_size)
+            num_experts = getattr(config, "num_experts", num_experts)
+            num_experts_per_token = getattr(config, "num_experts_per_token", num_experts_per_token)
+            expert_capacity_factor = getattr(config, "expert_capacity_factor", expert_capacity_factor)
+            max_seq_length = getattr(config, "max_seq_length", max_seq_length)
+            norm_eps = getattr(config, "norm_eps", norm_eps)
+            dropout = getattr(config, "residual_dropout", dropout)
         
         self.padding_idx = 0
         self.hidden_size = hidden_size
@@ -69,6 +89,7 @@ class OptimizedDeepSeekMoEModel(nn.Module):
         # Optimized transformer layers
         self.layers = nn.ModuleList()
         
+        current_head_dim = self.head_dim
         for layer_idx in range(num_layers):
             if layer_idx % use_moe_every_n_layers == 0 and layer_idx > 0:
                 # MoE layer with optimizations
@@ -101,7 +122,7 @@ class OptimizedDeepSeekMoEModel(nn.Module):
                                 hidden_size=hidden_size,
                                 num_heads=num_heads,
                                 num_key_value_heads=num_key_value_heads,
-                                head_dim=self.head_dim,
+                                head_dim=current_head_dim,
                                 dropout=dropout,
                                 use_flash_attention=True,
                                 use_gqa=True
@@ -211,7 +232,7 @@ class OptimizedDeepSeekMoEModel(nn.Module):
                                 hidden_size=hidden_size,
                                 num_heads=num_heads,
                                 num_key_value_heads=num_key_value_heads,
-                                head_dim=self.head_dim,
+                                head_dim=current_head_dim,
                                 compression_ratio=mla_compression_ratio,
                                 norm_eps=norm_eps,
                                 dropout=dropout,

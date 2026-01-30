@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from typing import Optional, Dict, Tuple, List, Any, Union
 import hashlib
 import logging
+import time
 
 
 class KVCacheEntry:
@@ -294,72 +295,42 @@ class OptimizedGRPOWithKVCache:
         temperature: float = 0.7,
         do_sample: bool = True,
         use_cache: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> List[torch.Tensor]:
         """
-        Generate group of responses with KV-cache reuse optimization
+        Generate group of responses with KV-cache reuse optimization using model's generate_group
         """
         group_results = []
 
         for prompt in prompts:
             # Tokenize prompt
             input_ids = self._tokenize(prompt)
-            prompt_length = input_ids.shape[-1]
 
-            # Check for cache reuse
-            cache_key = None
-            cached_kv = None
-            cached_prefix_length = 0
-
-            if use_cache:
-                cache_result = self.cache_manager.find_matching_prefix(
-                    input_ids, min_prefix_length=4
+            if use_cache and hasattr(self.model, "generate_group"):
+                # Use the built-in generate_group which reuses prompt KV cache
+                responses = self.model.generate_group(
+                    input_ids=input_ids,
+                    group_size=self.group_size,
+                    max_new_tokens=max_length - input_ids.size(1),
+                    temperature=temperature,
+                    use_cache=True
                 )
-                if cache_result:
-                    cache_key, cached_prefix_length = cache_result
-                    cached_kv = self.cache_manager.retrieve_cache(cache_key)
-                    self.cache_reuses += 1
-
-            # Generate with cache optimization
-            if cached_kv is not None:
-                # Use cached KV for prefix, generate only remaining tokens
-                generation_result = self._generate_with_cached_prefix(
-                    input_ids,
-                    cached_kv,
-                    cached_prefix_length,
-                    max_length,
-                    temperature,
-                    do_sample,
-                )
-
-                memory_saved = cached_prefix_length * self._estimate_memory_per_token()
-                self.memory_saved += memory_saved
-
+                group_results.append(responses)
+                self.cache_reuses += (self.group_size - 1)
+                self.memory_saved += input_ids.size(1) * (self.group_size - 1) * self._estimate_memory_per_token()
             else:
-                # Full generation without cache
-                generation_result = self._full_generation(
-                    input_ids, max_length, temperature, do_sample
-                )
+                # Fallback to multiple separate generations
+                responses = []
+                for _ in range(self.group_size):
+                    resp = self.model.generate(
+                        input_ids=input_ids,
+                        max_new_tokens=max_length - input_ids.size(1),
+                        temperature=temperature,
+                        use_cache=True
+                    )
+                    responses.append(resp)
+                group_results.append(torch.cat(responses, dim=0))
 
-            # Extract and store KV cache for future use
-            if use_cache and "attention_outputs" in generation_result:
-                key_cache, value_cache = self.cache_manager.extract_kv_cache(
-                    generation_result.get("hidden_states", []),
-                    generation_result["attention_outputs"],
-                )
-
-                # Store cache for the full sequence
-                full_hash = self.cache_manager.compute_prefix_hash(
-                    generation_result["sequences"]
-                )
-                self.cache_manager.store_cache(
-                    full_hash,
-                    key_cache,
-                    value_cache,
-                    generation_result["sequences"].shape[-1],
-                )
-
-            group_results.append(generation_result)
-            self.total_generations += 1
+            self.total_generations += self.group_size
 
         return group_results
 
@@ -446,9 +417,11 @@ class OptimizedGRPOWithKVCache:
         }
 
     def _tokenize(self, text: str) -> torch.Tensor:
-        """Tokenize input text (mock implementation)"""
-        # In practice, would use the model's tokenizer
-        return torch.randint(0, 1000, (1, 10), device=self.device)
+        """Tokenize input text"""
+        if hasattr(self.model, "tokenizer") and self.model.tokenizer:
+            return self.model.tokenizer(text, return_tensors="pt").input_ids.to(self.device)
+        # Fallback for mock/testing
+        return torch.randint(0, self.config.get("vocab_size", 1000), (1, 10), device=self.device)
 
     def _estimate_memory_per_token(self) -> float:
         """Estimate memory usage per token"""
@@ -510,28 +483,32 @@ class OptimizedGRPOWithKVCache:
         }
 
     def _extract_prompts_from_batch(self, batch: Dict[str, torch.Tensor]) -> List[str]:
-        """Extract prompts from batch (mock implementation)"""
-        batch_size = batch.get("input_ids", torch.tensor([])).shape[0]
-        return [f"Prompt {i}" for i in range(batch_size)]
+        """Extract prompts from batch"""
+        if "prompts" in batch:
+            return batch["prompts"]
 
-    def _decode_response(self, response: Dict[str, Any]) -> str:
-        """Decode response to text (mock implementation)"""
-        return f"Generated response with cache_hit={response.get('cache_hit', False)}"
+        # If we only have input_ids, we decode them (if possible)
+        if hasattr(self.model, "tokenizer") and self.model.tokenizer:
+            return self.model.tokenizer.batch_decode(batch["input_ids"], skip_special_tokens=True)
+
+        return [f"Prompt {i}" for i in range(batch.get("input_ids", torch.tensor([])).shape[0])]
+
+    def _decode_response(self, response: Any) -> str:
+        """Decode response to text"""
+        if hasattr(self.model, "tokenizer") and self.model.tokenizer:
+            if isinstance(response, torch.Tensor):
+                return self.model.tokenizer.batch_decode(response, skip_special_tokens=True)
+        return str(response)
 
     def _compute_grpo_loss_with_cache(
-        self, rewards: List[float], responses: List[Dict[str, Any]]
+        self, rewards: List[float], responses: List[torch.Tensor]
     ) -> torch.Tensor:
         """Compute GRPO loss considering cache efficiency"""
         # Simple reward-based loss (would be more sophisticated in practice)
         avg_reward = sum(rewards) / len(rewards) if rewards else 0.0
 
-        # Bonus for cache efficiency
-        cache_bonus = sum(1 for r in responses if r.get("cache_hit", False)) / len(
-            responses
-        )
-
         # Total loss (negative because we maximize reward)
-        loss = -avg_reward - 0.1 * cache_bonus
+        loss = -avg_reward
 
         return torch.tensor(loss, device=self.device, requires_grad=True)
 

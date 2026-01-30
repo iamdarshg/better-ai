@@ -46,14 +46,14 @@ class TestAdvancedFeatures(unittest.TestCase):
         config.use_ring_attention = True
         model = EnhancedDeepSeekModel(config)
         from better_ai.models.ring_attention import RingAttention
-        for layer in model.model.layers:
+        for layer in model.layers:
             self.assertTrue(isinstance(layer.self_attn, RingAttention))
 
         config = get_small_model_config()
         config.use_ring_attention = False
         model = EnhancedDeepSeekModel(config)
         from better_ai.models.core import MultiHeadAttention
-        for layer in model.model.layers:
+        for layer in model.layers:
             self.assertTrue(isinstance(layer.self_attn, MultiHeadAttention))
 
 if __name__ == '__main__':

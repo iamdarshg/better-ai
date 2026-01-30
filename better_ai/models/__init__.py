@@ -23,7 +23,8 @@ from .advanced_features import (
     JSONEnforcer,
     EntropicSteering,
 )
-from .enhanced_model import EnhancedDeepSeekModel
+# EnhancedDeepSeekModel is now integrated into DeepSeekModel
+EnhancedDeepSeekModel = DeepSeekModel
 
 __all__ = [
     "RMSNorm",

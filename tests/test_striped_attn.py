@@ -15,7 +15,7 @@ def test_striped_attention_init():
 
     # Check if attention is StripedAttention
     from better_ai.models.ring_attention import StripedAttention
-    assert isinstance(model.model.layers[0].self_attn, StripedAttention)
+    assert isinstance(model.layers[0].self_attn, StripedAttention)
 
     batch_size = 2
     seq_len = 16

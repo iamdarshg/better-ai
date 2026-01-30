@@ -84,7 +84,7 @@ class TestModelEnhancements(unittest.TestCase):
         model = EnhancedDeepSeekModel(config)
 
         # Check if the attention layer is replaced
-        self.assertIsInstance(model.model.layers[0].self_attn, LinearAttention)
+        self.assertIsInstance(model.layers[0].self_attn, LinearAttention)
 
         # Test forward pass
         input_ids = torch.randint(0, config.vocab_size, (1, 10))

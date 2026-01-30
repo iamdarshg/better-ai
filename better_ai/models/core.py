@@ -6,7 +6,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Tuple, List, Union, Any
 from .rope import RoPECache
+from .features.recursive_scratchpad import RecursiveScratchpad
+from .features.cot_specialization import CoTSpecializationHeads
+from .features.inner_monologue import InnerMonologue
+from .features.star_module import STaRModule
+from .features.tool_use import ToolUseHeads
+from .features.specialized_head import SpecializedHead
+from .features.gbnf_constraint import GBNFConstraint
+from .features.json_enforcer import JSONEnforcer
+from .features.entropic_steering import EntropicSteering
+from .tidar import TiDAR
+from .reward_model import BranchRewardModel, MultiAttributeRewardModel
+from .generation import generate, compute_loss, self_correct
 
+
+# To avoid circular imports
+_MoELayer = None
 
 class RMSNorm(nn.Module):
     """RMS Normalization layer"""
@@ -154,10 +169,11 @@ class MultiHeadAttention(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    """Transformer block with RMSNorm and SwiGLU"""
+    """Transformer block with RMSNorm and SwiGLU or MoE"""
     
     def __init__(self, hidden_size: int, num_heads: int, num_key_value_heads: int, head_dim: int, 
-                 intermediate_size: int, norm_eps: float = 1e-6, dropout: float = 0.0):
+                 intermediate_size: int, norm_eps: float = 1e-6, dropout: float = 0.0,
+                 use_moe: bool = False, num_experts: int = 8, num_experts_per_token: int = 2):
         super().__init__()
         self.hidden_size = hidden_size
         
@@ -171,7 +187,20 @@ class TransformerBlock(nn.Module):
         )
         
         # Feed-forward
-        self.mlp = SwiGLU(hidden_size, intermediate_size)
+        if use_moe:
+            global _MoELayer
+            if _MoELayer is None:
+                from .moe import MoELayer
+                _MoELayer = MoELayer
+            self.mlp = _MoELayer(
+                hidden_size=hidden_size,
+                num_experts=num_experts,
+                num_experts_per_token=num_experts_per_token,
+                expert_intermediate_size=intermediate_size,
+                dropout=dropout
+            )
+        else:
+            self.mlp = SwiGLU(hidden_size, intermediate_size)
         
         # Normalization
         self.input_layernorm = RMSNorm(hidden_size, eps=norm_eps)
@@ -187,7 +216,7 @@ class TransformerBlock(nn.Module):
         past_key_value: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor, torch.Tensor]], Optional[torch.Tensor]]:
         
         # Self-attention
         residual = hidden_states
@@ -205,7 +234,14 @@ class TransformerBlock(nn.Module):
         # Feed-forward
         residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
-        hidden_states = self.mlp(hidden_states)
+
+        aux_loss = None
+        # Check for MoE layer without repeated imports
+        if _MoELayer is not None and isinstance(self.mlp, _MoELayer):
+            hidden_states, aux_loss, _ = self.mlp(hidden_states, attention_mask=attention_mask)
+        else:
+            hidden_states = self.mlp(hidden_states)
+
         hidden_states = self.residual_dropout(hidden_states)
         hidden_states = residual + hidden_states
         
@@ -213,47 +249,151 @@ class TransformerBlock(nn.Module):
         
         if output_attentions:
             outputs += (self_attn_weights,)
-        
+
         if use_cache:
             outputs += (present_key_value,)
         
+        # Add aux_loss if it exists
+        outputs += (aux_loss,)
+
         return outputs
 
 
 class DeepSeekModel(nn.Module):
     """DeepSeek-inspired Transformer model"""
     
-    def __init__(self, config):
+    def __init__(self, config, device: Optional[torch.device] = None):
         super().__init__()
         self.config = config
         self.padding_idx = 0
         self.hidden_size = config.hidden_dim
+        self.vocab_size = config.vocab_size
         self.num_heads = config.num_attention_heads
         self.num_key_value_heads = config.num_key_value_heads
         self.head_dim = self.hidden_size // self.num_heads
         self.max_seq_length = config.max_seq_length
+        self.device_str = str(device) if device else None
         
         # Embedding
         self.embed_tokens = nn.Embedding(config.vocab_size, self.hidden_size, self.padding_idx)
         
         # Transformer layers
-        self.layers = nn.ModuleList([
-            TransformerBlock(
-                hidden_size=self.hidden_size,
-                num_heads=self.num_heads,
-                num_key_value_heads=self.num_key_value_heads,
-                head_dim=self.head_dim,
-                intermediate_size=config.intermediate_dim,
-                norm_eps=config.norm_eps,
-                dropout=config.residual_dropout
-            ) for _ in range(config.num_layers)
-        ])
+        self.layers = nn.ModuleList()
+        for i in range(config.num_layers):
+            use_moe = (i % getattr(config, "use_moe_every_n_layers", 2) == 0) and i > 0
+            self.layers.append(
+                TransformerBlock(
+                    hidden_size=self.hidden_size,
+                    num_heads=self.num_heads,
+                    num_key_value_heads=self.num_key_value_heads,
+                    head_dim=self.head_dim,
+                    intermediate_size=config.intermediate_dim,
+                    norm_eps=config.norm_eps,
+                    dropout=config.residual_dropout,
+                    use_moe=use_moe,
+                    num_experts=getattr(config, "num_experts", 8),
+                    num_experts_per_token=getattr(config, "num_experts_per_token", 2)
+                )
+            )
         
         # Final normalization
         self.norm = RMSNorm(self.hidden_size, eps=self.config.norm_eps)
+
+        # Language model head
+        self.lm_head = nn.Linear(config.hidden_dim, config.vocab_size, bias=False)
+
+        # Advanced features initialization
+        self._init_advanced_features(config, device)
+
+        # Replace attention layers if requested
+        if getattr(config, "use_ring_attention", False):
+            self._replace_with_ring_attention(config, device)
+        elif getattr(config, "use_linear_attention", False):
+            self._replace_with_linear_attention(config, device)
         
         # Initialize weights
         self.apply(self._init_weights)
+
+    def _init_advanced_features(self, config, device):
+        """Initialize all advanced features if enabled in config"""
+        if getattr(config, "use_recursive_scratchpad", False):
+            self.scratchpad = RecursiveScratchpad(
+                config.hidden_dim,
+                max_iterations=getattr(config, "scratchpad_max_iterations", 8),
+                scratchpad_dim=getattr(config, "scratchpad_hidden_dim", 32),
+            )
+
+        if getattr(config, "use_tidar", False):
+            self.tidar = TiDAR(
+                hidden_dim=config.hidden_dim,
+                num_steps=getattr(config, "tidar_num_steps", 5),
+                diffusion_dim=getattr(config, "tidar_diffusion_dim", 128),
+                num_layers=getattr(config, "tidar_num_layers", 2)
+            )
+
+        if getattr(config, "use_cot_specialization", False):
+            self.cot_heads = CoTSpecializationHeads(
+                config.hidden_dim,
+                num_cot_heads=getattr(config, "cot_num_heads", 5),
+                cot_hidden_dim=getattr(config, "cot_hidden_dim", 32),
+            )
+
+        if getattr(config, "use_inner_monologue", False):
+            self.inner_monologue = InnerMonologue(
+                config.hidden_dim,
+                private_subspace_dim=getattr(config, "private_subspace_dim", 4096),
+            )
+
+        if getattr(config, "use_star", False):
+            self.star = STaRModule(
+                config.hidden_dim,
+                num_bootstrap_rounds=getattr(config, "star_bootstrap_rounds", 3),
+                consistency_samples=getattr(config, "star_consistency_samples", 10),
+            )
+
+        if getattr(config, "use_tool_heads", False):
+            self.tool_heads = ToolUseHeads(
+                config.hidden_dim,
+                tool_vocab_size=getattr(config, "tool_vocab_size", 32),
+                tool_hidden_dim=getattr(config, "tool_hidden_dim", 32),
+            )
+
+        if getattr(config, "use_json_db_ops_head", False):
+            self.json_db_ops_head = SpecializedHead(
+                hidden_dim=config.hidden_dim,
+                internal_dim=getattr(config, "json_db_ops_internal_dim", 256),
+                ratio=getattr(config, "json_db_ops_ratio", 0.1)
+            )
+
+        if getattr(config, "use_math_reasoning_head", False):
+            self.math_reasoning_head = SpecializedHead(
+                config.hidden_dim,
+                internal_dim=getattr(config, "math_reasoning_internal_dim", 256),
+                ratio=getattr(config, "math_reasoning_ratio", 0.1)
+            )
+
+        if getattr(config, "use_algorithm_head", False):
+            self.algorithm_head = SpecializedHead(
+                config.hidden_dim,
+                internal_dim=getattr(config, "algorithm_internal_dim", 256),
+                ratio=getattr(config, "algorithm_ratio", 0.1)
+            )
+
+        if getattr(config, "use_grammar_constraints", False):
+            self.gbnf_constraint = GBNFConstraint(config.hidden_dim, grammar_type=getattr(config, "grammar_type", "gbnf"))
+
+        if getattr(config, "enforce_json_output", False):
+            self.json_enforcer = JSONEnforcer(config.hidden_dim)
+
+        if getattr(config, "use_entropic_steering", False):
+            self.entropic_steering = EntropicSteering(config.hidden_dim, entropy_threshold=getattr(config, "entropy_threshold", 2.5))
+
+        # Reward models
+        self.reward_model = BranchRewardModel(config, hidden_dim=512)
+        self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=7, num_quantiles=5)
+
+        # Value head for PPO/GRPO
+        self.value_head = nn.Linear(config.hidden_dim, 1, bias=False)
     
     def _init_weights(self, module):
         """Initialize weights using scaled normal distribution"""
@@ -284,6 +424,13 @@ class DeepSeekModel(nn.Module):
         new_embeddings.weight.data[:n, :] = old_embeddings.weight.data[:n, :]
 
         self.set_input_embeddings(new_embeddings)
+
+        # Also resize lm_head
+        old_lm_head = self.lm_head
+        self.lm_head = nn.Linear(self.config.hidden_dim, new_num_tokens, bias=False)
+        self.lm_head.to(old_lm_head.weight.device, dtype=old_lm_head.weight.dtype)
+        self.lm_head.weight.data[:n, :] = old_lm_head.weight.data[:n, :]
+
         self.config.vocab_size = new_num_tokens
     
     def forward(
@@ -296,6 +443,7 @@ class DeepSeekModel(nn.Module):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        return_advanced_features: bool = False,
     ) -> Any:
         
         output_attentions = output_attentions if output_attentions is not None else False
@@ -325,6 +473,7 @@ class DeepSeekModel(nn.Module):
         hidden_states = inputs_embeds
         
         # Prepare attention mask for the layers
+        raw_attention_mask = attention_mask
         if attention_mask is not None:
             if len(attention_mask.shape) == 2:
                 # Convert to causal mask with bounds checking
@@ -342,7 +491,8 @@ class DeepSeekModel(nn.Module):
         all_hidden_states = () if output_hidden_states else None
         all_self_attns = () if output_attentions else None
         next_cache = () if use_cache else None
-        
+        total_aux_loss = torch.tensor(0.0, device=inputs_embeds.device)
+
         for i, (layer_module, past_key_value) in enumerate(zip(self.layers, past_key_values)):
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
@@ -357,31 +507,187 @@ class DeepSeekModel(nn.Module):
             
             hidden_states = layer_outputs[0]
             
-            if use_cache:
-                next_cache = next_cache + (layer_outputs[-1],)
+            # Map outputs based on their existence
+            # 0: hidden_states
+            # 1: self_attn_weights (optional)
+            # 2: present_key_value (optional)
+            # 3: aux_loss (optional)
             
+            curr_idx = 1
             if output_attentions:
-                all_self_attns = all_self_attns + (layer_outputs[1],)
+                all_self_attns = all_self_attns + (layer_outputs[curr_idx],)
+                curr_idx += 1
+
+            if use_cache:
+                next_cache = next_cache + (layer_outputs[curr_idx],)
+                curr_idx += 1
+
+            if layer_outputs[-1] is not None:
+                total_aux_loss += layer_outputs[-1]
         
         hidden_states = self.norm(hidden_states)
+
+        # Language modeling head
+        logits = self.lm_head(hidden_states)
         
         # Add last layer
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
         
+        # Compute advanced features if requested
+        advanced_features = {}
+        if return_advanced_features:
+            advanced_features = self._compute_advanced_features(hidden_states, input_ids, raw_attention_mask, logits=logits)
+
         if not return_dict:
-            return tuple(
-                v
-                for v in [hidden_states, next_cache, all_hidden_states, all_self_attns]
-                if v is not None
-            )
+            res = [logits, hidden_states, next_cache, all_hidden_states, all_self_attns]
+            if return_advanced_features:
+                res.append(advanced_features)
+            return tuple(v for v in res if v is not None)
         
-        return {
+        result = {
+            "logits": logits,
             "last_hidden_state": hidden_states,
             "past_key_values": next_cache,
             "hidden_states": all_hidden_states,
             "attentions": all_self_attns,
+            "aux_loss": total_aux_loss,
         }
+        if return_advanced_features:
+            result["advanced_features"] = advanced_features
+
+        return result
+
+    def _replace_with_linear_attention(self, config: Any, device: Optional[torch.device] = None):
+        """Replace standard attention with Linear Attention."""
+        for layer in self.layers:
+            linear_attn = LinearAttention(
+                hidden_size=config.hidden_dim,
+                num_heads=config.num_attention_heads,
+            )
+            if device:
+                linear_attn.to(device)
+            layer.self_attn = linear_attn
+
+    def _replace_with_ring_attention(self, config: Any, device: Optional[torch.device] = None):
+        """Replace standard attention with Ring Attention or Striped Attention"""
+        from .ring_attention import RingAttention, StripedAttention
+        attn_class = StripedAttention if getattr(config, "use_striped_attention", False) else RingAttention
+
+        for i, layer in enumerate(self.layers):
+            # Create Ring Attention module
+            ring_attn = attn_class(
+                hidden_dim=config.hidden_dim,
+                num_heads=config.num_attention_heads,
+                num_key_value_heads=getattr(config, "num_key_value_heads", config.num_attention_heads // 2),
+                block_size=getattr(config, "ring_block_size", 1024),
+                dropout=getattr(config, "attention_dropout", 0.0),
+                rope_theta=getattr(config, "rope_theta", 10000.0),
+                max_seq_len=getattr(config, "max_seq_length", 4096),
+            )
+
+            # Move to device if specified
+            if device is not None:
+                ring_attn = ring_attn.to(device)
+
+            # Replace attention in layer
+            layer.self_attn = ring_attn
+
+    def _compute_advanced_features(self, hidden_states, input_ids, attention_mask, logits=None):
+        """Compute all advanced features and return them in a dictionary"""
+        advanced_outputs = {}
+
+        # Recursive Scratchpad
+        if hasattr(self, "scratchpad"):
+            scratchpad_out = self.scratchpad(hidden_states)
+            advanced_outputs["scratchpad"] = scratchpad_out
+            hidden_states = scratchpad_out["scratchpad_output"]
+
+        # TiDAR
+        if hasattr(self, "tidar"):
+            prompt_repr = hidden_states.mean(dim=1)
+            tidar_out = self.tidar(hidden_states, prompt_repr)
+            advanced_outputs["tidar"] = tidar_out
+            hidden_states = tidar_out["refined_scratchpad"]
+
+        # CoT Specialization
+        if hasattr(self, "cot_heads"):
+            cot_out = self.cot_heads(hidden_states, is_reasoning_phase=True)
+            advanced_outputs["cot"] = cot_out
+            hidden_states = cot_out["final_output"]
+
+        # Inner Monologue
+        if hasattr(self, "inner_monologue"):
+            monologue_out = self.inner_monologue(
+                hidden_states,
+                token_ids=input_ids,
+                thought_token_id=getattr(self.config, "thought_token_id", None),
+            )
+            advanced_outputs["inner_monologue"] = monologue_out
+            hidden_states = monologue_out["output"]
+
+        # STaR
+        if hasattr(self, "star"):
+            star_out = self.star(hidden_states, [hidden_states])
+            advanced_outputs["star"] = star_out
+
+        # Tool-Use Heads
+        if hasattr(self, "tool_heads"):
+            tool_out = self.tool_heads(hidden_states)
+            advanced_outputs["tool_use"] = tool_out
+
+        # Specialized Heads
+        specialized_outputs = []
+        if hasattr(self, "json_db_ops_head"):
+            json_db_ops_out = self.json_db_ops_head(hidden_states)
+            specialized_outputs.append(json_db_ops_out * self.json_db_ops_head.ratio)
+            advanced_outputs["json_db_ops_head"] = json_db_ops_out
+
+        if hasattr(self, "math_reasoning_head"):
+            math_reasoning_out = self.math_reasoning_head(hidden_states)
+            specialized_outputs.append(math_reasoning_out * self.math_reasoning_head.ratio)
+            advanced_outputs["math_reasoning_head"] = math_reasoning_out
+
+        if hasattr(self, "algorithm_head"):
+            algorithm_out = self.algorithm_head(hidden_states)
+            specialized_outputs.append(algorithm_out * self.algorithm_head.ratio)
+            advanced_outputs["algorithm_head"] = algorithm_out
+
+        if specialized_outputs:
+            hidden_states = hidden_states + sum(specialized_outputs)
+
+        # Grammar Constraints
+        if hasattr(self, "gbnf_constraint") and logits is not None:
+            gbnf_out = self.gbnf_constraint(hidden_states, logits)
+            advanced_outputs["gbnf"] = gbnf_out
+            logits = gbnf_out["constrained_logits"]
+
+        # JSON Enforcement
+        if hasattr(self, "json_enforcer") and logits is not None:
+            json_out = self.json_enforcer(hidden_states, logits, input_ids)
+            advanced_outputs["json"] = json_out
+            logits = json_out["constrained_logits"]
+
+        # Entropic Steering
+        if hasattr(self, "entropic_steering") and logits is not None:
+            entropy_out = self.entropic_steering(hidden_states, logits)
+            advanced_outputs["entropic_steering"] = entropy_out
+
+        # Update logits in advanced_outputs if they were changed
+        advanced_outputs["constrained_logits"] = logits
+
+        # Reward models
+        advanced_outputs["reward"] = self.reward_model(hidden_states, attention_mask)
+        advanced_outputs["multi_attr_reward"] = self.multi_attr_reward(hidden_states, attention_mask)
+
+        # Value head output
+        advanced_outputs["value"] = self.value_head(hidden_states)
+
+        return advanced_outputs
+
+    generate = generate
+    compute_loss = compute_loss
+    self_correct = self_correct
 
 
 class LinearAttention(nn.Module):
