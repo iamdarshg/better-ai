@@ -3,7 +3,7 @@ Unit tests for memory optimization and efficiency features
 Tests memory management, gradient checkpointing, and optimization strategies
 """
 
-import pytest
+import unittest
 import torch
 import torch.nn as nn
 from unittest.mock import Mock, patch
@@ -14,12 +14,12 @@ from better_ai.optimizers.memory import MemoryOptimizer
 
 
 
-class TestMemoryOptimizedModel:
+class TestMemoryOptimizedModel(unittest.TestCase):
     """Test memory optimization features in the model."""
 
     def setUp(self):
         """Set up test environment."""
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = ModelConfig(
             hidden_dim=256,
             num_layers=4,
@@ -43,13 +43,12 @@ class TestMemoryOptimizedModel:
 
         # Forward pass should use checkpointing
         with torch.enable_grad():
-            input_ids.requires_grad_(True)
             outputs = model(input_ids)
             loss = outputs["logits"].sum()
             loss.backward()
 
         # Check that gradients are computed
-        assert model.get_parameter("embed_tokens.weight").grad is not None
+        self.assertIsNotNone(model.get_parameter("embed_tokens.weight").grad)
 
     def test_flash_attention_memory_efficiency(self):
         """Test that flash attention reduces memory usage."""
@@ -73,7 +72,7 @@ class TestMemoryOptimizedModel:
         memory_used = final_memory - initial_memory if torch.cuda.is_available() else 0
 
         # Output should be correct
-        assert outputs["logits"].shape == (batch_size, seq_len, self.config.vocab_size)
+        self.assertEqual(outputs["logits"].shape, (batch_size, seq_len, self.config.vocab_size))
 
     def test_memory_efficient_forward(self):
         """Test memory-efficient forward pass options."""
@@ -89,15 +88,15 @@ class TestMemoryOptimizedModel:
         for optimization_level in ["none", "moderate", "aggressive"]:
             outputs = model(input_ids, memory_optimization=optimization_level)
 
-            assert outputs["logits"].shape == (
+            self.assertEqual(outputs["logits"].shape, (
                 batch_size,
                 seq_len,
                 self.config.vocab_size,
-            )
+            ))
 
             # Aggressive optimization should use less intermediate memory
             if optimization_level == "aggressive":
-                assert "memory_saved" in outputs.get("optimization_info", {})
+                self.assertIn("memory_saved", outputs.get("optimization_info", {}))
 
     def test_kv_cache_memory_management(self):
         """Test KV cache memory management."""
@@ -124,11 +123,11 @@ class TestMemoryOptimizedModel:
         )
 
         # Check cache is used
-        assert outputs2["past_key_values"] is not None
-        assert len(outputs2["past_key_values"]) == self.config.num_layers
+        self.assertIsNotNone(outputs2["past_key_values"])
+        self.assertEqual(len(outputs2["past_key_values"]), self.config.num_layers)
 
 
-class TestGradientCheckpointManager:
+class TestGradientCheckpointManager(unittest.TestCase):
     """Test gradient checkpointing management."""
 
     def test_checkpoint_manager_initialization(self):
@@ -136,8 +135,8 @@ class TestGradientCheckpointManager:
         config = ModelConfig(num_layers=4)
         manager = GradientCheckpointManager(config)
 
-        assert manager.num_layers == 4
-        assert manager.checkpoint_layers == []
+        self.assertEqual(manager.num_layers, 4)
+        self.assertEqual(manager.checkpoint_layers, [])
 
     def test_selective_checkpointing(self):
         """Test selective layer checkpointing."""
@@ -148,7 +147,7 @@ class TestGradientCheckpointManager:
         manager.select_checkpoint_layers(strategy="every_other", frequency=2)
 
         expected_layers = [1, 3, 5, 7]  # 0-indexed
-        assert manager.checkpoint_layers == expected_layers
+        self.assertEqual(manager.checkpoint_layers, expected_layers)
 
     def test_adaptive_checkpointing(self):
         """Test adaptive checkpointing based on memory pressure."""
@@ -159,7 +158,7 @@ class TestGradientCheckpointManager:
         manager.adapt_to_memory_pressure(memory_pressure=0.8)
 
         # Should checkpoint more layers under high pressure
-        assert len(manager.checkpoint_layers) >= 3
+        self.assertGreaterEqual(len(manager.checkpoint_layers), 3)
 
     def test_checkpoint_offloading(self):
         """Test checkpoint offloading to CPU."""
@@ -169,17 +168,19 @@ class TestGradientCheckpointManager:
         # Enable offloading
         manager.enable_offloading(device="cpu")
 
-        assert manager.offload_to_cpu
-        assert manager.offload_device == "cpu"
+        self.assertTrue(manager.offload_to_cpu)
+        self.assertEqual(manager.offload_device, "cpu")
 
 
 
-class TestMemoryEfficientDataLoading:
+class TestMemoryEfficientDataLoading(unittest.TestCase):
     """Test memory-efficient data loading strategies."""
 
-    def test_streaming_data_loading(self):
+    @patch('better_ai.data.unified_dataloader.load_dataset')
+    def test_streaming_data_loading(self, mock_load):
         """Test streaming data loading to reduce memory."""
         from better_ai.data.unified_dataloader import StreamingDataset
+        mock_load.return_value = [{"text": "dummy"}]
 
         # Mock dataset
         dataset = StreamingDataset(
@@ -187,8 +188,8 @@ class TestMemoryEfficientDataLoading:
         )
 
         # Test streaming behavior
-        assert dataset.streaming
-        assert dataset.max_length == 128
+        self.assertTrue(dataset.streaming)
+        self.assertEqual(dataset.max_length, 128)
 
     def test_memory_mapped_data(self):
         """Test memory-mapped data loading."""
@@ -198,8 +199,8 @@ class TestMemoryEfficientDataLoading:
         dataset = MemoryMappedDataset(data_path="test_data.bin", memory_map=True)
 
         # Test memory mapping
-        assert dataset.memory_map
-        assert dataset.data_path == "test_data.bin"
+        self.assertTrue(dataset.memory_map)
+        self.assertEqual(dataset.data_path, "test_data.bin")
 
     def test_adaptive_batch_loading(self):
         """Test adaptive batch loading based on memory."""
@@ -211,14 +212,15 @@ class TestMemoryEfficientDataLoading:
         current_memory_usage = 0.9  # High memory usage
         adjusted_batch_size = loader.adjust_batch_size(current_memory_usage)
 
-        assert adjusted_batch_size < 8  # Should reduce batch size
+        self.assertLess(adjusted_batch_size, 8)  # Should reduce batch size
 
 
-class TestMemoryOptimizationIntegration:
+class TestMemoryOptimizationIntegration(unittest.TestCase):
     """Test integration of memory optimization features."""
 
     def test_end_to_end_memory_optimization(self):
         """Test end-to-end memory optimization workflow."""
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         config = ModelConfig(
             hidden_dim=256,
             num_layers=4,
@@ -227,7 +229,7 @@ class TestMemoryOptimizationIntegration:
         )
 
         # Create optimized model
-        model = MemoryOptimizedModel(config)
+        model = MemoryOptimizedModel(config).to(device)
         memory_optimizer = MemoryOptimizer(config)
 
         # Apply optimizations
@@ -236,17 +238,18 @@ class TestMemoryOptimizationIntegration:
         # Test forward pass with optimizations
         batch_size = 2
         seq_len = 64
-        input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+        input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len)).to(device)
 
         outputs = model(input_ids, memory_optimization="aggressive")
 
-        assert outputs["logits"].shape == (batch_size, seq_len, config.vocab_size)
-        assert "optimization_info" in outputs
+        self.assertEqual(outputs["logits"].shape, (batch_size, seq_len, config.vocab_size))
+        self.assertIn("optimization_info", outputs)
 
     def test_memory_optimization_with_training(self):
         """Test memory optimization during training."""
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         config = ModelConfig(hidden_dim=256, num_layers=2)
-        model = MemoryOptimizedModel(config)
+        model = MemoryOptimizedModel(config).to(device)
         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 
         # Enable training optimizations
@@ -255,8 +258,8 @@ class TestMemoryOptimizationIntegration:
         # Simulate training step
         batch_size = 2
         seq_len = 32
-        input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len))
-        labels = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+        input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len)).to(device)
+        labels = torch.randint(0, config.vocab_size, (batch_size, seq_len)).to(device)
 
         optimizer.zero_grad()
         outputs = model(input_ids)
@@ -267,4 +270,7 @@ class TestMemoryOptimizationIntegration:
         optimizer.step()
 
         # Check that training completed successfully
-        assert loss.item() >= 0
+        self.assertGreaterEqual(loss.item(), 0)
+
+if __name__ == "__main__":
+    unittest.main()

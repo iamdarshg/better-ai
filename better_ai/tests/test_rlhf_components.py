@@ -16,6 +16,7 @@ from typing import Tuple, Dict
 sys.path.append(".")
 
 from better_ai.config import ModelConfig
+from better_ai.test_config_utils import get_small_model_config
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.models.reward_model import BranchRewardModel, MultiAttributeRewardModel
 from better_ai.training.grpo import GRPOTrainer, GRPOLoss
@@ -68,7 +69,7 @@ class TestUtilities:
 
 class TestConfig:
     """Test configuration"""
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dtype = torch.float32
     
     tiny_config = ModelConfig(
@@ -96,8 +97,8 @@ class TestBranchRewardModel(unittest.TestCase):
     """Test BR-RM functionality"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.model = BranchRewardModel(self.config).to(self.device)
     
     def test_forward_pass(self):
@@ -145,8 +146,8 @@ class TestMultiAttributeRewardModel(unittest.TestCase):
     """Test multi-attribute reward model"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.model = MultiAttributeRewardModel(self.config, num_attributes=5).to(self.device)
     
     def test_forward_pass(self):
@@ -168,8 +169,8 @@ class TestGRPOTrainer(unittest.TestCase):
     """Test GRPO training"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
         self.reward_model = BranchRewardModel(self.config).to(self.device)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-4)
@@ -224,7 +225,7 @@ class TestRMSNorm(unittest.TestCase):
     """Test RMSNorm layer"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     def test_forward_pass(self):
         """Test RMSNorm forward pass"""
@@ -242,7 +243,7 @@ class TestSwiGLU(unittest.TestCase):
     """Test SwiGLU activation"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     def test_forward_pass(self):
         """Test SwiGLU forward pass"""
@@ -261,7 +262,7 @@ class TestMultiHeadAttention(unittest.TestCase):
     """Test MultiHeadAttention layer"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     def test_forward_pass(self):
         """Test MultiHeadAttention forward pass"""
@@ -288,7 +289,7 @@ class TestTransformerBlock(unittest.TestCase):
     """Test TransformerBlock"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = TestConfig.tiny_config
     
     def test_forward_pass(self):
@@ -321,8 +322,8 @@ class TestRecursiveScratchpad(unittest.TestCase):
     """Test recursive scratchpad"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.module = RecursiveScratchpad(
             self.config.hidden_dim,
             max_iterations=5,
@@ -348,8 +349,8 @@ class TestCoTSpecializationHeads(unittest.TestCase):
     """Test CoT specialization"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.module = CoTSpecializationHeads(
             self.config.hidden_dim,
             num_cot_heads=4,
@@ -374,8 +375,8 @@ class TestToolUseHeads(unittest.TestCase):
     """Test tool-use heads"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.module = ToolUseHeads(
             self.config.hidden_dim,
             tool_vocab_size=self.config.tool_vocab_size
@@ -400,8 +401,8 @@ class TestEnhancedModel(unittest.TestCase):
     """Test integrated enhanced model"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
     
     def test_forward_pass(self):
@@ -457,8 +458,8 @@ class TestEntropyMonitoring(unittest.TestCase):
     """Test entropic steering"""
     
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.module = EntropicSteering(self.config.hidden_dim).to(self.device)
     
     def test_entropy_computation(self):

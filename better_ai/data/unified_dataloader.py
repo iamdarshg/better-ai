@@ -139,6 +139,24 @@ class CombinedStreamingDataset(IterableDataset):
                     iterators.remove(it)
 
 
+class MemoryMappedDataset(torch.utils.data.Dataset):
+    """Placeholder for memory-mapped dataset implementation"""
+    def __init__(self, data_path: str, memory_map: bool = True):
+        self.data_path = data_path
+        self.memory_map = memory_map
+    def __len__(self): return 100
+    def __getitem__(self, idx): return {"input_ids": torch.zeros(128)}
+
+class AdaptiveBatchLoader:
+    """Dynamically adjusts batch size based on memory usage"""
+    def __init__(self, base_batch_size: int, memory_threshold: float = 0.8):
+        self.base_batch_size = base_batch_size
+        self.memory_threshold = memory_threshold
+    def adjust_batch_size(self, current_memory_usage: float) -> int:
+        if current_memory_usage > self.memory_threshold:
+            return max(1, int(self.base_batch_size * 0.5))
+        return self.base_batch_size
+
 def create_dataloader(
     dataset_config: Union[Dict[str, Any], List[Dict[str, Any]]],
     tokenizer,

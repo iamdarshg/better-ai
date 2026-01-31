@@ -30,7 +30,7 @@ class TestBranchRewardModel(unittest.TestCase):
     
     def setUp(self):
         """Set up the test environment."""
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = get_small_model_config()
         self.model = BranchRewardModel(self.config).to(self.device)
     
@@ -69,8 +69,8 @@ class TestBranchRewardModel(unittest.TestCase):
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
         
         chosen_scores, rejected_scores = self.model.score_pair(
-            torch.randn(batch_size, self.config.hidden_dim),
-            torch.randn(batch_size, self.config.hidden_dim),
+            torch.randn(batch_size, self.config.hidden_dim).to(self.device),
+            torch.randn(batch_size, self.config.hidden_dim).to(self.device),
         )
         
         self.assertEqual(chosen_scores.shape, (batch_size,))
@@ -82,7 +82,7 @@ class TestMultiAttributeRewardModel(unittest.TestCase):
     
     def setUp(self):
         """Set up the test environment."""
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = get_small_model_config()
         self.model = MultiAttributeRewardModel(self.config, num_attributes=5).to(self.device)
     
@@ -106,7 +106,7 @@ class TestGRPOTrainer(unittest.TestCase):
     
     def setUp(self):
         """Set up the test environment."""
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = get_small_model_config()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
         self.reward_model = BranchRewardModel(self.config).to(self.device)
@@ -126,9 +126,9 @@ class TestGRPOTrainer(unittest.TestCase):
         batch_size = 2
         group_size = 2
         
-        rewards = torch.randn(batch_size, group_size)
-        logprobs = torch.randn(batch_size, group_size)
-        values = torch.randn(batch_size, group_size)
+        rewards = torch.randn(batch_size, group_size).to(self.device)
+        logprobs = torch.randn(batch_size, group_size).to(self.device)
+        values = torch.randn(batch_size, group_size).to(self.device)
         
         advantages, returns, norm_advantages = trainer.compute_group_advantages(
             rewards, logprobs, values
@@ -145,11 +145,12 @@ class TestGRPOLoss(unittest.TestCase):
     def test_loss_computation(self):
         """Test the computation of the GRPO loss."""
         loss_fn = GRPOLoss(beta=0.01, eps_clip=0.2)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         batch_size = 2
-        old_logprobs = torch.randn(batch_size, requires_grad=False)
-        new_logprobs = torch.randn(batch_size, requires_grad=True)
-        advantages = torch.randn(batch_size)
+        old_logprobs = torch.randn(batch_size, requires_grad=False).to(device)
+        new_logprobs = torch.randn(batch_size, requires_grad=True).to(device)
+        advantages = torch.randn(batch_size).to(device)
         
         loss = loss_fn(old_logprobs, new_logprobs, advantages)
         
@@ -163,7 +164,7 @@ class TestRecursiveScratchpad(unittest.TestCase):
     
     def setUp(self):
         """Set up the test environment."""
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = get_small_model_config()
         self.module = RecursiveScratchpad(
             self.config.hidden_dim,
@@ -188,7 +189,7 @@ class TestCoTSpecializationHeads(unittest.TestCase):
     
     def setUp(self):
         """Set up the test environment."""
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = get_small_model_config()
         self.module = CoTSpecializationHeads(
             self.config.hidden_dim,
@@ -212,7 +213,7 @@ class TestToolUseHeads(unittest.TestCase):
     
     def setUp(self):
         """Set up the test environment."""
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = get_small_model_config()
         self.module = ToolUseHeads(
             self.config.hidden_dim,
@@ -239,7 +240,7 @@ class TestEnhancedModel(unittest.TestCase):
     
     def setUp(self):
         """Set up the test environment."""
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = get_small_model_config()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
     
@@ -297,7 +298,7 @@ class TestEntropyMonitoring(unittest.TestCase):
     
     def setUp(self):
         """Set up the test environment."""
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = get_small_model_config()
         self.module = EntropicSteering(self.config.hidden_dim).to(self.device)
     
@@ -316,3 +317,5 @@ class TestEntropyMonitoring(unittest.TestCase):
         self.assertEqual(outputs["spike_detected"].shape, (batch_size, seq_len))
         self.assertTrue(outputs["spike_detected"].any(), "No entropy spike was detected")
 
+if __name__ == '__main__':
+    unittest.main()

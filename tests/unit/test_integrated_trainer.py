@@ -2,7 +2,7 @@
 Unit tests for Integrated Advanced Trainer
 """
 
-import pytest
+import unittest
 import torch
 import torch.nn as nn
 import sys
@@ -36,39 +36,31 @@ class MockModel(nn.Module):
     def forward(self, input_ids=None, **kwargs):
         batch_size = input_ids.size(0) if input_ids is not None else 1
         return {
-            "logits": torch.randn(batch_size, 5, 100),
-            "last_hidden_state": torch.randn(batch_size, 5, self.config.hidden_dim),
-            "hidden_states": [torch.randn(batch_size, 5, self.config.hidden_dim)],
+            "logits": torch.randn(batch_size, 5, 100).to(input_ids.device),
+            "last_hidden_state": torch.randn(batch_size, 5, self.config.hidden_dim).to(input_ids.device),
+            "hidden_states": [torch.randn(batch_size, 5, self.config.hidden_dim).to(input_ids.device)],
             "advanced_features": {
-                "reward": torch.randn(batch_size)
+                "reward": torch.randn(batch_size).to(input_ids.device)
             }
         }
 
 
-class TestIntegratedAdvancedTrainer:
+class TestIntegratedAdvancedTrainer(unittest.TestCase):
     """Test integrated trainer with all optimizations"""
 
-    @pytest.fixture
-    def mock_model(self):
-        return MockModel(hidden_dim=64)
+    def setUp(self):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.mock_model = MockModel(hidden_dim=64).to(self.device)
 
-    @pytest.fixture
-    def mock_reward_model(self):
         class MockRewardModel(nn.Module):
             def score(self, prompt, response):
                 return 0.5
             def forward(self, hidden_states, mask=None):
-                return torch.randn(hidden_states.size(0))
+                return torch.randn(hidden_states.size(0)).to(hidden_states.device)
 
-        return MockRewardModel()
-
-    @pytest.fixture
-    def optimizer(self, mock_model):
-        return torch.optim.Adam(mock_model.parameters(), lr=1e-4)
-
-    @pytest.fixture
-    def full_config(self):
-        return {
+        self.mock_reward_model = MockRewardModel().to(self.device)
+        self.optimizer = torch.optim.Adam(self.mock_model.parameters(), lr=1e-4)
+        self.full_config = {
             "enable_arpo": True,
             "enable_cleaner": True,
             "enable_kv_cache": True,
@@ -79,142 +71,123 @@ class TestIntegratedAdvancedTrainer:
             "max_cache_size": 10,
             "cleaner_similarity_threshold": 0.5,
             "enable_purification": True,
-            "device": torch.device("cpu"),
+            "device": self.device,
             "hidden_dim": 64,
         }
 
-    def test_initialization_with_all_features(
-        self, mock_model, mock_reward_model, optimizer, full_config
-    ):
+    def test_initialization_with_all_features(self):
         trainer = IntegratedAdvancedTrainer(
-            mock_model, mock_reward_model, optimizer, full_config
+            self.mock_model, self.mock_reward_model, self.optimizer, self.full_config
         )
 
-        assert trainer.config["enable_arpo"] == True
-        assert trainer.config["enable_cleaner"] == True
-        assert trainer.config["enable_kv_cache"] == True
-        assert trainer.arpo_trainer is not None
-        assert trainer.cleaner_collector is not None
-        assert trainer.kv_optimized_trainer is not None
-        assert trainer.grpo_trainer is None  # Should not be used
+        self.assertTrue(trainer.config["enable_arpo"])
+        self.assertTrue(trainer.config["enable_cleaner"])
+        self.assertTrue(trainer.config["enable_kv_cache"])
+        self.assertIsNotNone(trainer.arpo_trainer)
+        self.assertIsNotNone(trainer.cleaner_collector)
+        self.assertIsNotNone(trainer.kv_optimized_trainer)
+        self.assertIsNone(trainer.grpo_trainer)  # Should not be used
 
-    def test_initialization_partial_features(
-        self, mock_model, mock_reward_model, optimizer
-    ):
+    def test_initialization_partial_features(self):
         config = {
             "enable_arpo": False,
             "enable_cleaner": True,
             "enable_kv_cache": False,
-            "device": torch.device("cpu"),
+            "device": self.device,
             "hidden_dim": 64,
         }
 
         trainer = IntegratedAdvancedTrainer(
-            mock_model, mock_reward_model, optimizer, config
+            self.mock_model, self.mock_reward_model, self.optimizer, config
         )
 
-        assert trainer.arpo_trainer is None
-        assert trainer.cleaner_collector is not None
-        assert trainer.kv_optimized_trainer is None
-        assert trainer.grpo_trainer is not None  # Should fallback to GRPO
+        self.assertIsNone(trainer.arpo_trainer)
+        self.assertIsNotNone(trainer.cleaner_collector)
+        self.assertIsNone(trainer.kv_optimized_trainer)
+        self.assertIsNotNone(trainer.grpo_trainer)  # Should fallback to GRPO
 
-    def test_training_stats_tracking(
-        self, mock_model, mock_reward_model, optimizer, full_config
-    ):
+    def test_training_stats_tracking(self):
         trainer = IntegratedAdvancedTrainer(
-            mock_model, mock_reward_model, optimizer, full_config
+            self.mock_model, self.mock_reward_model, self.optimizer, self.full_config
         )
 
         initial_stats = trainer.training_stats
-        assert initial_stats["total_steps"] == 0
-        assert initial_stats["arpo_improvements"] == 0
-        assert initial_stats["cleaner_corrections"] == 0
-        assert initial_stats["kv_cache_saves"] == 0
+        self.assertEqual(initial_stats["total_steps"], 0)
+        self.assertEqual(initial_stats["arpo_improvements"], 0)
+        self.assertEqual(initial_stats["cleaner_corrections"], 0)
+        self.assertEqual(initial_stats["kv_cache_saves"], 0)
 
-    def test_train_step_with_all_optimizations(
-        self, mock_model, mock_reward_model, optimizer, full_config
-    ):
+    def test_train_step_with_all_optimizations(self):
         trainer = IntegratedAdvancedTrainer(
-            mock_model, mock_reward_model, optimizer, full_config
+            self.mock_model, self.mock_reward_model, self.optimizer, self.full_config
         )
 
         batch = {
-            "input_ids": torch.randint(0, 100, (2, 5)),
-            "attention_mask": torch.ones(2, 5),
-            "target_ids": torch.randint(0, 100, (2, 5)),
+            "input_ids": torch.randint(0, 100, (2, 5)).to(self.device),
+            "attention_mask": torch.ones(2, 5).to(self.device),
+            "target_ids": torch.randint(0, 100, (2, 5)).to(self.device),
         }
 
         metrics = trainer.train_step(batch)
 
-        assert "loss" in metrics or "total_loss" in metrics or "loss_with_cache" in metrics
-        assert trainer.training_stats["total_steps"] == 1
+        self.assertTrue("loss" in metrics or "total_loss" in metrics or "loss_with_cache" in metrics)
+        self.assertEqual(trainer.training_stats["total_steps"], 1)
 
         # Check that component statistics are updated
         stats = trainer.get_comprehensive_statistics()
-        assert stats["total_steps"] == 1
+        self.assertEqual(stats["total_steps"], 1)
 
-    def test_comprehensive_statistics(
-        self, mock_model, mock_reward_model, optimizer, full_config
-    ):
+    def test_comprehensive_statistics(self):
         trainer = IntegratedAdvancedTrainer(
-            mock_model, mock_reward_model, optimizer, full_config
+            self.mock_model, self.mock_reward_model, self.optimizer, self.full_config
         )
 
         stats = trainer.get_comprehensive_statistics()
 
-        assert "total_steps" in stats
-        assert "arpo_config" in stats
-        assert "cleaner_stats" in stats
-        assert "kv_cache_stats" in stats
-        assert "overall_efficiency" in stats
+        self.assertIn("total_steps", stats)
+        self.assertIn("arpo_config", stats)
+        self.assertIn("cleaner_stats", stats)
+        self.assertIn("kv_cache_stats", stats)
+        self.assertIn("overall_efficiency", stats)
 
         # Check efficiency calculations
         efficiency = stats["overall_efficiency"]
-        assert "arpo_impact_rate" in efficiency
-        assert "cleaner_correction_rate" in efficiency
-        assert "kv_cache_saving_rate" in efficiency
+        self.assertIn("arpo_impact_rate", efficiency)
+        self.assertIn("cleaner_correction_rate", efficiency)
+        self.assertIn("kv_cache_saving_rate", efficiency)
 
 
-class TestIntegratedTrainerFactory:
+class TestIntegratedTrainerFactory(unittest.TestCase):
     """Test factory function for integrated trainer"""
 
-    @pytest.fixture
-    def mock_model(self):
-        return MockModel(hidden_dim=100)
+    def setUp(self):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.mock_model = MockModel(hidden_dim=100).to(self.device)
 
-    @pytest.fixture
-    def mock_reward_model(self):
         class MockRewardModel(nn.Module):
             def score(self, prompt, response):
                 return 0.5
             def forward(self, hidden_states, mask=None):
-                return torch.randn(hidden_states.size(0))
+                return torch.randn(hidden_states.size(0)).to(hidden_states.device)
 
-        return MockRewardModel()
+        self.mock_reward_model = MockRewardModel().to(self.device)
+        self.optimizer = torch.optim.Adam(self.mock_model.parameters(), lr=1e-4)
 
-    @pytest.fixture
-    def optimizer(self, mock_model):
-        return torch.optim.Adam(mock_model.parameters(), lr=1e-4)
-
-    def test_create_integrated_trainer_with_defaults(
-        self, mock_model, mock_reward_model, optimizer
-    ):
+    def test_create_integrated_trainer_with_defaults(self):
         # Test with minimal config (should use defaults)
-        user_config = {"device": torch.device("cpu"), "hidden_dim": 100}
+        user_config = {"device": self.device, "hidden_dim": 100}
 
         trainer = create_integrated_trainer(
-            mock_model, mock_reward_model, optimizer, user_config
+            self.mock_model, self.mock_reward_model, self.optimizer, user_config
         )
 
-        assert trainer.config["enable_arpo"] == True  # Default
-        assert trainer.config["enable_cleaner"] == True  # Default
-        assert trainer.config["enable_kv_cache"] == True  # Default
-        assert trainer.config["entropy_window"] == 10  # Default
-        assert trainer.config["max_cache_size"] == 1000  # Default
+        self.assertTrue(trainer.config["enable_arpo"])  # Default
+        self.assertTrue(trainer.config["enable_cleaner"])  # Default
+        self.assertTrue(trainer.config["enable_kv_cache"])  # Default
+        self.assertEqual(trainer.config["entropy_window"], 10)  # Default
+        self.assertEqual(trainer.config["max_cache_size"], 1000)  # Default
 
-    def test_create_integrated_trainer_with_user_config(
-        self, mock_model, mock_reward_model, optimizer
-    ):
+    def test_create_integrated_trainer_with_user_config(self):
         user_config = {
             "enable_arpo": False,
             "enable_cleaner": False,
@@ -222,58 +195,54 @@ class TestIntegratedTrainerFactory:
             "entropy_window": 20,
             "custom_setting": "test",
             "hidden_dim": 100,
+            "device": self.device
         }
 
         trainer = create_integrated_trainer(
-            mock_model, mock_reward_model, optimizer, user_config
+            self.mock_model, self.mock_reward_model, self.optimizer, user_config
         )
 
-        assert trainer.config["enable_arpo"] == False  # User override
-        assert trainer.config["enable_cleaner"] == False  # User override
-        assert trainer.config["enable_kv_cache"] == False  # User override
-        assert trainer.config["entropy_window"] == 20  # User override
-        assert trainer.config["custom_setting"] == "test"  # User setting preserved
+        self.assertFalse(trainer.config["enable_arpo"])  # User override
+        self.assertFalse(trainer.config["enable_cleaner"])  # User override
+        self.assertFalse(trainer.config["enable_kv_cache"])  # User override
+        self.assertEqual(trainer.config["entropy_window"], 20)  # User override
+        self.assertEqual(trainer.config["custom_setting"], "test")  # User setting preserved
 
 
-class TestFeatureIntegration:
+class TestFeatureIntegration(unittest.TestCase):
     """Test interaction between different features"""
 
-    @pytest.fixture
-    def mock_model(self):
-        return MockModel(hidden_dim=100)
+    def setUp(self):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.mock_model = MockModel(hidden_dim=100).to(self.device)
 
-    @pytest.fixture
-    def mock_reward_model(self):
         class MockRewardModel(nn.Module):
             def score(self, prompt, response):
                 return 0.5
             def forward(self, hidden_states, mask=None):
-                return torch.randn(hidden_states.size(0))
+                return torch.randn(hidden_states.size(0)).to(hidden_states.device)
 
-        return MockRewardModel()
+        self.mock_reward_model = MockRewardModel().to(self.device)
+        self.optimizer = torch.optim.Adam(self.mock_model.parameters(), lr=1e-4)
 
-    @pytest.fixture
-    def optimizer(self, mock_model):
-        return torch.optim.Adam(mock_model.parameters(), lr=1e-4)
-
-    def test_feature_coordination(self, mock_model, mock_reward_model, optimizer):
+    def test_feature_coordination(self):
         config = {
             "enable_arpo": True,
             "enable_cleaner": True,
             "enable_kv_cache": True,
-            "device": torch.device("cpu"),
+            "device": self.device,
             "hidden_dim": 100,
         }
 
         trainer = IntegratedAdvancedTrainer(
-            mock_model, mock_reward_model, optimizer, config
+            self.mock_model, self.mock_reward_model, self.optimizer, config
         )
 
         # Simulate a few training steps
         batch = {
-            "input_ids": torch.randint(0, 100, (1, 5)),
-            "attention_mask": torch.ones(1, 5),
-            "target_ids": torch.randint(0, 100, (1, 5)),
+            "input_ids": torch.randint(0, 100, (1, 5)).to(self.device),
+            "attention_mask": torch.ones(1, 5).to(self.device),
+            "target_ids": torch.randint(0, 100, (1, 5)).to(self.device),
         }
 
         for _ in range(3):
@@ -281,35 +250,35 @@ class TestFeatureIntegration:
 
         # Check that all features are working together
         stats = trainer.get_comprehensive_statistics()
-        assert stats["total_steps"] == 3
+        self.assertEqual(stats["total_steps"], 3)
 
         # Should have statistics from all enabled features
-        assert "arpo_config" in stats
-        assert "cleaner_stats" in stats
-        assert "kv_cache_stats" in stats
+        self.assertIn("arpo_config", stats)
+        self.assertIn("cleaner_stats", stats)
+        self.assertIn("kv_cache_stats", stats)
 
         # Overall efficiency should reflect combined impact
         efficiency = stats["overall_efficiency"]
-        assert all(rate >= 0 for rate in efficiency.values())
+        self.assertTrue(all(rate >= 0 for rate in efficiency.values()))
 
-    def test_state_save_and_load(self, mock_model, mock_reward_model, optimizer):
+    def test_state_save_and_load(self):
         config = {
             "enable_arpo": True,
             "enable_cleaner": False,
             "enable_kv_cache": True,
-            "device": torch.device("cpu"),
+            "device": self.device,
             "hidden_dim": 100,
         }
 
         trainer = IntegratedAdvancedTrainer(
-            mock_model, mock_reward_model, optimizer, config
+            self.mock_model, self.mock_reward_model, self.optimizer, config
         )
 
         # Simulate some training
         batch = {
-            "input_ids": torch.randint(0, 100, (1, 5)),
-            "attention_mask": torch.ones(1, 5),
-            "target_ids": torch.randint(0, 100, (1, 5)),
+            "input_ids": torch.randint(0, 100, (1, 5)).to(self.device),
+            "attention_mask": torch.ones(1, 5).to(self.device),
+            "target_ids": torch.randint(0, 100, (1, 5)).to(self.device),
         }
 
         trainer.train_step(batch)
@@ -324,17 +293,17 @@ class TestFeatureIntegration:
 
         # Create new trainer and load state
         new_trainer = IntegratedAdvancedTrainer(
-            mock_model, mock_reward_model, optimizer, config
+            self.mock_model, self.mock_reward_model, self.optimizer, config
         )
         load_success = new_trainer.load_optimization_state(save_path)
 
-        assert load_success == True
-        assert new_trainer.training_stats["total_steps"] == 1
-        assert new_trainer.training_stats["arpo_improvements"] >= 0
+        self.assertTrue(load_success)
+        self.assertEqual(new_trainer.training_stats["total_steps"], 1)
+        self.assertGreaterEqual(new_trainer.training_stats["arpo_improvements"], 0)
 
         # Cleanup
         os.unlink(save_path)
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    unittest.main()

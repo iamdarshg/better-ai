@@ -16,6 +16,7 @@ class SelectiveCheckpointManager:
     
     def __init__(
         self,
+        config: Optional[Any] = None,
         memory_threshold: float = 0.7,
         checkpoint_frequency: int = 2,  # Every N layers
         checkpoint_large_layers: bool = True,
@@ -23,6 +24,7 @@ class SelectiveCheckpointManager:
         adaptive_checkpointing: bool = True,
         device: torch.device = torch.device('cpu')
     ):
+        self.num_layers = getattr(config, "num_layers", 4) if config else 4
         self.memory_threshold = memory_threshold
         self.checkpoint_frequency = checkpoint_frequency
         self.checkpoint_large_layers = checkpoint_large_layers
@@ -36,6 +38,9 @@ class SelectiveCheckpointManager:
         self.checkpoint_decisions = {}
         self.memory_history = []
         self.current_memory_pressure = 0.0
+        self.checkpoint_layers = []
+        self.offload_to_cpu = False
+        self.offload_device = "cpu"
         
         # Performance tracking
         self.checkpoint_times = []
@@ -154,6 +159,28 @@ class SelectiveCheckpointManager:
                     memory_pressure = self.get_memory_pressure()
                     print(f"⚡ Forward {layer_name} (mem: {memory_pressure:.2f}, time: {forward_time:.3f}s)")
     
+    def select_checkpoint_layers(self, strategy: str = "every_other", frequency: int = 2):
+        """Select layers for checkpointing based on a strategy"""
+        self.checkpoint_layers = []
+        if strategy == "every_other":
+            for i in range(1, self.num_layers, frequency):
+                self.checkpoint_layers.append(i)
+        elif strategy == "all":
+            self.checkpoint_layers = list(range(self.num_layers))
+
+    def adapt_to_memory_pressure(self, memory_pressure: float):
+        """Adapt checkpointing strategy to memory pressure"""
+        self.current_memory_pressure = memory_pressure
+        if memory_pressure > 0.8:
+            self.select_checkpoint_layers(strategy="all")
+        elif memory_pressure > 0.5:
+            self.select_checkpoint_layers(strategy="every_other")
+
+    def enable_offloading(self, device: str = "cpu"):
+        """Enable checkpoint offloading to device"""
+        self.offload_to_cpu = True
+        self.offload_device = device
+
     def get_checkpoint_stats(self) -> Dict[str, Any]:
         """Get checkpointing statistics"""
         checkpoint_ratio = 0.0

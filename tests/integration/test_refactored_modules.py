@@ -24,6 +24,9 @@ class DummyTokenizer:
 
 
 class TestRefactoredModules(unittest.TestCase):
+    def setUp(self):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     def test_hf_datasets_refactoring(self):
         config = {
             "use_rolling_windows": True,
@@ -49,14 +52,14 @@ class TestRefactoredModules(unittest.TestCase):
 
     def test_advanced_features_refactoring(self):
         hidden_dim = 16
-        self.assertIsNotNone(RecursiveScratchpad(hidden_dim))
-        self.assertIsNotNone(CoTSpecializationHeads(hidden_dim))
-        self.assertIsNotNone(InnerMonologue(hidden_dim))
-        self.assertIsNotNone(STaRModule(hidden_dim))
-        self.assertIsNotNone(ToolUseHeads(hidden_dim))
-        self.assertIsNotNone(GBNFConstraint(hidden_dim))
-        self.assertIsNotNone(JSONEnforcer(hidden_dim))
-        self.assertIsNotNone(EntropicSteering(hidden_dim))
+        self.assertIsNotNone(RecursiveScratchpad(hidden_dim).to(self.device))
+        self.assertIsNotNone(CoTSpecializationHeads(hidden_dim).to(self.device))
+        self.assertIsNotNone(InnerMonologue(hidden_dim).to(self.device))
+        self.assertIsNotNone(STaRModule(hidden_dim).to(self.device))
+        self.assertIsNotNone(ToolUseHeads(hidden_dim).to(self.device))
+        self.assertIsNotNone(GBNFConstraint(hidden_dim).to(self.device))
+        self.assertIsNotNone(JSONEnforcer(hidden_dim).to(self.device))
+        self.assertIsNotNone(EntropicSteering(hidden_dim).to(self.device))
 
 
 if __name__ == "__main__":
