@@ -15,15 +15,15 @@ from .utils.exceptions import ConfigError
 class ModelConfig:
     """Configuration for the transformer model"""
     
-    # Architecture parameters - Defaults kept reasonable for CI/Testing
+    # Architecture parameters - Defaults kept minimal for CI/Testing safety
     # Use get_production_config() for full-scale training
-    vocab_size: int = 32000
-    hidden_dim: int = 512
-    num_layers: int = 4
-    num_attention_heads: int = 8
-    num_key_value_heads: Optional[int] = 4
-    intermediate_dim: int = 2048
-    max_seq_length: int = 2048
+    vocab_size: int = 10000
+    hidden_dim: int = 128
+    num_layers: int = 2
+    num_attention_heads: int = 4
+    num_key_value_heads: Optional[int] = 2
+    intermediate_dim: int = 512
+    max_seq_length: int = 512
     
     # MoE parameters
     num_experts: int = 8
