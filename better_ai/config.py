@@ -15,18 +15,18 @@ from .utils.exceptions import ConfigError
 class ModelConfig:
     """Configuration for the transformer model"""
     
-    # Architecture parameters - Defaults kept reasonable for CI/Testing
+    # Architecture parameters - Defaults kept minimal for CI/Testing safety
     # Use get_production_config() for full-scale training
-    vocab_size: int = 64000
-    hidden_dim: int = 1524
-    num_layers: int = 16
-    num_attention_heads: int = 24
-    num_key_value_heads: Optional[int] = 12 # Default: num_attention_heads // 2
-    intermediate_dim: int = 16384
-    max_seq_length: int = 524288
+    vocab_size: int = 10000
+    hidden_dim: int = 128
+    num_layers: int = 2
+    num_attention_heads: int = 4
+    num_key_value_heads: Optional[int] = 2
+    intermediate_dim: int = 512
+    max_seq_length: int = 512
     
     # MoE parameters
-    num_experts: int = 16
+    num_experts: int = 8
     num_experts_per_token: int = 2
     expert_capacity_factor: float = 1.25
     shared_experts: int = 1
@@ -76,38 +76,38 @@ class ModelConfig:
     # CoT Specialization parameters
     use_cot_specialization: bool = True
     cot_num_heads: int = 5
-    cot_hidden_dim: int = 768
+    cot_hidden_dim: int = 32
     
     # Inner Monologue parameters
     use_inner_monologue: bool = True
     thought_token_id: Optional[int] = 100  # Default for testing
     thought_end_token_id: Optional[int] = 101  # Default for testing
-    private_subspace_dim: int = 8192
+    private_subspace_dim: int = 4096
     
     # STaR parameters
     use_star: bool = True
-    star_bootstrap_rounds: int = 6
-    star_consistency_samples: int = 30
+    star_bootstrap_rounds: int = 3
+    star_consistency_samples: int = 10
     
     # Tool-Use parameters
     use_tool_heads: bool = True
-    tool_vocab_size: int = 1024  # Number of tool tokens
-    tool_hidden_dim: int = 8192  # Hidden dim for tool heads
+    tool_vocab_size: int = 32  # Number of tool tokens
+    tool_hidden_dim: int = 32
 
     # JSON+DBOps Head parameters
     use_json_db_ops_head: bool = False
     json_db_ops_ratio: float = 0.1
-    json_db_ops_internal_dim: int = 3072
+    json_db_ops_internal_dim: int = 256
 
     # Math Reasoning Head parameters
     use_math_reasoning_head: bool = False
     math_reasoning_ratio: float = 0.1
-    math_reasoning_internal_dim: int = 12288
+    math_reasoning_internal_dim: int = 256
 
     # Algorithm Head parameters
     use_algorithm_head: bool = False
     algorithm_ratio: float = 0.1
-    algorithm_internal_dim: int = 12288
+    algorithm_internal_dim: int = 256
     
     # Grammar Constraint parameters
     use_grammar_constraints: bool = True
@@ -121,14 +121,14 @@ class ModelConfig:
     
     # Recursive Scratchpad parameters
     use_recursive_scratchpad: bool = True
-    scratchpad_max_iterations: int = 10
-    scratchpad_hidden_dim: int = 16384
+    scratchpad_max_iterations: int = 8
+    scratchpad_hidden_dim: int = 32
 
     # TiDAR parameters
     use_tidar: bool = True
-    tidar_num_steps: int = 8
-    tidar_diffusion_dim: int = 8192
-    tidar_num_layers: int = 4
+    tidar_num_steps: int = 5
+    tidar_diffusion_dim: int = 128
+    tidar_num_layers: int = 2
 
     def __post_init__(self):
         self.validate()
@@ -174,6 +174,21 @@ class ModelConfig:
         """Convert to JSON string"""
         return json.dumps(self.to_dict(), indent=2)
 
+    @classmethod
+    def get_production_config(cls):
+        """Returns a production-ready configuration with larger dimensions"""
+        return cls(
+            vocab_size=64000,
+            hidden_dim=1536,
+            num_layers=12,
+            num_attention_heads=24,
+            num_key_value_heads=12,
+            intermediate_dim=6144,
+            max_seq_length=8192,
+            num_experts=8,
+            use_ring_attention=True,
+            use_striped_attention=True
+        )
 
     def to_file(self, filepath: str):
         """Save config to file"""

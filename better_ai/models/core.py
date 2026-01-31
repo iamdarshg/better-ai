@@ -18,6 +18,7 @@ from .features.entropic_steering import EntropicSteering
 from .tidar import TiDAR
 from .reward_model import BranchRewardModel, MultiAttributeRewardModel, HierarchicalRewardModel
 from .generation import generate, compute_loss, self_correct
+from .features.reasoning_rewards import TraceValidityScorer, StructuralSignalReward, AHAMomentDetector
 
 
 # To avoid circular imports
@@ -393,6 +394,11 @@ class DeepSeekModel(nn.Module):
         self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=7, num_quantiles=5)
         self.hrm = HierarchicalRewardModel(config)
 
+        # Advanced reasoning rewards
+        self.trace_validity_scorer = TraceValidityScorer(self)
+        self.structural_reward_engine = StructuralSignalReward()
+        self.aha_moment_detector = AHAMomentDetector()
+
         # Value head for PPO/GRPO
         self.value_head = nn.Linear(config.hidden_dim, 1, bias=False)
     
@@ -684,6 +690,17 @@ class DeepSeekModel(nn.Module):
         # Reward models
         advanced_outputs["reward"] = self.reward_model(hidden_states, attention_mask)
         advanced_outputs["multi_attr_reward"] = self.multi_attr_reward(hidden_states, attention_mask)
+
+        # Reasoning-specific rewards
+        # We need the full decoded text for some of these
+        # This is a simplification; in production, we'd pass the actual traces
+        full_text = ""
+        if input_ids is not None and hasattr(self, "tokenizer") and self.tokenizer:
+            full_text = self.tokenizer.decode(input_ids[0], skip_special_tokens=True)
+
+        advanced_outputs["trace_validity"] = self.trace_validity_scorer.score_trace([full_text], "Solve the problem")
+        advanced_outputs["structural_signal"] = self.structural_reward_engine.compute_reward(full_text)
+        advanced_outputs["aha_moment"] = self.aha_moment_detector.compute_aha_reward(full_text)
 
         # Value head output
         advanced_outputs["value"] = self.value_head(hidden_states)

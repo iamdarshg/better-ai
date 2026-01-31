@@ -13,6 +13,7 @@ from .cleaner import CLEANERDataCollector, create_cleaner_pipeline
 from .kv_cache_grpo import OptimizedGRPOWithKVCache, KVCacheManager
 from .grpo import GRPOTrainer
 from .machine_feedback import MachineFeedbackTrainer
+from .steca import STeCaController, TrajectoryRefiner
 
 
 class IntegratedAdvancedTrainer:
@@ -83,6 +84,15 @@ class IntegratedAdvancedTrainer:
         else:
             self.mf_trainer = None
 
+        # STeCa component
+        if self.config.get("enable_steca", True):
+            refiner = TrajectoryRefiner(self.model, getattr(self.model, "tokenizer", None))
+            self.steca_controller = STeCaController(
+                refiner, calibration_threshold=self.config.get("steca_threshold", 0.7)
+            )
+        else:
+            self.steca_controller = None
+
         # Fallback to standard GRPO
         if not any([self.arpo_trainer, self.kv_optimized_trainer, self.mf_trainer]):
             self.grpo_trainer = GRPOTrainer(
@@ -101,6 +111,10 @@ class IntegratedAdvancedTrainer:
         # Pre-process batch with CLEANER if enabled
         if self.cleaner_collector:
             batch = self._preprocess_batch_with_cleaner(batch)
+
+        # Apply STeCa calibration if enabled
+        if self.steca_controller:
+            batch = self._calibrate_batch_with_steca(batch)
 
         # Choose training approach based on enabled components
         if self.mf_trainer and self.config.get("current_stage") == "machine_feedback":
@@ -206,6 +220,31 @@ class IntegratedAdvancedTrainer:
             trajectories.append(trajectory)
 
         return trajectories
+
+    def _calibrate_batch_with_steca(
+        self, batch: Dict[str, torch.Tensor]
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Calibrate batch trajectories using STeCa
+        """
+        if not self.steca_controller:
+            return batch
+
+        # Extract trajectories
+        trajectories = self._extract_trajectories_from_batch(batch)
+
+        # Get current rewards for calibration decision
+        with torch.no_grad():
+            outputs = self.model(batch["input_ids"], return_advanced_features=True)
+            rewards = outputs.get("advanced_features", {}).get("reward", torch.zeros(batch["input_ids"].size(0)))
+
+        # Calibrate
+        # STeCa expects a list of dicts with "steps" key
+        steca_input = [{"steps": traj} for traj in trajectories]
+        calibrated_steps = self.steca_controller.calibrate(steca_input, rewards)
+
+        # Convert back to batch
+        return self._convert_trajectories_to_batch(calibrated_steps, batch)
 
     def _convert_trajectories_to_batch(
         self, trajectories: List[List[Dict[str, Any]]], original_batch: Dict[str, torch.Tensor]
