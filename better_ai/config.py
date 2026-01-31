@@ -15,17 +15,18 @@ from .utils.exceptions import ConfigError
 class ModelConfig:
     """Configuration for the transformer model"""
     
-    # Architecture parameters
-    vocab_size: int = 64000  # Increased for better coding coverage
-    hidden_dim: int = 1536  # Increased for better representation
-    num_layers: int = 32  # Maintain depth for reasoning
-    num_attention_heads: int = 24  # Consistent with hidden_dim / 64
-    num_key_value_heads: Optional[int] = 12  # For GQA, maintain 2:1 ratio
-    intermediate_dim: int = 6144  # 4x hidden_dim for SwiGLU
-    max_seq_length: int = 262144  # Increased with Ring Attention
+    # Architecture parameters - Defaults kept reasonable for CI/Testing
+    # Use get_production_config() for full-scale training
+    vocab_size: int = 32000
+    hidden_dim: int = 512
+    num_layers: int = 4
+    num_attention_heads: int = 8
+    num_key_value_heads: Optional[int] = 4
+    intermediate_dim: int = 2048
+    max_seq_length: int = 2048
     
     # MoE parameters
-    num_experts: int = 16  # Maintain MoE efficiency
+    num_experts: int = 8
     num_experts_per_token: int = 2
     expert_capacity_factor: float = 1.25
     shared_experts: int = 1
@@ -64,7 +65,7 @@ class ModelConfig:
     use_paged_attention: bool = True
     
     # Ring Attention parameters
-    use_ring_attention: bool = False
+    use_ring_attention: bool = True
     use_striped_attention: bool = True
     ring_block_size: int = 1024
     ring_num_devices: Optional[int] = None  # Auto-detect
@@ -81,17 +82,17 @@ class ModelConfig:
     use_inner_monologue: bool = True
     thought_token_id: Optional[int] = 100  # Default for testing
     thought_end_token_id: Optional[int] = 101  # Default for testing
-    private_subspace_dim: int = 8192
+    private_subspace_dim: int = 4096
     
     # STaR parameters
     use_star: bool = True
-    star_bootstrap_rounds: int = 6
-    star_consistency_samples: int = 20
+    star_bootstrap_rounds: int = 3
+    star_consistency_samples: int = 10
     
     # Tool-Use parameters
     use_tool_heads: bool = True
-    tool_vocab_size: int = 2048  # Number of tool tokens
-    tool_hidden_dim: int = 2048
+    tool_vocab_size: int = 32  # Number of tool tokens
+    tool_hidden_dim: int = 32
 
     # JSON+DBOps Head parameters
     use_json_db_ops_head: bool = False
@@ -101,12 +102,12 @@ class ModelConfig:
     # Math Reasoning Head parameters
     use_math_reasoning_head: bool = False
     math_reasoning_ratio: float = 0.1
-    math_reasoning_internal_dim: int = 8192
+    math_reasoning_internal_dim: int = 256
 
     # Algorithm Head parameters
     use_algorithm_head: bool = False
     algorithm_ratio: float = 0.1
-    algorithm_internal_dim: int = 8192
+    algorithm_internal_dim: int = 256
     
     # Grammar Constraint parameters
     use_grammar_constraints: bool = True
@@ -121,13 +122,13 @@ class ModelConfig:
     # Recursive Scratchpad parameters
     use_recursive_scratchpad: bool = True
     scratchpad_max_iterations: int = 8
-    scratchpad_hidden_dim: int = 16384
+    scratchpad_hidden_dim: int = 32
 
     # TiDAR parameters
     use_tidar: bool = True
-    tidar_num_steps: int = 10
-    tidar_diffusion_dim: int = 8192
-    tidar_num_layers: int = 4
+    tidar_num_steps: int = 5
+    tidar_diffusion_dim: int = 128
+    tidar_num_layers: int = 2
 
     def __post_init__(self):
         self.validate()
@@ -172,6 +173,22 @@ class ModelConfig:
     def to_json(self) -> str:
         """Convert to JSON string"""
         return json.dumps(self.to_dict(), indent=2)
+
+    @classmethod
+    def get_production_config(cls):
+        """Returns a production-ready configuration with larger dimensions"""
+        return cls(
+            vocab_size=64000,
+            hidden_dim=1536,
+            num_layers=12,
+            num_attention_heads=24,
+            num_key_value_heads=12,
+            intermediate_dim=6144,
+            max_seq_length=8192,
+            num_experts=8,
+            use_ring_attention=True,
+            use_striped_attention=True
+        )
 
     def to_file(self, filepath: str):
         """Save config to file"""
@@ -266,7 +283,7 @@ class TrainingConfig:
     profile_time: bool = True
 
     # RLHF
-    rl_stage: int = 2  # 1 for standard reward, 2 for multi-attribute
+    rl_stage: int = 1  # 1 for standard reward, 2 for multi-attribute
 
     # Testing
     use_mock_data: bool = False
@@ -280,8 +297,8 @@ class TrainingConfig:
 
     # Enhanced MoE Training Features
     # Expert specialization and monitoring
-    num_experts: int = 16
-    num_languages: int = 7
+    num_experts: int = 8
+    num_languages: int = 3
     expert_monitor_log_frequency: int = 50
     expert_monitor_save_frequency: int = 500
     

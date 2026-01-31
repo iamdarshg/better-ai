@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 from better_ai.config import ModelConfig
 from better_ai.models.optimized_model import OptimizedDeepSeekMoEModel as MemoryOptimizedModel
 from better_ai.training.checkpointing import SelectiveCheckpointManager as GradientCheckpointManager
+from better_ai.optimizers.memory import MemoryOptimizer
 
 
 

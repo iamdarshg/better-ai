@@ -6,6 +6,11 @@ import re
 import ast
 import concurrent.futures
 import logging
+try:
+    from lark import Lark
+    LARK_AVAILABLE = True
+except ImportError:
+    LARK_AVAILABLE = False
 
 class GrammarStateMachine:
     """
@@ -60,6 +65,25 @@ class GrammarStateMachine:
             except SyntaxError:
                 return False
             except Exception:
+                return False
+
+        if self.grammar_type == "json" and LARK_AVAILABLE:
+            try:
+                parser = Lark(r"""
+                    ?start: value
+                    ?value: object | array | string | NUMBER | "true" | "false" | "null"
+                    object: "{" [pair ("," pair)*] "}"
+                    pair: string ":" value
+                    array: "[" [value ("," value)*] "]"
+                    string: "\"" ESCAPED_STRING "\""
+                    ESCAPED_STRING: /[^"\\\\]*(?:\\\\.[^"\\\\]*)*/
+                    %import common.NUMBER
+                    %import common.WS
+                    %ignore WS
+                """, start='start')
+                parser.parse(code)
+                return True
+            except:
                 return False
 
         # For other languages, we rely on our state tracker + basic patterns
