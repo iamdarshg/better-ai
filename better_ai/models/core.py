@@ -389,18 +389,19 @@ class DeepSeekModel(nn.Module):
         if getattr(config, "use_entropic_steering", False):
             self.entropic_steering = EntropicSteering(config.hidden_dim, entropy_threshold=getattr(config, "entropy_threshold", 2.5))
 
-        # Reward models
-        self.reward_model = BranchRewardModel(config, hidden_dim=512)
-        self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=7, num_quantiles=5)
-        self.hrm = HierarchicalRewardModel(config)
+        # Reward models and other heads (Only initialized if explicitly requested or in production)
+        if getattr(config, "use_reward_models", False):
+            self.reward_model = BranchRewardModel(config, hidden_dim=512)
+            self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=7, num_quantiles=5)
+            self.hrm = HierarchicalRewardModel(config)
 
-        # Advanced reasoning rewards
-        self.trace_validity_scorer = TraceValidityScorer(self)
-        self.structural_reward_engine = StructuralSignalReward()
-        self.aha_moment_detector = AHAMomentDetector()
+        if getattr(config, "use_reasoning_rewards", False):
+            self.trace_validity_scorer = TraceValidityScorer(self)
+            self.structural_reward_engine = StructuralSignalReward()
+            self.aha_moment_detector = AHAMomentDetector()
 
-        # Value head for PPO/GRPO
-        self.value_head = nn.Linear(config.hidden_dim, 1, bias=False)
+        if getattr(config, "use_value_head", False):
+            self.value_head = nn.Linear(config.hidden_dim, 1, bias=False)
     
     def _init_weights(self, module):
         """Initialize weights using scaled normal distribution"""
@@ -608,8 +609,11 @@ class DeepSeekModel(nn.Module):
         """Compute all advanced features and return them in a dictionary"""
         advanced_outputs = {}
 
+        # Ensure hidden_states is on correct device if needed
+        # (Usually already handled, but being safe)
+
         # Recursive Scratchpad
-        if hasattr(self, "scratchpad"):
+        if hasattr(self, "scratchpad") and getattr(self.config, "use_recursive_scratchpad", False):
             scratchpad_out = self.scratchpad(hidden_states)
             advanced_outputs["scratchpad"] = scratchpad_out
             hidden_states = scratchpad_out["scratchpad_output"]
@@ -688,22 +692,26 @@ class DeepSeekModel(nn.Module):
         advanced_outputs["constrained_logits"] = logits
 
         # Reward models
-        advanced_outputs["reward"] = self.reward_model(hidden_states, attention_mask)
-        advanced_outputs["multi_attr_reward"] = self.multi_attr_reward(hidden_states, attention_mask)
+        if hasattr(self, "reward_model"):
+            advanced_outputs["reward"] = self.reward_model(hidden_states, attention_mask)
+        if hasattr(self, "multi_attr_reward"):
+            advanced_outputs["multi_attr_reward"] = self.multi_attr_reward(hidden_states, attention_mask)
 
         # Reasoning-specific rewards
-        # We need the full decoded text for some of these
-        # This is a simplification; in production, we'd pass the actual traces
-        full_text = ""
-        if input_ids is not None and hasattr(self, "tokenizer") and self.tokenizer:
-            full_text = self.tokenizer.decode(input_ids[0], skip_special_tokens=True)
+        if hasattr(self, "trace_validity_scorer"):
+            # We need the full decoded text for some of these
+            # This is a simplification; in production, we'd pass the actual traces
+            full_text = ""
+            if input_ids is not None and hasattr(self, "tokenizer") and self.tokenizer:
+                full_text = self.tokenizer.decode(input_ids[0], skip_special_tokens=True)
 
-        advanced_outputs["trace_validity"] = self.trace_validity_scorer.score_trace([full_text], "Solve the problem")
-        advanced_outputs["structural_signal"] = self.structural_reward_engine.compute_reward(full_text)
-        advanced_outputs["aha_moment"] = self.aha_moment_detector.compute_aha_reward(full_text)
+            advanced_outputs["trace_validity"] = self.trace_validity_scorer.score_trace([full_text], "Solve the problem")
+            advanced_outputs["structural_signal"] = self.structural_reward_engine.compute_reward(full_text)
+            advanced_outputs["aha_moment"] = self.aha_moment_detector.compute_aha_reward(full_text)
 
         # Value head output
-        advanced_outputs["value"] = self.value_head(hidden_states)
+        if hasattr(self, "value_head"):
+            advanced_outputs["value"] = self.value_head(hidden_states)
 
         return advanced_outputs
 

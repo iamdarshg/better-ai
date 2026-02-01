@@ -5,6 +5,12 @@ Unit tests for KV-Cache GRPO optimization
 import unittest
 import torch
 import torch.nn as nn
+import sys
+import os
+
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
 from better_ai.training.kv_cache_grpo import (
     KVCacheEntry,
     KVCacheManager,
@@ -73,9 +79,7 @@ class TestKVCacheManager(unittest.TestCase):
         prefix_length = 5
 
         # Store cache
-        self.cache_manager.store_cache(
-            prefix_hash, key_cache, value_cache, prefix_length
-        )
+        self.cache_manager.store_cache(prefix_hash, key_cache, value_cache, prefix_length)
 
         # Retrieve cache
         retrieved = self.cache_manager.retrieve_cache(prefix_hash)
@@ -127,21 +131,17 @@ class TestOptimizedGRPOWithKVCache(unittest.TestCase):
 
     def setUp(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
         class MockModel(nn.Module):
             def __init__(self):
                 super().__init__()
                 self.linear = nn.Linear(10, 100)
                 self.config = {"vocab_size": 100}
                 self.tokenizer = None
-
             def generate(self, **kwargs):
                 return torch.randint(0, 100, (1, 20))
-
             def generate_group(self, **kwargs):
                 group_size = kwargs.get("group_size", 4)
                 return torch.randint(0, 100, (group_size, 20))
-
             def forward(self, **kwargs):
                 return {"logits": torch.randn(1, 1, 100)}
 
@@ -184,7 +184,8 @@ class TestOptimizedGRPOWithKVCache(unittest.TestCase):
         self.assertEqual(len(results), 2)
         for result in results:
             self.assertIsInstance(result, torch.Tensor)
-            self.assertEqual(result.shape[0], 2)  # group_size
+            self.assertEqual(result.shape[0], 2) # group_size
+
 
     def test_train_step_with_cache_optimization(self):
         batch = {

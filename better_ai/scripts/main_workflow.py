@@ -518,7 +518,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Create configs
-    model_config = ModelConfig()
+    if args.test:
+        model_config = ModelConfig.get_small_model_config()
+    else:
+        model_config = ModelConfig()
+
     training_config = TrainingConfig(
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
