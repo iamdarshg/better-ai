@@ -4,6 +4,12 @@ Unit tests for CLEANER (Self-Purified Trajectories)
 
 import pytest
 import torch
+import sys
+import os
+
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
 from better_ai.training.cleaner import (
     SemanticSimilarityCalculator,
     RollbackGranularityEstimator,
@@ -186,9 +192,7 @@ class TestCLEANERDataCollector:
     @pytest.fixture
     def cleaner_collector(self):
         saar_controller = SAARController(
-            SemanticSimilarityCalculator(min_similarity=0.1),
-            RollbackGranularityEstimator(),
-            min_similarity=0.1,
+            SemanticSimilarityCalculator(min_similarity=0.1), RollbackGranularityEstimator(), min_similarity=0.1
         )
         return CLEANERDataCollector(saar_controller, purification_enabled=True)
 

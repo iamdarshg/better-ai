@@ -5,6 +5,11 @@ Moved from root test_grpo_implementation.py into tests/"""
 import unittest
 import torch
 import torch.nn as nn
+import sys
+import os
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, ROOT)
 
 from better_ai.training.grpo import GRPOTrainer
 

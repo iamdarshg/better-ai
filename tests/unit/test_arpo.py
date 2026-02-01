@@ -5,6 +5,12 @@ Unit tests for ARPO (Agentic Reinforced Policy Optimization)
 import unittest
 import torch
 import torch.nn as nn
+import sys
+import os
+
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
 from better_ai.training.arpo import (
     EntropyMonitor,
     AdaptiveRolloutManager,
@@ -121,9 +127,7 @@ class TestARPOTrainer(unittest.TestCase):
             "enable_adaptive_rollouts": True,
             "device": self.device,
         }
-        self.trainer = ARPOTrainer(
-            self.mock_model, self.mock_reward_model, None, self.mock_config
-        )
+        self.trainer = ARPOTrainer(self.mock_model, self.mock_reward_model, None, self.mock_config)
 
     def test_trainer_initialization(self):
         self.assertEqual(self.trainer.entropy_monitor.window_size, 5)
@@ -133,9 +137,7 @@ class TestARPOTrainer(unittest.TestCase):
 
     def test_entropy_analysis_during_generation(self):
         # Mock generation outputs
-        mock_outputs = {
-            "scores": [torch.randn(1, 100).to(self.device) for _ in range(10)]
-        }
+        mock_outputs = {"scores": [torch.randn(1, 100).to(self.device) for _ in range(10)]}
 
         analysis = self.trainer._analyze_generation_entropy(mock_outputs)
 

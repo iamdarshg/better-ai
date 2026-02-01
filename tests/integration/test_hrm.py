@@ -1,8 +1,9 @@
+
 import torch
 import unittest
 from better_ai.models.reward_model import HierarchicalRewardModel
+from better_ai.config import ModelConfig
 from better_ai.test_config_utils import get_small_model_config
-
 
 class TestHierarchicalRewardModel(unittest.TestCase):
     def setUp(self):
@@ -24,6 +25,5 @@ class TestHierarchicalRewardModel(unittest.TestCase):
         loss = model.loss(chosen_rewards, rejected_rewards)
         self.assertIsInstance(loss, torch.Tensor)
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

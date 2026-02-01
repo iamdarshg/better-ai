@@ -5,22 +5,25 @@ Unit tests for Integrated Advanced Trainer
 import unittest
 import torch
 import torch.nn as nn
+import sys
+import os
+
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
 from better_ai.training.integrated_trainer import (
     IntegratedAdvancedTrainer,
     create_integrated_trainer,
 )
 
-
 class MockModel(nn.Module):
     def __init__(self, hidden_dim=128):
         super().__init__()
         self.linear = nn.Linear(10, 100)
-
         class Config:
             def __init__(self, hd):
                 self.hidden_dim = hd
                 self.vocab_size = 100
-
         self.config = Config(hidden_dim)
 
     def generate(self, **kwargs):
@@ -34,15 +37,11 @@ class MockModel(nn.Module):
         batch_size = input_ids.size(0) if input_ids is not None else 1
         return {
             "logits": torch.randn(batch_size, 5, 100).to(input_ids.device),
-            "last_hidden_state": torch.randn(batch_size, 5, self.config.hidden_dim).to(
-                input_ids.device
-            ),
-            "hidden_states": [
-                torch.randn(batch_size, 5, self.config.hidden_dim).to(input_ids.device)
-            ],
+            "last_hidden_state": torch.randn(batch_size, 5, self.config.hidden_dim).to(input_ids.device),
+            "hidden_states": [torch.randn(batch_size, 5, self.config.hidden_dim).to(input_ids.device)],
             "advanced_features": {
                 "reward": torch.randn(batch_size).to(input_ids.device)
-            },
+            }
         }
 
 
@@ -56,7 +55,6 @@ class TestIntegratedAdvancedTrainer(unittest.TestCase):
         class MockRewardModel(nn.Module):
             def score(self, prompt, response):
                 return 0.5
-
             def forward(self, hidden_states, mask=None):
                 return torch.randn(hidden_states.size(0)).to(hidden_states.device)
 
@@ -132,9 +130,7 @@ class TestIntegratedAdvancedTrainer(unittest.TestCase):
 
         metrics = trainer.train_step(batch)
 
-        self.assertTrue(
-            "loss" in metrics or "total_loss" in metrics or "loss_with_cache" in metrics
-        )
+        self.assertTrue("loss" in metrics or "total_loss" in metrics or "loss_with_cache" in metrics)
         self.assertEqual(trainer.training_stats["total_steps"], 1)
 
         # Check that component statistics are updated
@@ -171,7 +167,6 @@ class TestIntegratedTrainerFactory(unittest.TestCase):
         class MockRewardModel(nn.Module):
             def score(self, prompt, response):
                 return 0.5
-
             def forward(self, hidden_states, mask=None):
                 return torch.randn(hidden_states.size(0)).to(hidden_states.device)
 
@@ -200,7 +195,7 @@ class TestIntegratedTrainerFactory(unittest.TestCase):
             "entropy_window": 20,
             "custom_setting": "test",
             "hidden_dim": 100,
-            "device": self.device,
+            "device": self.device
         }
 
         trainer = create_integrated_trainer(
@@ -211,9 +206,7 @@ class TestIntegratedTrainerFactory(unittest.TestCase):
         self.assertFalse(trainer.config["enable_cleaner"])  # User override
         self.assertFalse(trainer.config["enable_kv_cache"])  # User override
         self.assertEqual(trainer.config["entropy_window"], 20)  # User override
-        self.assertEqual(
-            trainer.config["custom_setting"], "test"
-        )  # User setting preserved
+        self.assertEqual(trainer.config["custom_setting"], "test")  # User setting preserved
 
 
 class TestFeatureIntegration(unittest.TestCase):
@@ -226,7 +219,6 @@ class TestFeatureIntegration(unittest.TestCase):
         class MockRewardModel(nn.Module):
             def score(self, prompt, response):
                 return 0.5
-
             def forward(self, hidden_states, mask=None):
                 return torch.randn(hidden_states.size(0)).to(hidden_states.device)
 
