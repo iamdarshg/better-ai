@@ -7,8 +7,9 @@ import torch
 import torch.nn as nn
 
 from better_ai.training.grpo import GRPOTrainer
+from better_ai.test_resource_tags import low_resource, high_resource
 
-
+@high_resource
 class TestGRPOImplementation(unittest.TestCase):
     @unittest.skip("Heavy compute; skip in quick unittest run")
     def test_grpo_basic_flow(self):

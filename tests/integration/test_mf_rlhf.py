@@ -10,8 +10,9 @@ from better_ai.training.machine_feedback import (
 )
 from better_ai.models.core import DeepSeekModel
 from better_ai.test_config_utils import get_small_model_config
+from better_ai.test_resource_tags import low_resource, high_resource
 
-
+@low_resource
 class TestMachineFeedbackRLHF(unittest.TestCase):
     def test_machine_feedback_reward(self):
         reward_engine = MachineFeedbackReward({"grammar_type": "python"})

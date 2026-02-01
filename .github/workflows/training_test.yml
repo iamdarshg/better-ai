@@ -70,3 +70,61 @@ jobs:
     - name: Run All Unit Tests
       run: |
         python -m unittest discover tests/unit
+
+  discover_high_resource_tests:
+    name: Discover High-Resource Tests
+    runs-on: ubuntu-latest
+    outputs:
+      test_ids: ${{ steps.set.outputs.test_ids }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install py-spy
+      - name: List high-resource tests
+        id: set
+        run: |
+          python tools/list_high_resource_test_ids.py --output .ci/high_resource_ids.json
+          test_ids=$(cat .ci/high_resource_ids.json)
+          echo "test_ids=$test_ids" >> $GITHUB_OUTPUT
+
+  run_high_resource_tests:
+    name: Run High-Resource Tests (Per Test)
+    needs: [discover_high_resource_tests]
+    if: ${{ fromJSON(needs.discover_high_resource_tests.outputs.test_ids).length > 0 }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test_id: ${{ fromJSON(needs.discover_high_resource_tests.outputs.test_ids) }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run Test (per-test isolation)
+        run: |
+          python -m unittest "${{ matrix.test_id }}"
+      - name: Profile flame graph (per test)
+        run: |
+          python tools/profile_high_resource_tests.py --single-test "${{ matrix.test_id }}"
+      - name: Upload flame graphs (per test)
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: flame-graphs
+          path: tests/profiles/high_resource/**/*.svg
+
+  # All flame graphs are uploaded per-test in the run_high_resource_tests job

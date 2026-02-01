@@ -4,6 +4,7 @@ Unit tests for CLEANER (Self-Purified Trajectories)
 
 import pytest
 import torch
+import unittest
 from better_ai.training.cleaner import (
     SemanticSimilarityCalculator,
     RollbackGranularityEstimator,
@@ -11,9 +12,10 @@ from better_ai.training.cleaner import (
     CLEANERDataCollector,
     create_cleaner_pipeline,
 )
+from better_ai.test_resource_tags import low_resource, high_resource
 
-
-class TestSemanticSimilarityCalculator:
+@low_resource
+class TestSemanticSimilarityCalculator(unittest.TestCase):
     """Test semantic similarity calculations"""
 
     def test_textual_similarity(self):
@@ -56,8 +58,8 @@ class TestSemanticSimilarityCalculator:
         assert '"hello"' not in structure  # Should be replaced
         assert "42" not in structure  # Should be replaced
 
-
-class TestRollbackGranularityEstimator:
+@low_resource
+class TestRollbackGranularityEstimator(unittest.TestCase):
     """Test rollback granularity estimation"""
 
     def test_syntax_error_granularity(self):
@@ -98,8 +100,8 @@ class TestRollbackGranularityEstimator:
         )
         assert granularity == "deep"
 
-
-class TestSAARController:
+@low_resource
+class TestSAARController(unittest.TestCase):
     """Test SAAR rollback control"""
 
     @pytest.fixture
@@ -179,8 +181,8 @@ class TestSAARController:
         assert corrected[1]["rollback_type"] == "medium"
         assert corrected[0]["rollback_type"] == "medium_simplify"  # Also simplified
 
-
-class TestCLEANERDataCollector:
+@low_resource
+class TestCLEANERDataCollector(unittest.TestCase):
     """Test CLEANER data collection"""
 
     @pytest.fixture
@@ -249,8 +251,8 @@ class TestCLEANERDataCollector:
         assert stats["trajectories_processed"] == 2
         assert stats["trajectories_purified"] == 1
 
-
-class TestCleanerPipeline:
+@high_resource
+class TestCleanerPipeline(unittest.TestCase):
     """Test CLEANER pipeline creation"""
 
     def test_create_cleaner_pipeline(self):
@@ -275,4 +277,4 @@ class TestCleanerPipeline:
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    unittest.main()

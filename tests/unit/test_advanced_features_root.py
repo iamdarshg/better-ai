@@ -13,8 +13,9 @@ from better_ai.training.integrated_trainer import create_integrated_trainer
 from better_ai.training.arpo import EntropyMonitor
 from better_ai.training.cleaner import create_cleaner_pipeline
 from better_ai.training.kv_cache_grpo import KVCacheManager
+from better_ai.test_resource_tags import low_resource, high_resource
 
-
+@high_resource
 class TestAdvancedFeatures(unittest.TestCase):
     def test_imports(self):
         try:

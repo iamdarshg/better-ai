@@ -39,7 +39,7 @@ class TestStripedAttention(unittest.TestCase):
         self.assertIsInstance(model.layers[0].self_attn, StripedAttention)
 
         # Minimal test data
-        batch_size = 1  # Single batch
+        batch_size = 2  # Single batch
         seq_len = 4  # Very short sequence
         input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len))
 

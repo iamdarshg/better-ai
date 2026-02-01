@@ -9,8 +9,9 @@ import yaml
 from better_ai.config import ModelConfig, TrainingConfig, InferenceConfig
 from better_ai.utils.exceptions import ConfigError
 from better_ai.test_config_utils import get_small_model_config
+from better_ai.test_resource_tags import low_resource, high_resource
 
-
+@low_resource
 class TestModelConfigValidation(unittest.TestCase):
     """Test ModelConfig validation and edge cases."""
 
@@ -76,7 +77,7 @@ class TestModelConfigValidation(unittest.TestCase):
         self.assertEqual(reconstructed.vocab_size, original.vocab_size)
         self.assertEqual(reconstructed.hidden_dim, original.hidden_dim)
 
-
+@low_resource
 class TestTrainingConfigValidation(unittest.TestCase):
     """Test TrainingConfig validation and edge cases."""
 
@@ -138,7 +139,7 @@ class TestTrainingConfigValidation(unittest.TestCase):
         with self.assertRaises(ConfigError):
             TrainingConfig(save_steps=0)
 
-
+@low_resource
 class TestInferenceConfigValidation(unittest.TestCase):
     """Test InferenceConfig validation and edge cases."""
 
@@ -177,7 +178,7 @@ class TestInferenceConfigValidation(unittest.TestCase):
         with self.assertRaises(ConfigError):
             InferenceConfig(quantize_weights=True, weight_bits=7)
 
-
+@low_resource
 class TestConfigIntegration(unittest.TestCase):
     """Test configuration integration and compatibility."""
 
@@ -218,7 +219,7 @@ class TestConfigIntegration(unittest.TestCase):
         )
         self.assertEqual(large.vocab_size, 100000)
 
-
+@low_resource
 class TestConfigFileHandling(unittest.TestCase):
     """Test configuration file loading and saving."""
 

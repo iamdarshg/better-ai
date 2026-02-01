@@ -3,6 +3,8 @@
 Integration test for low resource workflow using unittest and test_config_utils
 """
 
+from better_ai.test_resource_tags import low_resource, high_resource
+
 import unittest
 import torch
 import os
@@ -17,6 +19,7 @@ from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.training.enhanced_trainer import EnhancedMoETrainer
 
 
+@high_resource
 class TestLowResourceIntegration(unittest.TestCase):
     """Test low resource workflow integration"""
 

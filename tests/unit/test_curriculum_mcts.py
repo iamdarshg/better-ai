@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import unittest
+from better_ai.test_resource_tags import high_resource
 import torch
 
 from better_ai.training.cosine_curriculum import (
@@ -18,6 +19,7 @@ from better_ai.training.curriculum_mcts_trainer import (
 )
 
 
+@high_resource
 class TestCurriculumMCTS(unittest.TestCase):
     def test_cosine_scheduler_progress(self):
         cfg = CurriculumConfig(total_steps=100, warmup_steps=10)

@@ -4,6 +4,7 @@ Tests memory management, gradient checkpointing, and optimization strategies
 """
 
 import unittest
+from better_ai.test_resource_tags import high_resource
 import torch
 import torch.nn as nn
 from unittest.mock import Mock, patch
@@ -17,6 +18,7 @@ from better_ai.training.checkpointing import (
 from better_ai.optimizers.memory import MemoryOptimizer
 
 
+@high_resource
 class TestMemoryOptimizedModel(unittest.TestCase):
     """Test memory optimization features in the model."""
 
