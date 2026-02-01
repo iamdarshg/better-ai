@@ -5,14 +5,8 @@ Moved from root into tests/ for standard unittest discovery.
 """
 
 import unittest
-import sys
-import os
 import time
 import torch
-
-# Ensure root is on path for imports
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, ROOT)
 
 # Imported modules for tests
 from better_ai.training.integrated_trainer import create_integrated_trainer
@@ -96,3 +90,7 @@ class TestAdvancedFeatures(unittest.TestCase):
     def test_full_integration_skip(self):
         # Placeholder to satisfy test coverage; not performing heavy runs here
         self.assertTrue(True)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -4,16 +4,13 @@ Integration tests for Machine Feedback RLHF pipeline
 
 import unittest
 import torch
-import sys
-import os
-
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
-from better_ai.training.machine_feedback import MachineFeedbackReward, MachineFeedbackTrainer
+from better_ai.training.machine_feedback import (
+    MachineFeedbackReward,
+    MachineFeedbackTrainer,
+)
 from better_ai.models.core import DeepSeekModel
-from better_ai.config import ModelConfig
 from better_ai.test_config_utils import get_small_model_config
+
 
 class TestMachineFeedbackRLHF(unittest.TestCase):
     def test_machine_feedback_reward(self):
@@ -46,14 +43,13 @@ class TestMachineFeedbackRLHF(unittest.TestCase):
 
         trainer = MachineFeedbackTrainer(model, {"group_size": 2, "max_new_tokens": 10})
 
-        batch = {
-            'input_ids': torch.randint(0, 100, (1, 5)).to(device)
-        }
+        batch = {"input_ids": torch.randint(0, 100, (1, 5)).to(device)}
 
         metrics = trainer.train_step(batch)
 
         self.assertIn("mf_reward_mean", metrics)
         self.assertIsInstance(metrics["mf_reward_mean"], float)
+
 
 if __name__ == "__main__":
     unittest.main()

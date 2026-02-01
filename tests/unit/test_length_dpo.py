@@ -4,15 +4,9 @@ Unit tests for length-aware DPO loss
 
 import unittest
 import torch
-import sys
-import os
-
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
 from better_ai.training.trainer_utils.rl import compute_length_aware_dpo_loss
-from better_ai.config import ModelConfig
 from better_ai.test_config_utils import get_small_model_config
+
 
 class MockModel(torch.nn.Module):
     def __init__(self, config):
@@ -22,8 +16,11 @@ class MockModel(torch.nn.Module):
 
     def forward(self, input_ids, **kwargs):
         batch_size, seq_len = input_ids.shape
-        logits = torch.randn(batch_size, seq_len, self.config.vocab_size).to(input_ids.device)
+        logits = torch.randn(batch_size, seq_len, self.config.vocab_size).to(
+            input_ids.device
+        )
         return {"logits": logits}
+
 
 class TestLengthAwareDPOLoss(unittest.TestCase):
     def test_length_aware_dpo_loss(self):
@@ -37,19 +34,17 @@ class TestLengthAwareDPOLoss(unittest.TestCase):
 
         # Create batch with chosen/rejected pairs
         # Chosen has thoughts (100 ... 101)
-        chosen_input_ids = torch.tensor([
-            [1, 2, 100, 3, 4, 101, 5, 6, 7, 0],
-            [1, 2, 100, 3, 4, 5, 101, 6, 0, 0]
-        ]).to(device)
-        rejected_input_ids = torch.tensor([
-            [1, 2, 3, 0, 0, 0, 0, 0, 0, 0],
-            [1, 2, 3, 0, 0, 0, 0, 0, 0, 0]
-        ]).to(device)
+        chosen_input_ids = torch.tensor(
+            [[1, 2, 100, 3, 4, 101, 5, 6, 7, 0], [1, 2, 100, 3, 4, 5, 101, 6, 0, 0]]
+        ).to(device)
+        rejected_input_ids = torch.tensor(
+            [[1, 2, 3, 0, 0, 0, 0, 0, 0, 0], [1, 2, 3, 0, 0, 0, 0, 0, 0, 0]]
+        ).to(device)
 
         batch = {
-            'chosen_input_ids': chosen_input_ids,
-            'rejected_input_ids': rejected_input_ids,
-            'prompt_len': 2
+            "chosen_input_ids": chosen_input_ids,
+            "rejected_input_ids": rejected_input_ids,
+            "prompt_len": 2,
         }
 
         loss = compute_length_aware_dpo_loss(model, ref_model, batch)
@@ -57,6 +52,7 @@ class TestLengthAwareDPOLoss(unittest.TestCase):
         self.assertIsInstance(loss, torch.Tensor)
         self.assertNotEqual(loss.item(), 0)
         print(f"Loss: {loss.item()}")
+
 
 if __name__ == "__main__":
     unittest.main()

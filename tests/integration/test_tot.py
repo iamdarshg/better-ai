@@ -1,10 +1,9 @@
-
 import torch
 import unittest
 from better_ai.models.tot import TreeOfThought
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
-from better_ai.config import ModelConfig
 from better_ai.test_config_utils import get_small_model_config
+
 
 class TestTreeOfThought(unittest.TestCase):
     def setUp(self):
@@ -19,5 +18,6 @@ class TestTreeOfThought(unittest.TestCase):
         self.assertIsInstance(best_thought, str)
         self.assertTrue(best_thought.startswith(initial_state))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
