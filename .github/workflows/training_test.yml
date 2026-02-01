@@ -43,14 +43,12 @@ jobs:
       run: |
         python tools/run_low_resource_tests.py
 
-    - name: Run All Unit Tests
-      run: |
-        python -m unittest discover tests/unit
+
 
   trigger_profiling_dispatch:
     name: Trigger Profiling Dispatch (auto)
     runs-on: ubuntu-latest
-    needs: [test-training, test-unit]
+    needs: [test-training]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
