@@ -5,6 +5,12 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      run_high_resource_tests:
+        description: Run high-resource tests
+        required: false
+        default: 'false'
 
 jobs:
   test-training:
@@ -89,7 +95,7 @@ jobs:
   run_high_resource_tests:
     name: Run High-Resource Tests (Per Test)
     needs: [discover_high_resource_tests]
-    if: ${{ fromJSON(needs.discover_high_resource_tests.outputs.test_ids).length > 0 }}
+    if: ${{ (fromJSON(needs.discover_high_resource_tests.outputs.test_ids || '[]').length > 0) || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_high_resource_tests == 'true') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
