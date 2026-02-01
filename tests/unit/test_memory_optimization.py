@@ -15,10 +15,14 @@ from better_ai.optimizers.memory import MemoryOptimizer
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 @high_resource
 =======
 
 >>>>>>> 6ee6a9026156a3d656f792dbcbf9395f94c9f6e7
+=======
+
+>>>>>>> parent of e1f19e1 (better tests, configs)
 class TestMemoryOptimizedModel(unittest.TestCase):
     """Test memory optimization features in the model."""
 

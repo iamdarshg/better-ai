@@ -55,21 +55,25 @@ class TestModelEnhancements(unittest.TestCase):
         """Test the self-correction mechanism of the EnhancedDeepSeekModel."""
         config = get_small_model_config()
         model = EnhancedDeepSeekModel(config).to(self.device)
-
+        
         # Create a dummy input using valid token IDs within vocabulary range
         input_ids = torch.randint(0, config.vocab_size, (1, 10)).to(self.device)
-
+        
         # Run self-correction with a mock tokenizer
         class MockTokenizer:
             def decode(self, token_ids, skip_special_tokens=False):
                 return "This is an error in the response that needs correction."
-
+            
             def __call__(self, text, return_tensors="pt"):
                 # Mock tokenizer call - return dummy input_ids
                 return type('obj', (object,), {'input_ids': torch.randint(0, 100, (1, 10)).to(input_ids.device)})
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> parent of e1f19e1 (better tests, configs)
         tokenizer = MockTokenizer()
-
+        
         # Run self-correction
         final_response, corrected = model.self_correct(input_ids, tokenizer, verification_keyword="error")
 

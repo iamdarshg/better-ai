@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 import unittest
+<<<<<<< HEAD
 <<<<<<< HEAD:tests/unit/test_curriculum_mcts.py
 from better_ai.test_resource_tags import high_resource
 =======
 import sys
 import os
 >>>>>>> 6ee6a9026156a3d656f792dbcbf9395f94c9f6e7:tests/test_curriculum_mcts.py
+=======
+import sys
+import os
+>>>>>>> parent of e1f19e1 (better tests, configs)
 import torch
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

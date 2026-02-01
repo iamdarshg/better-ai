@@ -85,12 +85,20 @@ class ModelConfig:
     private_subspace_dim: int = 4096
     
     # STaR parameters
+<<<<<<< HEAD
     use_star: bool = False
+=======
+    use_star: bool = True
+>>>>>>> parent of e1f19e1 (better tests, configs)
     star_bootstrap_rounds: int = 3
     star_consistency_samples: int = 10
     
     # Tool-Use parameters
+<<<<<<< HEAD
     use_tool_heads: bool = False
+=======
+    use_tool_heads: bool = True
+>>>>>>> parent of e1f19e1 (better tests, configs)
     tool_vocab_size: int = 32  # Number of tool tokens
     tool_hidden_dim: int = 32
 
@@ -120,11 +128,16 @@ class ModelConfig:
     clarify_token_id: Optional[int] = None  # Will be set during tokenization
     
     # Recursive Scratchpad parameters
+<<<<<<< HEAD
     use_recursive_scratchpad: bool = False
+=======
+    use_recursive_scratchpad: bool = True
+>>>>>>> parent of e1f19e1 (better tests, configs)
     scratchpad_max_iterations: int = 8
     scratchpad_hidden_dim: int = 32
 
     # TiDAR parameters
+<<<<<<< HEAD
     use_tidar: bool = False
     tidar_num_steps: int = 5
     tidar_diffusion_dim: int = 128
@@ -134,6 +147,12 @@ class ModelConfig:
     use_reward_models: bool = False
     use_reasoning_rewards: bool = False
     use_value_head: bool = False
+=======
+    use_tidar: bool = True
+    tidar_num_steps: int = 5
+    tidar_diffusion_dim: int = 128
+    tidar_num_layers: int = 2
+>>>>>>> parent of e1f19e1 (better tests, configs)
 
     def __post_init__(self):
         self.validate()
@@ -192,6 +211,7 @@ class ModelConfig:
             max_seq_length=8192,
             num_experts=8,
             use_ring_attention=True,
+<<<<<<< HEAD
             use_striped_attention=True,
             use_tidar=True,
             use_star=True,
@@ -219,6 +239,9 @@ class ModelConfig:
             use_star=False,
             use_recursive_scratchpad=False,
             use_grammar_constraints=False
+=======
+            use_striped_attention=True
+>>>>>>> parent of e1f19e1 (better tests, configs)
         )
 
     def to_file(self, filepath: str):

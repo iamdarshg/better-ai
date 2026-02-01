@@ -7,9 +7,12 @@ from better_ai.test_config_utils import get_small_model_config
 from better_ai.test_resource_tags import low_resource, high_resource
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 @low_resource
 =======
 >>>>>>> 6ee6a9026156a3d656f792dbcbf9395f94c9f6e7
+=======
+>>>>>>> parent of e1f19e1 (better tests, configs)
 class TestHierarchicalRewardModel(unittest.TestCase):
     def setUp(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
