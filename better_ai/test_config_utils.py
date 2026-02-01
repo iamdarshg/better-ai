@@ -73,16 +73,12 @@ def get_small_model_config():
         use_linear_attention=True,  # Keep same
         
         # CoT Specialization parameters
-<<<<<<< HEAD
-        use_cot_specialization=True,  # Disable for faster testing
-=======
         use_cot_specialization=True,  # Enabled for testing
->>>>>>> 6ee6a9026156a3d656f792dbcbf9395f94c9f6e7
         cot_num_heads=2,  # 64 -> 8
         cot_hidden_dim=8,  # 768 -> 24
         
         # Inner Monologue parameters
-        use_inner_monologue=Trues,  # Disable for faster testing
+        use_inner_monologue=True,  # Disable for faster testing
         thought_token_id=None,  # Keep same
         private_subspace_dim=128,  # 4096 -> 128
         
@@ -92,11 +88,7 @@ def get_small_model_config():
         star_consistency_samples=2,  # 10 -> 2
         
         # Tool-Use parameters
-<<<<<<< HEAD
-        use_tool_heads=True,  # Disable for faster testing
-=======
         use_tool_heads=True,  # Enabled for testing
->>>>>>> 6ee6a9026156a3d656f792dbcbf9395f94c9f6e7
         tool_vocab_size=10,  # 1000 -> 100
         tool_hidden_dim=24,  # 192 -> 24
         
@@ -126,11 +118,6 @@ def get_small_model_config():
         clarify_token_id=None,  # Keep same
         
         # Recursive Scratchpad parameters
-<<<<<<< HEAD
-        use_recursive_scratchpad=True,  # Disable for testing
-        scratchpad_max_iterations=2,  # 8 -> 2
-        scratchpad_hidden_dim=128,  # 8192 -> 256
-=======
         use_recursive_scratchpad=True,  # Enable for testing
         scratchpad_max_iterations=2,  # 8 -> 2
         scratchpad_hidden_dim=256,  # 8192 -> 256
@@ -139,7 +126,6 @@ def get_small_model_config():
         use_reward_models=True,
         use_reasoning_rewards=True,
         use_value_head=True
->>>>>>> 6ee6a9026156a3d656f792dbcbf9395f94c9f6e7
     )
 
 

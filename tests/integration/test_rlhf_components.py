@@ -23,17 +23,10 @@ from better_ai.models.advanced_features import (
     JSONEnforcer,
     EntropicSteering,
 )
-<<<<<<< HEAD
-<<<<<<< HEAD
 from better_ai.test_resource_tags import low_resource, high_resource
-
-@low_resource
-=======
-=======
->>>>>>> parent of e1f19e1 (better tests, configs)
 from better_ai.test_config_utils import get_small_model_config
 
->>>>>>> 6ee6a9026156a3d656f792dbcbf9395f94c9f6e7
+@low_resource
 class TestBranchRewardModel(unittest.TestCase):
     """Integration tests for the BranchRewardModel."""
     
@@ -48,11 +41,7 @@ class TestBranchRewardModel(unittest.TestCase):
         batch_size = 1
         seq_len = 64
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
-<<<<<<< HEAD
-
-=======
         
->>>>>>> parent of e1f19e1 (better tests, configs)
         # Test with sequence
         scores = self.model(hidden_states)
         self.assertEqual(scores.shape, (batch_size,))
@@ -98,11 +87,7 @@ class TestMultiAttributeRewardModel(unittest.TestCase):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = get_small_model_config()
         self.model = MultiAttributeRewardModel(self.config, num_attributes=5).to(self.device)
-<<<<<<< HEAD
-
-=======
     
->>>>>>> parent of e1f19e1 (better tests, configs)
     def test_forward_pass(self):
         """Test the forward pass of the multi-attribute reward model."""
         batch_size = 2
@@ -139,11 +124,7 @@ class TestGRPOTrainer(unittest.TestCase):
     def test_advantage_computation(self):
         """Test the computation of group advantages."""
         trainer = GRPOTrainer(self.model, self.reward_model, self.optimizer, self.grpo_config)
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> parent of e1f19e1 (better tests, configs)
         batch_size = 2
         group_size = 2
         
@@ -198,15 +179,7 @@ class TestRecursiveScratchpad(unittest.TestCase):
         batch_size = 2
         seq_len = 32
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
-<<<<<<< HEAD
-
         outputs = self.module(hidden_states)
-
-=======
-        
-        outputs = self.module(hidden_states)
-        
->>>>>>> parent of e1f19e1 (better tests, configs)
         self.assertEqual(outputs["scratchpad_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
         self.assertGreater(outputs["iteration_count"], 0)
 
@@ -228,20 +201,12 @@ class TestCoTSpecializationHeads(unittest.TestCase):
         batch_size = 2
         seq_len = 32
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
-<<<<<<< HEAD
-
-        outputs = self.module(hidden_states, is_reasoning_phase=True)
-
-        self.assertEqual(outputs["cot_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
-        self.assertEqual(outputs["final_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
-=======
         
         outputs = self.module(hidden_states, is_reasoning_phase=True)
         
         self.assertEqual(outputs["cot_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
         self.assertEqual(outputs["final_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
 
->>>>>>> parent of e1f19e1 (better tests, configs)
 
 @low_resource
 class TestToolUseHeads(unittest.TestCase):
@@ -285,19 +250,11 @@ class TestEnhancedModel(unittest.TestCase):
         batch_size = 2
         seq_len = 16
         input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
-<<<<<<< HEAD
-
-        outputs = self.model(input_ids, return_advanced_features=False)
-
-        self.assertEqual(outputs["logits"].shape, (batch_size, seq_len, self.config.vocab_size))
-
-=======
         
         outputs = self.model(input_ids, return_advanced_features=False)
         
         self.assertEqual(outputs["logits"].shape, (batch_size, seq_len, self.config.vocab_size))
     
->>>>>>> parent of e1f19e1 (better tests, configs)
     def test_advanced_features(self):
         """Test the forward pass with all advanced features enabled."""
         batch_size = 1
@@ -331,11 +288,7 @@ class TestEnhancedModel(unittest.TestCase):
         except Exception as e:
             import traceback
             traceback.print_exc()
-<<<<<<< HEAD
-            self.fail(f"EnhancedDeepSeekModel loss computation failed with exception: {e}")
-=======
             self.fail(f"EnhancedDeepSeekModel loss computation failed with exception: {e}")    
->>>>>>> parent of e1f19e1 (better tests, configs)
         self.assertIn("lm_loss", losses)
         self.assertIn("total_loss", losses)
         self.assertGreater(losses["lm_loss"].item(), 0)
