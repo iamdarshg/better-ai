@@ -4,8 +4,6 @@ Integration tests for Machine Feedback RLHF pipeline
 
 import unittest
 import torch
-<<<<<<< HEAD
-<<<<<<< HEAD
 from better_ai.training.machine_feedback import (
     MachineFeedbackReward,
     MachineFeedbackTrainer,
