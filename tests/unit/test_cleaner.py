@@ -4,13 +4,11 @@ Unit tests for CLEANER (Self-Purified Trajectories)
 
 import pytest
 import torch
-import unittest
 import sys
 import os
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
 
 from better_ai.training.cleaner import (
     SemanticSimilarityCalculator,
@@ -19,10 +17,9 @@ from better_ai.training.cleaner import (
     CLEANERDataCollector,
     create_cleaner_pipeline,
 )
-from better_ai.test_resource_tags import low_resource, high_resource
 
-@low_resource
-class TestSemanticSimilarityCalculator(unittest.TestCase):
+
+class TestSemanticSimilarityCalculator:
     """Test semantic similarity calculations"""
 
     def test_textual_similarity(self):
@@ -65,8 +62,8 @@ class TestSemanticSimilarityCalculator(unittest.TestCase):
         assert '"hello"' not in structure  # Should be replaced
         assert "42" not in structure  # Should be replaced
 
-@low_resource
-class TestRollbackGranularityEstimator(unittest.TestCase):
+
+class TestRollbackGranularityEstimator:
     """Test rollback granularity estimation"""
 
     def test_syntax_error_granularity(self):
@@ -107,8 +104,8 @@ class TestRollbackGranularityEstimator(unittest.TestCase):
         )
         assert granularity == "deep"
 
-@low_resource
-class TestSAARController(unittest.TestCase):
+
+class TestSAARController:
     """Test SAAR rollback control"""
 
     @pytest.fixture
@@ -188,8 +185,8 @@ class TestSAARController(unittest.TestCase):
         assert corrected[1]["rollback_type"] == "medium"
         assert corrected[0]["rollback_type"] == "medium_simplify"  # Also simplified
 
-@low_resource
-class TestCLEANERDataCollector(unittest.TestCase):
+
+class TestCLEANERDataCollector:
     """Test CLEANER data collection"""
 
     @pytest.fixture
@@ -256,8 +253,8 @@ class TestCLEANERDataCollector(unittest.TestCase):
         assert stats["trajectories_processed"] == 2
         assert stats["trajectories_purified"] == 1
 
-@high_resource
-class TestCleanerPipeline(unittest.TestCase):
+
+class TestCleanerPipeline:
     """Test CLEANER pipeline creation"""
 
     def test_create_cleaner_pipeline(self):
@@ -282,4 +279,4 @@ class TestCleanerPipeline(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    pytest.main([__file__])

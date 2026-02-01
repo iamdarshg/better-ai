@@ -4,18 +4,9 @@ Integration tests for Machine Feedback RLHF pipeline
 
 import unittest
 import torch
-from better_ai.training.machine_feedback import (
-    MachineFeedbackReward,
-    MachineFeedbackTrainer,
-)
-from better_ai.models.core import DeepSeekModel
-from better_ai.test_config_utils import get_small_model_config
-from better_ai.test_resource_tags import low_resource, high_resource
-
 import sys
 import os
 
-
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -24,17 +15,6 @@ from better_ai.models.core import DeepSeekModel
 from better_ai.config import ModelConfig
 from better_ai.test_config_utils import get_small_model_config
 
-
-# Add project root to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
-from better_ai.training.machine_feedback import MachineFeedbackReward, MachineFeedbackTrainer
-from better_ai.models.core import DeepSeekModel
-from better_ai.config import ModelConfig
-from better_ai.test_config_utils import get_small_model_config
-
-
-@low_resource
 class TestMachineFeedbackRLHF(unittest.TestCase):
     def test_machine_feedback_reward(self):
         reward_engine = MachineFeedbackReward({"grammar_type": "python"})

@@ -4,9 +4,6 @@ Unit tests for length-aware DPO loss
 
 import unittest
 import torch
-from better_ai.training.trainer_utils.rl import compute_length_aware_dpo_loss
-from better_ai.test_config_utils import get_small_model_config
-from better_ai.test_resource_tags import high_resource
 import sys
 import os
 
@@ -16,7 +13,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from better_ai.training.trainer_utils.rl import compute_length_aware_dpo_loss
 from better_ai.config import ModelConfig
 from better_ai.test_config_utils import get_small_model_config
-from better_ai.test_resource_tags import high_resource
 
 class MockModel(torch.nn.Module):
     def __init__(self, config):
@@ -29,8 +25,6 @@ class MockModel(torch.nn.Module):
         logits = torch.randn(batch_size, seq_len, self.config.vocab_size).to(input_ids.device)
         return {"logits": logits}
 
-
-@high_resource
 class TestLengthAwareDPOLoss(unittest.TestCase):
     def test_length_aware_dpo_loss(self):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

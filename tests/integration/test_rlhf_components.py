@@ -23,10 +23,8 @@ from better_ai.models.advanced_features import (
     JSONEnforcer,
     EntropicSteering,
 )
-from better_ai.test_resource_tags import low_resource, high_resource
 from better_ai.test_config_utils import get_small_model_config
 
-@low_resource
 class TestBranchRewardModel(unittest.TestCase):
     """Integration tests for the BranchRewardModel."""
     
@@ -78,7 +76,7 @@ class TestBranchRewardModel(unittest.TestCase):
         self.assertEqual(chosen_scores.shape, (batch_size,))
         self.assertEqual(rejected_scores.shape, (batch_size,))
 
-@high_resource
+
 class TestMultiAttributeRewardModel(unittest.TestCase):
     """Integration tests for the MultiAttributeRewardModel."""
     
@@ -102,7 +100,7 @@ class TestMultiAttributeRewardModel(unittest.TestCase):
         self.assertIn("creativity", results)
         self.assertIn("point_estimates", results)
 
-@high_resource
+
 class TestGRPOTrainer(unittest.TestCase):
     """Integration tests for the GRPOTrainer."""
     
@@ -140,7 +138,7 @@ class TestGRPOTrainer(unittest.TestCase):
         self.assertEqual(returns.shape, (batch_size, group_size))
         self.assertEqual(norm_advantages.shape, (batch_size, group_size))
 
-@low_resource
+
 class TestGRPOLoss(unittest.TestCase):
     """Unit tests for the GRPOLoss function."""
     
@@ -160,7 +158,7 @@ class TestGRPOLoss(unittest.TestCase):
         loss.backward()
         self.assertIsNotNone(new_logprobs.grad)
 
-@low_resource
+
 class TestRecursiveScratchpad(unittest.TestCase):
     """Integration tests for the RecursiveScratchpad module."""
     
@@ -179,11 +177,13 @@ class TestRecursiveScratchpad(unittest.TestCase):
         batch_size = 2
         seq_len = 32
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
+
         outputs = self.module(hidden_states)
+
         self.assertEqual(outputs["scratchpad_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
         self.assertGreater(outputs["iteration_count"], 0)
 
-@low_resource
+
 class TestCoTSpecializationHeads(unittest.TestCase):
     """Integration tests for the CoTSpecializationHeads module."""
     
@@ -208,7 +208,6 @@ class TestCoTSpecializationHeads(unittest.TestCase):
         self.assertEqual(outputs["final_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
 
 
-@low_resource
 class TestToolUseHeads(unittest.TestCase):
     """Integration tests for the ToolUseHeads module."""
     
@@ -235,7 +234,7 @@ class TestToolUseHeads(unittest.TestCase):
         self.assertEqual(outputs["mode_score"].shape, (batch_size, 1))
         self.assertEqual(outputs["confidence"].shape, (batch_size, 1))
 
-@high_resource
+
 class TestEnhancedModel(unittest.TestCase):
     """Integration tests for the EnhancedDeepSeekModel."""
     
@@ -293,7 +292,7 @@ class TestEnhancedModel(unittest.TestCase):
         self.assertIn("total_loss", losses)
         self.assertGreater(losses["lm_loss"].item(), 0)
 
-@high_resource
+
 class TestEntropyMonitoring(unittest.TestCase):
     """Integration tests for the EntropicSteering module."""
     
