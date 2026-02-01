@@ -12,8 +12,8 @@ from better_ai.models.features.reasoning_rewards import StructuralSignalReward, 
 from better_ai.training.diversity_metrics import DiversityMeasurer
 from better_ai.data.curation import AgentFLANDecomposer, DatasetCurator
 from better_ai.utils.verification import Z3Verifier, PythonASTVerifier
-
-
+from better_ai.test_resource_tags import high_resource
+@high_resource
 class TestPhase7Features(unittest.TestCase):
     def setUp(self):
         self.model = nn.Linear(10, 10) # Mock model

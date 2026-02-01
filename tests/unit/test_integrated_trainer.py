@@ -210,10 +210,6 @@ class TestIntegratedTrainerFactory(unittest.TestCase):
         self.assertFalse(trainer.config["enable_kv_cache"])  # User override
         self.assertEqual(trainer.config["entropy_window"], 20)  # User override
         self.assertEqual(trainer.config["custom_setting"], "test")  # User setting preserved
-<<<<<<< HEAD
-=======
-
->>>>>>> parent of e1f19e1 (better tests, configs)
 
 @high_resource
 class TestFeatureIntegration(unittest.TestCase):

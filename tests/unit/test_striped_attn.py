@@ -7,8 +7,8 @@ import unittest
 import torch
 from better_ai.test_config_utils import get_small_model_config
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
-
-
+from better_ai.test_resource_tags import high_resource, low_resource
+@low_resource
 class TestStripedAttention(unittest.TestCase):
     """Test striped attention initialization and forward pass"""
 

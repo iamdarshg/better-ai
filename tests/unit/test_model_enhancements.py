@@ -7,7 +7,9 @@ from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.config import ModelConfig
 from transformers import AutoTokenizer
 from better_ai.test_config_utils import get_small_model_config
+from better_ai.test_resource_tags import low_resource, high_resource
 
+@high_resource
 class TestModelEnhancements(unittest.TestCase):
     """Unit tests for various model enhancement components."""
 
@@ -67,11 +69,7 @@ class TestModelEnhancements(unittest.TestCase):
             def __call__(self, text, return_tensors="pt"):
                 # Mock tokenizer call - return dummy input_ids
                 return type('obj', (object,), {'input_ids': torch.randint(0, 100, (1, 10)).to(input_ids.device)})
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> parent of e1f19e1 (better tests, configs)
         tokenizer = MockTokenizer()
         
         # Run self-correction

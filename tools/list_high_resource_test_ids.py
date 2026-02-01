@@ -4,18 +4,21 @@
 import json
 import unittest
 import sys
+import os
 from typing import List
 
 
-def iter_tests(suite: unittest.TestSuite) -> List[unittest.TestCase]:
+def iter_tests(suite):
+    tests = []
     for t in suite:
         if isinstance(t, unittest.TestSuite):
-            yield from iter_tests(t)
+            tests.extend(iter_tests(t))
         else:
-            yield t
+            tests.append(t)
+    return tests
 
 
-def discover_high_resource_tests() -> List[str]:
+def discover_high_resource_tests():
     loader = unittest.TestLoader()
     suite = loader.discover("tests", pattern="test_*.py")
     ids: List[str] = []
@@ -45,8 +48,11 @@ def main():
     args = parser.parse_args()
 
     test_ids = discover_high_resource_tests()
+    out_dir = os.path.dirname(args.output)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(test_ids, f)
+        json.dump(test_ids, f, indent=2)
 
 
 if __name__ == "__main__":

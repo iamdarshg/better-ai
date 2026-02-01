@@ -2,13 +2,13 @@ import unittest
 import torch
 import torch.nn as nn
 from better_ai.training.pruning import prune_expert_widths
-
+from better_ai.test_resource_tags import high_resource
 class SimpleModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.expert = nn.Linear(10, 10)
         self.non_expert = nn.Linear(10, 10)
-
+@high_resource
 class TestPruning(unittest.TestCase):
     """Unit tests for the pruning functionality."""
 
