@@ -30,3 +30,6 @@ def main():
         raise RuntimeError(f"Subprocess for {test} failed with exit code {o.returncode}.")
 if __name__ == "__main__":
     main()
+    with open("profile_dispatch_errors.log", "r") as f:
+        q= f.read()
+    print(q)
