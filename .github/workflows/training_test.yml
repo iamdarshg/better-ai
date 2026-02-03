@@ -43,8 +43,6 @@ jobs:
       run: |
         python -m unittest discover tests/unit
 
-
-
   trigger_profiling_dispatch:
     name: Trigger Profiling Dispatch (auto)
     runs-on: ubuntu-latest
@@ -81,15 +79,17 @@ jobs:
           pip install py-spy
       - name: List high-resource tests
         id: set
+        shell: bash
         run: |
           python tools/list_high_resource_test_ids.py --output .ci/high_resource_ids.json
-          test_ids=$(cat .ci/high_resource_ids.json)
-          echo "test_ids=$test_ids" >> $GITHUB_OUTPUT
+          test_ids=$(jq -c . .ci/high_resource_ids.json)
+          echo "test_ids=$test_ids" >> "$GITHUB_OUTPUT"
+
 
   run_high_resource_tests:
     name: Run High-Resource Tests (Per Test)
     needs: [discover_high_resource_tests]
-    if: ${{ fromJSON(needs.discover_high_resource_tests.outputs.test_ids).length > 0 }}
+    if: ${{ needs.discover_high_resource_tests.outputs.test_ids != '[]' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
