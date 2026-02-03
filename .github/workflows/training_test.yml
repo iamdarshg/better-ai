@@ -44,8 +44,6 @@ jobs:
         python -m unittest discover tests/unit
 
 
-<<<<<<< HEAD
-=======
 
   trigger_profiling_dispatch:
     name: Trigger Profiling Dispatch (auto)
@@ -122,4 +120,3 @@ jobs:
           path: tests/profiles/high_resource/**/*.svg
 
   # All flame graphs are uploaded per-test in the run_high_resource_tests job
->>>>>>> parent of 7982efe (new testing structure test)
