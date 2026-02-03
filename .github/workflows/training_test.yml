@@ -85,7 +85,6 @@ jobs:
           test_ids=$(jq -c . .ci/high_resource_ids.json)
           echo "test_ids=$test_ids" >> "$GITHUB_OUTPUT"
 
-
   run_high_resource_tests:
     name: Run High-Resource Tests (Per Test)
     needs: [discover_high_resource_tests]
@@ -114,7 +113,7 @@ jobs:
           python tools/profile_high_resource_tests.py --single-test "${{ matrix.test_id }}"
       - name: Upload flame graphs (per test)
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: flame-graphs
           path: tests/profiles/high_resource/**/*.svg
