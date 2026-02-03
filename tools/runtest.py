@@ -9,7 +9,7 @@ def main():
     args = parser.parse_args()
     test = args.test
     testName = test.split(".")[1]
-    testDir = test.rsplit(".", 1)[0]
+    testDir = test.rsplit(".")[0]
     command = f"python -m unittest {testDir}/{testName}.py"
     try:
         o = subprocess.run(command, shell=True, check=True)
