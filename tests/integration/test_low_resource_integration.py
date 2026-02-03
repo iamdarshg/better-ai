@@ -17,8 +17,8 @@ from better_ai.test_config_utils import (
 )
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.training.enhanced_trainer import EnhancedMoETrainer
-
-
+from better_ai.test_resource_tags import low_resource, high_resource
+@high_resource
 class TestLowResourceIntegration(unittest.TestCase):
     """Test low resource workflow integration"""
 

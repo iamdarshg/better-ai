@@ -315,6 +315,7 @@ class DeepSeekModel(nn.Module):
         # Initialize weights
         self.apply(self._init_weights)
 
+
     def _init_advanced_features(self, config, device):
         """Initialize all advanced features if enabled in config"""
         if getattr(config, "use_recursive_scratchpad", False):
@@ -390,8 +391,8 @@ class DeepSeekModel(nn.Module):
             self.entropic_steering = EntropicSteering(config.hidden_dim, entropy_threshold=getattr(config, "entropy_threshold", 2.5))
 
         # Reward models and other heads (Only initialized if explicitly requested or in production)
+        self.reward_model = BranchRewardModel(config, hidden_dim=512)
         if getattr(config, "use_reward_models", False):
-            self.reward_model = BranchRewardModel(config, hidden_dim=512)
             self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=7, num_quantiles=5)
             self.hrm = HierarchicalRewardModel(config)
 

@@ -25,12 +25,9 @@ from better_ai.models.advanced_features import (
     EntropicSteering,
 )
 from better_ai.test_config_utils import get_small_model_config
-
-<<<<<<< HEAD
+from better_ai.test_resource_tags import low_resource, high_resource
 
 @low_resource
-=======
->>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestBranchRewardModel(unittest.TestCase):
     """Integration tests for the BranchRewardModel."""
 
@@ -85,10 +82,7 @@ class TestBranchRewardModel(unittest.TestCase):
         self.assertEqual(rejected_scores.shape, (batch_size,))
 
 
-<<<<<<< HEAD
 @high_resource
-=======
->>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestMultiAttributeRewardModel(unittest.TestCase):
     """Integration tests for the MultiAttributeRewardModel."""
 
@@ -115,10 +109,7 @@ class TestMultiAttributeRewardModel(unittest.TestCase):
         self.assertIn("point_estimates", results)
 
 
-<<<<<<< HEAD
 @high_resource
-=======
->>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestGRPOTrainer(unittest.TestCase):
     """Integration tests for the GRPOTrainer."""
 
@@ -159,10 +150,7 @@ class TestGRPOTrainer(unittest.TestCase):
         self.assertEqual(norm_advantages.shape, (batch_size, group_size))
 
 
-<<<<<<< HEAD
 @low_resource
-=======
->>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestGRPOLoss(unittest.TestCase):
     """Unit tests for the GRPOLoss function."""
 
@@ -186,10 +174,7 @@ class TestGRPOLoss(unittest.TestCase):
         self.assertIsNotNone(new_logprobs.grad)
 
 
-<<<<<<< HEAD
 @low_resource
-=======
->>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestRecursiveScratchpad(unittest.TestCase):
     """Integration tests for the RecursiveScratchpad module."""
 
@@ -207,7 +192,6 @@ class TestRecursiveScratchpad(unittest.TestCase):
         """Test the forward pass of the RecursiveScratchpad."""
         batch_size = 2
         seq_len = 32
-<<<<<<< HEAD
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(
             self.device
         )
@@ -220,16 +204,6 @@ class TestRecursiveScratchpad(unittest.TestCase):
 
 
 @low_resource
-=======
-        hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
-
-        outputs = self.module(hidden_states)
-
-        self.assertEqual(outputs["scratchpad_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
-        self.assertGreater(outputs["iteration_count"], 0)
-
-
->>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestCoTSpecializationHeads(unittest.TestCase):
     """Integration tests for the CoTSpecializationHeads module."""
 
@@ -289,10 +263,7 @@ class TestToolUseHeads(unittest.TestCase):
         self.assertEqual(outputs["confidence"].shape, (batch_size, 1))
 
 
-<<<<<<< HEAD
 @high_resource
-=======
->>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestEnhancedModel(unittest.TestCase):
     """Integration tests for the EnhancedDeepSeekModel."""
 
@@ -319,10 +290,15 @@ class TestEnhancedModel(unittest.TestCase):
     def test_advanced_features(self):
         """Test the forward pass with all advanced features enabled."""
         batch_size = 1
-        seq_len = 16
+        seq_len = 16        
+        self.config = get_small_model_config()
         input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(
             self.device
         )
+        self.model=EnhancedDeepSeekModel(self.config).to(self.device)
+        if getattr(self.config, "use_reward_models", False):
+            self.reward_model = BranchRewardModel(self.config, hidden_dim=self.config.hidden_dim).to(self.device)
+
         try:
             outputs = self.model.forward(input_ids, return_advanced_features=True)
         except Exception as e:
@@ -367,10 +343,7 @@ class TestEnhancedModel(unittest.TestCase):
         self.assertGreater(losses["lm_loss"].item(), 0)
 
 
-<<<<<<< HEAD
 @high_resource
-=======
->>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestEntropyMonitoring(unittest.TestCase):
     """Integration tests for the EntropicSteering module."""
 

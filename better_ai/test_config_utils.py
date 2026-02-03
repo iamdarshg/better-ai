@@ -83,7 +83,7 @@ def get_small_model_config():
         private_subspace_dim=128,  # 4096 -> 128
         
         # STaR parameters
-        use_star=False,  # Disable for faster testing
+        use_star=True,  
         star_bootstrap_rounds=2,  # 3 -> 2
         star_consistency_samples=2,  # 10 -> 2
         
