@@ -107,15 +107,7 @@ jobs:
           pip install -r requirements.txt
       - name: Run Test (per-test isolation)
         run: |
-          python -m unittest "${{ matrix.test_id }}"
-      - name: Profile flame graph (per test)
-        run: |
-          python tools/profile_high_resource_tests.py --single-test "${{ matrix.test_id }}"
-      - name: Upload flame graphs (per test)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: flame-graphs
-          path: tests/profiles/high_resource/**/*.svg
+          python -m tools/runtest.py --test "${{ matrix.test_id }}"
+      
 
-  # All flame graphs are uploaded per-test in the run_high_resource_tests job
+# TODO: Falme graphs and profiling data upload
