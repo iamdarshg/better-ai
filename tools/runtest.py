@@ -10,9 +10,9 @@ def main():
     test = args.test
     testName = test.split(".")[1]
     testDir = test.split(".")[0]
-    command = f"cd {testDir} && python -m unittest {testName}.py"
+    command = f"cd ../ && cd tests/{testDir} && python -m unittest {testName}.py"
     try:
-        o = subprocess.run(command, shell=True, check=True)
+        o = subprocess.run(command, shell=True, check=True, capture_output=True)
         print(f"Successfully dispatched {test} for profiling.")
     except Exception as e:
         print(f"Failed to dispatch {test} for profiling: {e}")
