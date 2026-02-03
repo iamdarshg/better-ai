@@ -25,7 +25,7 @@ class TestModelEnhancements(unittest.TestCase):
 
     def test_pre_moe_router(self):
         """Test the ExpertRouter's output shapes."""
-        router = ExpertRouter(hidden_size=256, num_experts=4, pre_router_dim=64).to(self.device)
+        router = ExpertRouter(hidden_size=256, num_experts=4, pre_router_dim=64, device=self.device)
         hidden_states = torch.randn(1, 10, 512).to(self.device)
         routing_weights, selected_experts, router_logits = router(hidden_states)
         self.assertEqual(routing_weights.shape, (1, 10, 2))
