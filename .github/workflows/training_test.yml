@@ -7,6 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
+  
   test-training:
     runs-on: ubuntu-latest
     strategy:
@@ -110,4 +111,4 @@ jobs:
           python tools/runtest.py --test "${{ matrix.test_id }}"
       
 
-# TODO: Falme graphs and profiling data upload
+# TODO: Flame graphs and profiling data upload
