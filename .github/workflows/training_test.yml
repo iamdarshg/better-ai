@@ -107,7 +107,7 @@ jobs:
           pip install -r requirements.txt
       - name: Run Test (per-test isolation)
         run: |
-          python -m tools/runtest.py --test "${{ matrix.test_id }}"
+          python tools/runtest.py --test "${{ matrix.test_id }}"
       
 
 # TODO: Falme graphs and profiling data upload
