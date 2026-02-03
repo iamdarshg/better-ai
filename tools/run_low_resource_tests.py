@@ -11,18 +11,25 @@ import sys
 
 def _collect_low_resource_tests():
     loader = unittest.TestLoader()
-    suite = loader.discover("tests", pattern="test_*.py")
+    suite = loader.discover("tests", pattern="*.py")
     collected = []
-    for t in suite:
-        if isinstance(t, unittest.TestSuite):
-            for tt in t:
-                cls = getattr(tt, "__class__", None)
-                if cls is not None and getattr(cls, "_low_resource", False):
-                    collected.append(tt.id())
-        else:
-            cls = getattr(t, "__class__", None)
-            if cls is not None and getattr(cls, "_low_resource", False):
-                collected.append(t.id())
+
+    def check_test(test_obj):
+        # Check class-level attribute first
+        if getattr(test_obj.__class__, "_is_low_resource", False):
+            return True
+        # Check instance attribute (set by setUp)
+        return getattr(test_obj, "_is_low_resource", False)
+
+    def collect_from_suite(test_suite):
+        for test in test_suite:
+            if isinstance(test, unittest.TestCase):
+                if check_test(test):
+                    collected.append(test.id())
+            elif isinstance(test, unittest.TestSuite):
+                collect_from_suite(test)
+
+    collect_from_suite(suite)
     # Deduplicate while preserving order
     seen = set()
     uniq = []

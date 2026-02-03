@@ -18,7 +18,7 @@ class ModelConfig:
     # Architecture parameters - Defaults kept reasonable for CI/Testing
     # Use get_production_config() for full-scale training
     vocab_size: int = 64000
-    hidden_dim: int = 1524
+    hidden_dim: int = 1536
     num_layers: int = 16
     num_attention_heads: int = 24
     num_key_value_heads: Optional[int] = 12 # Default: num_attention_heads // 2

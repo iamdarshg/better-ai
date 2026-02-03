@@ -37,9 +37,16 @@ def main():
     test_case.setUp()
     test_method = getattr(test_case, method_name)
 
+    # Check if test is high or low resource
+    module = importlib.import_module(module_path)
+    cls = getattr(module, class_name)
+    resource_type = (
+        "high_resource" if getattr(cls, "_is_high_resource", False) else "low_resource"
+    )
+
     # Prepare profiler trace directory
     safe = test_id.replace(".", "_")
-    log_dir = os.path.join("tests", "profiles", "high_resource", f"{safe}_torch")
+    log_dir = os.path.join("tests", "profiles", resource_type, f"{safe}_torch")
     os.makedirs(log_dir, exist_ok=True)
 
     # TensorBoard trace handler writes trace events to log_dir

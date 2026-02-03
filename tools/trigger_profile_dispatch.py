@@ -56,16 +56,17 @@ def discover_high_resource_ids() -> list:
     loader = unittest.TestLoader()
     suite = loader.discover("tests", pattern="test_*.py")
     ids = []
-    for t in suite:
-        if isinstance(t, unittest.TestSuite):
-            for sub in t:
-                cls = getattr(sub, "__class__", None)
-                if cls is not None and getattr(cls, "_high_resource", False):
-                    ids.append(sub.id())
-        else:
-            cls = getattr(t, "__class__", None)
-            if cls is not None and getattr(cls, "_high_resource", False):
-                ids.append(t.id())
+
+    def collect_from_suite(test_suite):
+        for test in test_suite:
+            if isinstance(test, unittest.TestSuite):
+                collect_from_suite(test)
+            else:
+                cls = getattr(test, "__class__", None)
+                if cls is not None and getattr(cls, "_is_high_resource", False):
+                    ids.append(test.id())
+
+    collect_from_suite(suite)
     return sorted(set(ids))
 
 
@@ -93,10 +94,17 @@ def main():
 
         loader = unittest.TestLoader()
         suite = loader.discover("tests", pattern="test_*.py")
-        for t in suite:
-            cls = getattr(t, "__class__", None)
-            if cls is not None and getattr(cls, "_low_resource", False):
-                test_ids.append(t.id())
+
+        def collect_low_from_suite(test_suite):
+            for test in test_suite:
+                if isinstance(test, unittest.TestSuite):
+                    collect_low_from_suite(test)
+                else:
+                    cls = getattr(test, "__class__", None)
+                    if cls is not None and getattr(cls, "_is_low_resource", False):
+                        test_ids.append(test.id())
+
+        collect_low_from_suite(suite)
         for tid in test_ids:
             run_dispatch(tid, "profile_low_resource")
 

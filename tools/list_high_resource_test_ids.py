@@ -24,7 +24,7 @@ def discover_high_resource_tests():
     ids: List[str] = []
     for t in iter_tests(suite):
         cls = getattr(t, "__class__", None)
-        if cls is not None and getattr(cls, "_high_resource", False):
+        if cls is not None and getattr(cls, "_is_high_resource", False):
             ids.append(t.id())
     # Deduplicate while preserving order
     seen = set()

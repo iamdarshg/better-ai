@@ -122,10 +122,6 @@ def get_small_model_config():
         scratchpad_max_iterations=2,  # 8 -> 2
         scratchpad_hidden_dim=256,  # 8192 -> 256
 
-        # Enable other features for testing
-        use_reward_models=True,
-        use_reasoning_rewards=True,
-        use_value_head=True
     )
 
 

@@ -28,7 +28,7 @@ def discover_high_resource_tests():
     high_ids = []
     for test in iter_tests(suite):
         cls = getattr(test, "__class__", None)
-        if cls is not None and getattr(cls, "_high_resource", False):
+        if cls is not None and getattr(cls, "_is_high_resource", False):
             high_ids.append(test.id())
     # Deduplicate while preserving order
     seen = set()
@@ -49,9 +49,9 @@ def discover_profilable_tests():
         if cls is None:
             continue
         tid = test.id()
-        if getattr(cls, "_high_resource", False):
+        if getattr(cls, "_is_high_resource", False):
             mapping[tid] = "high"
-        elif getattr(cls, "_low_resource", False):
+        elif getattr(cls, "_is_low_resource", False):
             mapping[tid] = "low"
     return mapping
 
@@ -92,9 +92,9 @@ def get_resource_for_test_id(test_id: str):
         mod = importlib.import_module(module_path)
         cls = getattr(mod, class_name, None)
         if cls is not None:
-            if getattr(cls, "_high_resource", False):
+            if getattr(cls, "_is_high_resource", False):
                 return "high"
-            if getattr(cls, "_low_resource", False):
+            if getattr(cls, "_is_low_resource", False):
                 return "low"
     except Exception:
         pass

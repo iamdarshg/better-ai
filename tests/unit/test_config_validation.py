@@ -65,7 +65,7 @@ class TestModelConfigValidation(unittest.TestCase):
 
     def test_config_serialization(self):
         """Test config serialization to dict and back."""
-        original = ModelConfig(vocab_size=4096, hidden_dim=512)
+        original = ModelConfig(vocab_size=4096, hidden_dim=384)
         config_dict = original.to_dict()
 
         # Test dict creation
@@ -184,32 +184,32 @@ class TestConfigIntegration(unittest.TestCase):
 
     def test_model_training_compatibility(self):
         """Test that model and training configs are compatible."""
-        model_config = ModelConfig(hidden_dim=512, vocab_size=4096, use_fp8=True)
+        model_config = ModelConfig(hidden_dim=384, vocab_size=4096, use_fp8=True)
 
         training_config = TrainingConfig(batch_size=4, fp8_loss_scale=1.0, bf16=True)
 
         # Should not raise any errors
-        self.assertEqual(model_config.hidden_dim, 512)
+        self.assertEqual(model_config.hidden_dim, 384)
         self.assertEqual(training_config.batch_size, 4)
 
     def test_config_inheritance_and_overrides(self):
         """Test config inheritance and parameter overrides."""
-        base_config = ModelConfig(hidden_dim=512, vocab_size=4096)
+        base_config = ModelConfig(hidden_dim=384, vocab_size=4096)
 
         # Override specific parameters
         overridden_config = ModelConfig(
-            hidden_dim=1024,  # Override
+            hidden_dim=768,  # Override
             vocab_size=4096,  # Keep same
         )
 
-        self.assertEqual(overridden_config.hidden_dim, 1024)
+        self.assertEqual(overridden_config.hidden_dim, 768)
         self.assertEqual(overridden_config.vocab_size, 4096)
 
     def test_config_edge_cases(self):
         """Test edge cases in configuration."""
         # Minimal viable config
         minimal = ModelConfig(
-            vocab_size=1000, hidden_dim=128, num_layers=1, num_attention_heads=4
+            vocab_size=1000, hidden_dim=128, num_layers=1, num_attention_heads=4, num_key_value_heads=2
         )
         self.assertEqual(minimal.vocab_size, 1000)
 
@@ -273,7 +273,7 @@ class TestConfigFileHandling(unittest.TestCase):
         """Test saving config to file."""
         import tempfile
         import os
-        config = ModelConfig(vocab_size=4096, hidden_dim=512)
+        config = ModelConfig(vocab_size=4096, hidden_dim=384)
 
         # Save as JSON
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
