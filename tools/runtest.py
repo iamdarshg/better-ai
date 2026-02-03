@@ -8,9 +8,9 @@ def main():
     )
     args = parser.parse_args()
     test = args.test
-    testName = test.split(".")[-2]
+    testName = test.split(".")[1]
     testDir = test.rsplit(".", 1)[0]
-    command = f"python -m unittest {test}.py"
+    command = f"python -m unittest {testDir}/{testName}.py"
     try:
         o = subprocess.run(command, shell=True, check=True)
         print(f"Successfully dispatched {test} for profiling.")
