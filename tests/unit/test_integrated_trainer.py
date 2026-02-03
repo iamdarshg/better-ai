@@ -3,7 +3,6 @@ Unit tests for Integrated Advanced Trainer
 """
 
 import unittest
-from better_ai.test_resource_tags import high_resource
 import torch
 import torch.nn as nn
 import sys
@@ -46,7 +45,6 @@ class MockModel(nn.Module):
         }
 
 
-@high_resource
 class TestIntegratedAdvancedTrainer(unittest.TestCase):
     """Test integrated trainer with all optimizations"""
 
@@ -159,7 +157,6 @@ class TestIntegratedAdvancedTrainer(unittest.TestCase):
         self.assertIn("kv_cache_saving_rate", efficiency)
 
 
-@high_resource
 class TestIntegratedTrainerFactory(unittest.TestCase):
     """Test factory function for integrated trainer"""
 
@@ -211,7 +208,7 @@ class TestIntegratedTrainerFactory(unittest.TestCase):
         self.assertEqual(trainer.config["entropy_window"], 20)  # User override
         self.assertEqual(trainer.config["custom_setting"], "test")  # User setting preserved
 
-@high_resource
+
 class TestFeatureIntegration(unittest.TestCase):
     """Test interaction between different features"""
 

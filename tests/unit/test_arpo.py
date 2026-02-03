@@ -17,9 +17,8 @@ from better_ai.training.arpo import (
     StepLevelAdvantageAttributor,
     ARPOTrainer,
 )
-from better_ai.test_resource_tags import low_resource, high_resource
 
-@low_resource
+
 class TestEntropyMonitor(unittest.TestCase):
     """Test entropy monitoring functionality"""
 
@@ -54,7 +53,7 @@ class TestEntropyMonitor(unittest.TestCase):
         self.assertTrue(analysis["is_spike"])
         self.assertGreater(analysis["current_entropy"], analysis["baseline_entropy"])
 
-@high_resource
+
 class TestAdaptiveRolloutManager(unittest.TestCase):
     """Test adaptive rollout management"""
 
@@ -86,7 +85,7 @@ class TestAdaptiveRolloutManager(unittest.TestCase):
         factor = manager.get_branch_factor(normal_analysis2)
         self.assertEqual(factor, 2)
 
-@low_resource
+
 class TestStepLevelAdvantageAttributor(unittest.TestCase):
     """Test step-level advantage attribution"""
 
@@ -107,7 +106,7 @@ class TestStepLevelAdvantageAttributor(unittest.TestCase):
         value = attributor._estimate_state_value(failed_state)
         self.assertEqual(value, 0.2)  # Only progress score
 
-@high_resource
+
 class TestARPOTrainer(unittest.TestCase):
     """Test ARPO trainer integration"""
 

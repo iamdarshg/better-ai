@@ -4,6 +4,7 @@ Tests memory management, gradient checkpointing, and optimization strategies
 """
 
 import unittest
+<<<<<<< HEAD
 import sys
 import os
 
@@ -13,6 +14,8 @@ sys.path.append(
 )
 
 from better_ai.test_resource_tags import high_resource, low_resource
+=======
+>>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 import torch
 import torch.nn as nn
 from unittest.mock import Mock, patch
@@ -24,7 +27,7 @@ from better_ai.training.checkpointing import SelectiveCheckpointManager
 from better_ai.optimizers.memory import MemoryOptimizer
 
 
-@high_resource
+
 class TestMemoryOptimizedModel(unittest.TestCase):
     """Test memory optimization features in the model."""
 
@@ -145,8 +148,12 @@ class TestMemoryOptimizedModel(unittest.TestCase):
         self.assertEqual(len(outputs2["past_key_values"]), self.config.num_layers)
 
 
+<<<<<<< HEAD
 @low_resource
 class TestSelectiveCheckpointManager(unittest.TestCase):
+=======
+class TestGradientCheckpointManager(unittest.TestCase):
+>>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
     """Test gradient checkpointing management."""
 
     def test_checkpoint_manager_initialization(self):
@@ -199,7 +206,11 @@ class TestSelectiveCheckpointManager(unittest.TestCase):
         self.assertEqual(manager.offload_device, "cpu")
 
 
+<<<<<<< HEAD
 @high_resource
+=======
+
+>>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestMemoryEfficientDataLoading(unittest.TestCase):
     """Test memory-efficient data loading strategies."""
 
@@ -243,7 +254,10 @@ class TestMemoryEfficientDataLoading(unittest.TestCase):
         self.assertLess(adjusted_batch_size, 8)  # Should reduce batch size
 
 
+<<<<<<< HEAD
 @high_resource
+=======
+>>>>>>> 19c56493cee2758f1c4aff5883dce547be47720d
 class TestMemoryOptimizationIntegration(unittest.TestCase):
     """Test integration of memory optimization features."""
 

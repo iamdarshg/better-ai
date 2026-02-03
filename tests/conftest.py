@@ -160,8 +160,7 @@ def small_training_config():
         data_path="./data",  # Keep same
         tokenizer_path=None,  # Keep same
         max_seq_length=512,  # 8192 -> 512
-        shuffle_buffer_size=
-        100,  # 10000 -> 100
+        shuffle_buffer_size=100,  # 10000 -> 100
         
         # Logging
         log_dir="./logs",  # Keep same

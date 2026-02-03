@@ -4,13 +4,11 @@ Unit tests for CLEANER (Self-Purified Trajectories)
 
 import pytest
 import torch
-import unittest
 import sys
 import os
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
 
 from better_ai.training.cleaner import (
     SemanticSimilarityCalculator,
@@ -22,8 +20,7 @@ from better_ai.training.cleaner import (
 from better_ai.test_resource_tags import low_resource, high_resource
 
 
-@low_resource
-class TestSemanticSimilarityCalculator(unittest.TestCase):
+class TestSemanticSimilarityCalculator:
     """Test semantic similarity calculations"""
 
     def test_textual_similarity(self):
@@ -283,4 +280,4 @@ class TestCleanerPipeline(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    pytest.main([__file__])

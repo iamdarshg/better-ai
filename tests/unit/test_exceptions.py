@@ -1,8 +1,7 @@
 
 import unittest
 from better_ai.utils.exceptions import BetterAIError, ConfigError, DataError, ModelError, TrainingError, EvaluationError
-from better_ai.test_resource_tags import low_resource, high_resource
-@low_resource
+
 class TestExceptions(unittest.TestCase):
     """Unit tests for the custom exception classes."""
 

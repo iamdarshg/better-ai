@@ -7,9 +7,7 @@ from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.config import ModelConfig
 from transformers import AutoTokenizer
 from better_ai.test_config_utils import get_small_model_config
-from better_ai.test_resource_tags import low_resource, high_resource
 
-@high_resource
 class TestModelEnhancements(unittest.TestCase):
     """Unit tests for various model enhancement components."""
 

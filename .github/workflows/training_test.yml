@@ -5,19 +5,13 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
-    inputs:
-      run_high_resource_tests:
-        description: Run high-resource tests
-        required: false
-        default: 'false'
 
 jobs:
   test-training:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.11]
+        python-version: [3.11, 3.12]
 
     steps:
     - uses: actions/checkout@v4
@@ -45,84 +39,8 @@ jobs:
       run: |
         python -m unittest discover tests/integration
 
-    - name: Run Low-Resource Tests (Single Task)
+    - name: Run All Unit Tests
       run: |
-        python tools/run_low_resource_tests.py
+        python -m unittest discover tests/unit
 
 
-
-  trigger_profiling_dispatch:
-    name: Trigger Profiling Dispatch (auto)
-    runs-on: ubuntu-latest
-    needs: [test-training]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
-      - name: Trigger profiling for high-resource tests
-        run: |
-          python tools/trigger_profile_dispatch.py --kind high
-      - name: Trigger profiling for low-resource tests
-        if: always()
-        run: |
-          python tools/trigger_profile_dispatch.py --kind low
-
-  discover_high_resource_tests:
-    name: Discover High-Resource Tests
-    runs-on: ubuntu-latest
-    outputs:
-      test_ids: ${{ steps.set.outputs.test_ids }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install py-spy
-      - name: List high-resource tests
-        id: set
-        run: |
-          python tools/list_high_resource_test_ids.py --output .ci/high_resource_ids.json
-          test_ids=$(cat .ci/high_resource_ids.json)
-          echo "test_ids=$test_ids" >> $GITHUB_OUTPUT
-
-  run_high_resource_tests:
-    name: Run High-Resource Tests (Per Test)
-    needs: [discover_high_resource_tests]
-    if: ${{ (fromJSON(needs.discover_high_resource_tests.outputs.test_ids || '[]').length > 0) || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_high_resource_tests == 'true') }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        test_id: ${{ fromJSON(needs.discover_high_resource_tests.outputs.test_ids) }}
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Run Test (per-test isolation)
-        run: |
-          python -m unittest "${{ matrix.test_id }}"
-      - name: Profile flame graph (per test)
-        run: |
-          python tools/profile_high_resource_tests.py --single-test "${{ matrix.test_id }}"
-      - name: Upload flame graphs (per test)
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: flame-graphs
-          path: tests/profiles/high_resource/**/*.svg
-
-  # All flame graphs are uploaded per-test in the run_high_resource_tests job

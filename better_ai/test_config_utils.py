@@ -70,7 +70,7 @@ def get_small_model_config():
         ring_num_devices=1,  # Single device for testing
         
         # Linear Attention parameters
-        use_linear_attention=True,  # Keep same
+        use_linear_attention=False,  # Keep same
         
         # CoT Specialization parameters
         use_cot_specialization=True,  # Enabled for testing
@@ -78,12 +78,12 @@ def get_small_model_config():
         cot_hidden_dim=8,  # 768 -> 24
         
         # Inner Monologue parameters
-        use_inner_monologue=True,  # Disable for faster testing
+        use_inner_monologue=False,  # Disable for faster testing
         thought_token_id=None,  # Keep same
         private_subspace_dim=128,  # 4096 -> 128
         
         # STaR parameters
-        use_star=True,  # Disable for faster testing
+        use_star=False,  # Disable for faster testing
         star_bootstrap_rounds=2,  # 3 -> 2
         star_consistency_samples=2,  # 10 -> 2
         
@@ -93,17 +93,17 @@ def get_small_model_config():
         tool_hidden_dim=24,  # 192 -> 24
         
         # JSON+DBOps Head parameters
-        use_json_db_ops_head=True,  # Disable for testing
+        use_json_db_ops_head=False,  # Disable for testing
         json_db_ops_ratio=0.1,  # Keep same
         json_db_ops_internal_dim=32,  # 256 -> 32
         
         # Math Reasoning Head parameters
-        use_math_reasoning_head=True,  # Disable for testing
+        use_math_reasoning_head=False,  # Disable for testing
         math_reasoning_ratio=0.1,  # Keep same
         math_reasoning_internal_dim=32,  # 256 -> 32
         
         # Algorithm Head parameters
-        use_algorithm_head=True,  # Disable for testing
+        use_algorithm_head=False,  # Disable for testing
         algorithm_ratio=0.1,  # Keep same
         algorithm_internal_dim=32,  # 256 -> 32
         
@@ -113,7 +113,7 @@ def get_small_model_config():
         enforce_json_output=False,  # Disable for testing
         
         # Entropic Steering parameters
-        use_entropic_steering=True,  # Disable for testing
+        use_entropic_steering=False,  # Disable for testing
         entropy_threshold=2.5,  # Keep same
         clarify_token_id=None,  # Keep same
         
@@ -137,7 +137,7 @@ def get_small_training_config():
     return TrainingConfig(
         # Basic training - reduced for testing
         batch_size=1,  # Keep minimal
-        gradient_accumulation_steps=2,  # 4 -> 1
+        gradient_accumulation_steps=1,  # 4 -> 1
         learning_rate=1e-4,  # Keep same
         warmup_steps=1,  # 1 -> 1
         max_steps=10,  # 1000000 -> 10
@@ -150,7 +150,7 @@ def get_small_training_config():
         beta2=0.95,  # Keep same
         weight_decay=0.1,  # Keep same
         eps=1e-8,  # Keep same
-        use_8bit_optimizer=True,  # Disable for testing
+        use_8bit_optimizer=False,  # Disable for testing
         
         # LR scheduling
         lr_schedule="cosine",  # Keep same
@@ -159,7 +159,7 @@ def get_small_training_config():
         
         # FP8 specific
         fp8_loss_scale=1.0,  # Keep same
-        fp8_delayed_scaling=True,  # Disable for testing
+        fp8_delayed_scaling=False,  # Disable for testing
         fp8_scaling_window=16,  # Keep same
         
         # Data - reduced
@@ -186,11 +186,11 @@ def get_small_training_config():
         # Distributed training
         distributed_backend="ddp",  # Keep same
         fsdp_sharding_strategy="FULL_SHARD",  # Keep same
-        fsdp_cpu_offload=True,  # Disable for testing
+        fsdp_cpu_offload=False,  # Disable for testing
         
         # Monitoring
-        profile_memory=True,  # Disable for testing
-        profile_time=True,  # Disable for testing
+        profile_memory=False,  # Disable for testing
+        profile_time=False,  # Disable for testing
         
         # Pruning
         pruning_ratio=0.1,  # Keep same

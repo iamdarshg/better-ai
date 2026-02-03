@@ -12,7 +12,6 @@ from better_ai.models.advanced_features import (
     EntropicSteering,
 )
 import torch
-from better_ai.test_resource_tags import low_resource, high_resource
 
 
 class DummyTokenizer:
@@ -23,7 +22,7 @@ class DummyTokenizer:
     def pad_token_id(self):
         return 0
 
-@low_resource
+
 class TestRefactoredModules(unittest.TestCase):
     def setUp(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
