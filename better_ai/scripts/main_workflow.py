@@ -55,7 +55,7 @@ def train_pretraining(
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
-    languages: str = "python,c,rust,cpp,python,java,javascript,go",
+    languages: str = "python,c,rust,cpp,java,javascript,go",
     use_ring_attention: bool = False,
 ):
     """
@@ -262,7 +262,7 @@ def train_rlhf(
     output_dir: str = "./checkpoints",
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
-    languages: str = "python,c,rust,cpp,python,java,javascript,go",
+    languages: str = "python,c,rust,cpp,java,javascript,go",
     use_ring_attention: bool = False,
 ):
     """
@@ -361,12 +361,116 @@ def train_rlhf(
     return trainer, metrics
 
 
+def train_security_dpo(
+    model_config: ModelConfig,
+    training_config: TrainingConfig,
+    checkpoint_path: Optional[str] = None,
+    output_dir: str = "./checkpoints",
+    use_mock_data: bool = False,
+    tokenizer_name: str = "microsoft/CodeGPT-small-py",
+    languages: str = "python,c,rust,cpp,java,javascript,go",
+):
+    """
+    Stage 4: Security-focused DPO Training
+    Focused on CVE repair, memory safety, and prompt injection resistance.
+    """
+    logger.info("=" * 80)
+    logger.info("STAGE 4: SECURITY DPO TRAINING")
+    logger.info("=" * 80)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Using device: {device}")
+
+    # Initialize model
+    model = DeepSeekModel(model_config, device=device)
+    model = model.to(device)
+
+    # Load checkpoint from RLHF stage
+    if checkpoint_path:
+        logger.info(f"Loading checkpoint: {checkpoint_path}")
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+
+    # Create tokenizer with special context tags
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    special_tokens = ["[CONTEXT]", "[/CONTEXT]", "[PROBLEM]", "[/PROBLEM]", "[CONSTRAINTS]", "[/CONSTRAINTS]", "[EXAMPLES]", "[/EXAMPLES]"]
+    tokenizer.add_tokens(special_tokens)
+    model.resize_token_embeddings(len(tokenizer))
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    # Create dataloaders
+    if use_mock_data:
+        logger.info("Using mock data for testing...")
+        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10, vocab_size=model_config.vocab_size)
+        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2, vocab_size=model_config.vocab_size)
+    else:
+        logger.info("Loading Security DPO datasets...")
+        security_datasets = load_datasets_by_stage('security_dpo')
+
+        training_config.max_steps = sum(d['num_training_steps'] for d in security_datasets)
+
+        train_dataloader = create_dataloader(
+            security_datasets,
+            tokenizer=tokenizer,
+            split="train",
+            batch_size=training_config.batch_size,
+            data_format="rlhf",
+        )
+
+        eval_datasets = load_datasets_by_stage('eval')
+        eval_dataloader = create_dataloader(
+            eval_datasets[0],
+            tokenizer=tokenizer,
+            split="test",
+            batch_size=training_config.batch_size * 2,
+        )
+
+    # Setup optimizer - very low LR for final alignment
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=training_config.learning_rate * 0.05,
+        betas=(training_config.beta1, training_config.beta2),
+        weight_decay=training_config.weight_decay
+    )
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer,
+        T_0=training_config.warmup_steps,
+        T_mult=1,
+        eta_min=training_config.learning_rate * 0.05 * training_config.min_lr_ratio
+    )
+
+    # Initialize trainer
+    # For DPO, the trainer will use its internal ref_model setup (frozen copy of start model)
+    trainer = EnhancedMoETrainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        config=training_config,
+        device=device,
+        tokenizer=tokenizer,
+        use_enhanced_features=True
+    )
+
+    # Train
+    logger.info("Starting Security DPO training...")
+    metrics = trainer.train()
+
+    # Save final model
+    torch.save(model.state_dict(), f"{output_dir}/security_model.pt")
+    logger.info("Security DPO training completed!")
+
+    return trainer, metrics
+
+
 def evaluate_model(
     model: DeepSeekModel,
     model_config: ModelConfig,
     output_dir: str = "./checkpoints",
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
-    languages: str = "python,c,rust,cpp,python,java,javascript,go",
+    languages: str = "python,c,rust,cpp,java,javascript,go",
 ):
     """
     Evaluate trained model
@@ -491,13 +595,13 @@ class DefaultArgs:
     eval: bool = True
     test: bool = True
     tokenizer_name: str = "microsoft/CodeGPT-small-py"
-    languages: str = "python,c,rust,cpp,python,java,javascript,go"
+    languages: str = "python,c,rust,cpp,java,javascript,go"
     use_ring_attention: bool = True
 
 def main():
     """Main training pipeline"""
     parser = argparse.ArgumentParser(description="Better AI RLHF Training Pipeline")
-    parser.add_argument("--stage", choices=["pretrain", "sft", "rlhf", "full"], default="full")
+    parser.add_argument("--stage", choices=["pretrain", "sft", "rlhf", "security_dpo", "full"], default="full")
     parser.add_argument("--output-dir", default="./checkpoints")
     parser.add_argument("--log-dir", default="./logs")
     parser.add_argument("--batch-size", type=int, default=8)
@@ -506,7 +610,7 @@ def main():
     parser.add_argument("--eval", action="store_true", help="Run evaluation after training")
     parser.add_argument("--test", action="store_true", help="Run with mock data for testing infrastructure")
     parser.add_argument("--tokenizer-name", default="microsoft/CodeGPT-small-py", help="The name of the tokenizer to use.")
-    parser.add_argument("--languages", default="python,c,rust,cpp,python,java,javascript,go", help="A comma-separated list of languages to use for filtering the datasets.")
+    parser.add_argument("--languages", default="python,c,rust,cpp,java,javascript,go", help="A comma-separated list of languages to use for filtering the datasets.")
     parser.add_argument("--use-ring-attention", default=True, action="store_true", help="Enable Ring Attention mechanism in the model.")
     try:
         args = parser.parse_args()
@@ -557,6 +661,12 @@ def main():
         if args.stage in ["rlhf", "full"]:
             checkpoint_path = f"{args.output_dir}/sft_model.pt" if args.stage == "full" else None
             trainer, _ = train_rlhf(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name, languages=args.languages, use_ring_attention=args.use_ring_attention)
+            model = trainer.model
+            checkpoint_path = f"{args.output_dir}/rlhf_model.pt"
+
+        if args.stage in ["security_dpo", "full"]:
+            checkpoint_path = f"{args.output_dir}/rlhf_model.pt" if args.stage == "full" else None
+            trainer, _ = train_security_dpo(model_config, training_config, checkpoint_path, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name, languages=args.languages)
             model = trainer.model
         
         if args.eval and model is not None:

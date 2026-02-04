@@ -17,27 +17,51 @@ logger = logging.getLogger(__name__)
 def parse_xml_tags(text):
     """Parses XML-style tags and replaces them with special tokens"""
     # This approach preserves the structure of the input by replacing tags with special tokens.
-    text = re.sub(r'<problem>', '[PROBLEM]', text)
-    text = re.sub(r'</problem>', '[/PROBLEM]', text)
-    text = re.sub(r'<constraints>', '[CONSTRAINTS]', text)
-    text = re.sub(r'</constraints>', '[/CONSTRAINTS]', text)
-    text = re.sub(r'<examples>', '[EXAMPLES]', text)
-    text = re.sub(r'</examples>', '[/EXAMPLES]', text)
+    text = re.sub(r'<context>', '[CONTEXT]', text, flags=re.IGNORECASE)
+    text = re.sub(r'</context>', '[/CONTEXT]', text, flags=re.IGNORECASE)
+    text = re.sub(r'<problem>', '[PROBLEM]', text, flags=re.IGNORECASE)
+    text = re.sub(r'</problem>', '[/PROBLEM]', text, flags=re.IGNORECASE)
+    text = re.sub(r'<constraints>', '[CONSTRAINTS]', text, flags=re.IGNORECASE)
+    text = re.sub(r'</constraints>', '[/CONSTRAINTS]', text, flags=re.IGNORECASE)
+    text = re.sub(r'<examples>', '[EXAMPLES]', text, flags=re.IGNORECASE)
+    text = re.sub(r'</examples>', '[/EXAMPLES]', text, flags=re.IGNORECASE)
     return text
 
 class StreamingDataset(IterableDataset):
+    """A streaming dataset that can handle any dataset from Hugging Face"""
+
     def _format_with_xml(self, item: dict) -> str:
-        """Formats a dataset item with XML-style tags."""
+        """
+        Formats a dataset item with XML-style tags, ensuring they are
+        treated as context.
+        """
         problem = item.get("problem", "")
         constraints = item.get("constraints", "")
         examples = item.get("examples", "")
+        context = item.get("context", "")
 
         # Fallback to using the entire item as text if specific fields are not present
-        if not problem and not constraints and not examples:
-            return item.get("text") or item.get("content", "")
+        if not any([problem, constraints, examples, context]):
+            content = item.get("text") or item.get("content", "") or item.get("code", "")
+            # If the content already has <tag> format, convert it
+            content = parse_xml_tags(content)
+            if "[CONTEXT]" not in content:
+                return f"[CONTEXT]{content}[/CONTEXT]"
+            return content
 
-        return f"<problem>{problem}</problem><constraints>{constraints}</constraints><examples>{examples}</examples>"
-    """A streaming dataset that can handle any dataset from Hugging Face"""
+        # Build formatted string with explicit context markers to prevent prompt injection
+        # The model should learn that everything between [CONTEXT] and [/CONTEXT] is background info.
+        formatted = ""
+        if context:
+            formatted += f"[CONTEXT]{context}[/CONTEXT]\n"
+        if problem:
+            formatted += f"[PROBLEM]{problem}[/PROBLEM]\n"
+        if constraints:
+            formatted += f"[CONSTRAINTS]{constraints}[/CONSTRAINTS]\n"
+        if examples:
+            formatted += f"[EXAMPLES]{examples}[/EXAMPLES]\n"
+
+        return formatted.strip()
 
     def __init__(self, dataset_name, tokenizer, max_length=8192, split="train", streaming=True, data_format="text", languages=None):
         self.dataset_name = dataset_name
