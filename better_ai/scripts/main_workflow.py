@@ -56,6 +56,7 @@ def train_pretraining(
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
     languages: str = "python,c,rust,cpp,python,java,javascript,go",
+    use_ring_attention: bool = False,
 ):
     """
     Stage 1: Pretraining on Stack v2 dataset
@@ -83,8 +84,8 @@ def train_pretraining(
     # Create dataloaders
     if use_mock_data:
         logger.info("Using mock data for testing...")
-        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
-        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
+        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10, vocab_size=model_config.vocab_size)
+        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2, vocab_size=model_config.vocab_size)
     else:
         logger.info("Loading pretraining datasets...")
         pretraining_datasets = load_datasets_by_stage('pretraining')
@@ -191,8 +192,8 @@ def train_sft(
     # Create dataloaders
     if use_mock_data:
         logger.info("Using mock data for testing...")
-        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
-        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
+        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10, vocab_size=model_config.vocab_size)
+        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2, vocab_size=model_config.vocab_size)
     else:
         logger.info("Loading SFT datasets...")
         sft_datasets = load_datasets_by_stage('sft')
@@ -262,6 +263,7 @@ def train_rlhf(
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
     languages: str = "python,c,rust,cpp,python,java,javascript,go",
+    use_ring_attention: bool = False,
 ):
     """
     Stage 3: RLHF training with GRPO
@@ -293,8 +295,8 @@ def train_rlhf(
     # Create dataloaders
     if use_mock_data:
         logger.info("Using mock data for testing...")
-        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10)
-        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2)
+        train_dataloader = _create_mock_dataloader(training_config.batch_size, num_batches=10, vocab_size=model_config.vocab_size)
+        eval_dataloader = _create_mock_dataloader(training_config.batch_size * 2, num_batches=2, vocab_size=model_config.vocab_size)
     else:
         logger.info("Loading RLHF datasets...")
         rlhf_datasets = load_datasets_by_stage('rlhf')
@@ -457,24 +459,25 @@ def evaluate_model(
     return avg_metrics
 
 
-def _create_mock_dataloader(batch_size: int, num_batches: int = 10, seq_length: int = 512):
+def _create_mock_dataloader(batch_size: int, num_batches: int = 10, seq_length: int = 512, vocab_size: int = 10000):
     """Create a mock dataloader for testing"""
     class MockDataset(torch.utils.data.Dataset):
-        def __init__(self, num_batches, seq_length):
+        def __init__(self, num_batches, seq_length, vocab_size):
             self.num_batches = num_batches
             self.seq_length = seq_length
+            self.vocab_size = vocab_size
         
         def __len__(self):
             return self.num_batches
         
         def __getitem__(self, idx):
             return {
-                "input_ids": torch.randint(0, 64000, (self.seq_length,)),
+                "input_ids": torch.randint(0, self.vocab_size, (self.seq_length,)),
                 "attention_mask": torch.ones(self.seq_length, dtype=torch.long),
-                "labels": torch.randint(0, 64000, (self.seq_length,))
+                "labels": torch.randint(0, self.vocab_size, (self.seq_length,))
             }
     
-    dataset = MockDataset(num_batches, seq_length)
+    dataset = MockDataset(num_batches, seq_length, vocab_size)
     return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
 class DefaultArgs:
@@ -515,7 +518,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Create configs
-    model_config = ModelConfig()
+    if args.test:
+        model_config = ModelConfig.get_small_model_config()
+    else:
+        model_config = ModelConfig()
+
     training_config = TrainingConfig(
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
@@ -537,7 +544,7 @@ def main():
         model = None
         
         if args.stage in ["pretrain", "full"]:
-            trainer, _ = train_pretraining(model_config, training_config, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name, languages=args.languages)
+            trainer, _ = train_pretraining(model_config, training_config, args.output_dir, use_mock_data=args.test, tokenizer_name=args.tokenizer_name, languages=args.languages, use_ring_attention=args.use_ring_attention)
             model = trainer.model
             checkpoint_path = f"{args.output_dir}/pretrained_model.pt"
         

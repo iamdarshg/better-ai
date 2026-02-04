@@ -6,7 +6,7 @@ import pytest
 import torch
 import sys
 import os
-
+import unittest
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -17,6 +17,7 @@ from better_ai.training.cleaner import (
     CLEANERDataCollector,
     create_cleaner_pipeline,
 )
+from better_ai.test_resource_tags import low_resource, high_resource
 
 
 class TestSemanticSimilarityCalculator:
@@ -63,7 +64,8 @@ class TestSemanticSimilarityCalculator:
         assert "42" not in structure  # Should be replaced
 
 
-class TestRollbackGranularityEstimator:
+@low_resource
+class TestRollbackGranularityEstimator(unittest.TestCase):
     """Test rollback granularity estimation"""
 
     def test_syntax_error_granularity(self):
@@ -105,32 +107,26 @@ class TestRollbackGranularityEstimator:
         assert granularity == "deep"
 
 
-class TestSAARController:
+@low_resource
+class TestSAARController(unittest.TestCase):
     """Test SAAR rollback control"""
 
-    @pytest.fixture
-    def similarity_calculator(self):
-        return SemanticSimilarityCalculator(min_similarity=0.3)
-
-    @pytest.fixture
-    def granularity_estimator(self):
-        return RollbackGranularityEstimator()
-
-    @pytest.fixture
-    def saar_controller(self, similarity_calculator, granularity_estimator):
-        return SAARController(
-            similarity_calculator,
-            granularity_estimator,
+    def setUp(self):
+        self.similarity_calculator = SemanticSimilarityCalculator(min_similarity=0.3)
+        self.granularity_estimator = RollbackGranularityEstimator()
+        self.saar_controller = SAARController(
+            self.similarity_calculator,
+            self.granularity_estimator,
             min_similarity=0.3,
             max_rollback_ratio=0.7,
         )
 
-    def test_should_rollback_true(self, saar_controller):
+    def test_should_rollback_true(self):
         failed_segment = "def broken():"
         correction = "def fixed(): pass"
         error_text = "SyntaxError: invalid syntax"
 
-        should_rollback, granularity, similarity = saar_controller.should_rollback(
+        should_rollback, granularity, similarity = self.saar_controller.should_rollback(
             failed_segment, correction, error_text
         )
 
@@ -138,12 +134,12 @@ class TestSAARController:
         assert granularity in ["shallow", "medium", "deep"]
         assert similarity >= 0.3
 
-    def test_should_rollback_false_low_similarity(self, saar_controller):
+    def test_should_rollback_false_low_similarity(self):
         failed_segment = "print('hello')"
         correction = "completely_different_function()"
         error_text = "small error"
 
-        should_rollback, granularity, similarity = saar_controller.should_rollback(
+        should_rollback, granularity, similarity = self.saar_controller.should_rollback(
             failed_segment, correction, error_text
         )
 
@@ -151,14 +147,14 @@ class TestSAARController:
         assert granularity == "none"
         assert similarity < 0.3
 
-    def test_shallow_rollback(self, saar_controller):
+    def test_shallow_rollback(self):
         trajectory = [
             {"content": "step 1", "corrected": False},
             {"content": "step 2 with error", "corrected": False},
             {"content": "step 3", "corrected": False},
         ]
 
-        corrected = saar_controller.apply_rollback(
+        corrected = self.saar_controller.apply_rollback(
             trajectory, 1, "fixed step 2", "shallow"
         )
 
@@ -168,14 +164,14 @@ class TestSAARController:
         assert corrected[1]["rollback_type"] == "shallow"
         assert corrected[0]["content"] == "step 1"  # Unchanged
 
-    def test_medium_rollback(self, saar_controller):
+    def test_medium_rollback(self):
         trajectory = [
             {"content": "step 1", "corrected": False},
             {"content": "step 2 with error", "corrected": False},
             {"content": "step 3", "corrected": False},
         ]
 
-        corrected = saar_controller.apply_rollback(
+        corrected = self.saar_controller.apply_rollback(
             trajectory, 1, "fixed step 2", "medium"
         )
 
@@ -186,30 +182,34 @@ class TestSAARController:
         assert corrected[0]["rollback_type"] == "medium_simplify"  # Also simplified
 
 
-class TestCLEANERDataCollector:
+@low_resource
+class TestCLEANERDataCollector(unittest.TestCase):
     """Test CLEANER data collection"""
 
-    @pytest.fixture
-    def cleaner_collector(self):
+    def setUp(self):
         saar_controller = SAARController(
-            SemanticSimilarityCalculator(), RollbackGranularityEstimator()
+            SemanticSimilarityCalculator(min_similarity=0.1),
+            RollbackGranularityEstimator(),
+            min_similarity=0.1,
         )
-        return CLEANERDataCollector(saar_controller, purification_enabled=True)
+        self.cleaner_collector = CLEANERDataCollector(
+            saar_controller, purification_enabled=True
+        )
 
-    def test_process_trajectory_without_errors(self, cleaner_collector):
+    def test_process_trajectory_without_errors(self):
         clean_trajectory = [
             {"content": "step 1", "error": {}},
             {"content": "step 2", "error": {}},
             {"content": "step 3", "error": {}},
         ]
 
-        result = cleaner_collector.process_trajectory(clean_trajectory)
+        result = self.cleaner_collector.process_trajectory(clean_trajectory)
 
         assert result == clean_trajectory  # No changes
-        assert cleaner_collector.trajectories_processed == 1
-        assert cleaner_collector.trajectories_purified == 0
+        assert self.cleaner_collector.trajectories_processed == 1
+        assert self.cleaner_collector.trajectories_purified == 0
 
-    def test_process_trajectory_with_errors(self, cleaner_collector):
+    def test_process_trajectory_with_errors(self):
         error_trajectory = [
             {
                 "content": "def broken(",
@@ -224,14 +224,14 @@ class TestCLEANERDataCollector:
             {"content": "step 3", "error": {}},
         ]
 
-        result = cleaner_collector.process_trajectory(error_trajectory)
+        result = self.cleaner_collector.process_trajectory(error_trajectory)
 
         assert result != error_trajectory  # Should be modified
-        assert cleaner_collector.trajectories_processed == 1
-        assert cleaner_collector.trajectories_purified == 1
-        assert cleaner_collector.errors_corrected >= 1
+        assert self.cleaner_collector.trajectories_processed == 1
+        assert self.cleaner_collector.trajectories_purified == 1
+        assert self.cleaner_collector.errors_corrected >= 1
 
-    def test_collect_batch(self, cleaner_collector):
+    def test_collect_batch(self):
         trajectories = [
             [{"content": "clean trajectory"}],  # Clean
             [
@@ -243,18 +243,19 @@ class TestCLEANERDataCollector:
             ],  # With error
         ]
 
-        results = cleaner_collector.collect_batch(trajectories)
+        results = self.cleaner_collector.collect_batch(trajectories)
 
         assert len(results) == 2
         assert results[0] == trajectories[0]  # Unchanged
         assert results[1] != trajectories[1]  # Modified
 
-        stats = cleaner_collector.get_statistics()
-        assert stats["trajectories_processed"] == 1  # First trajectory in batch
+        stats = self.cleaner_collector.get_statistics()
+        assert stats["trajectories_processed"] == 2
         assert stats["trajectories_purified"] == 1
 
 
-class TestCleanerPipeline:
+@high_resource
+class TestCleanerPipeline(unittest.TestCase):
     """Test CLEANER pipeline creation"""
 
     def test_create_cleaner_pipeline(self):

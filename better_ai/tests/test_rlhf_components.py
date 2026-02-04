@@ -16,6 +16,7 @@ from typing import Tuple, Dict
 sys.path.append(".")
 
 from better_ai.config import ModelConfig
+from better_ai.test_config_utils import get_small_model_config
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.models.reward_model import BranchRewardModel, MultiAttributeRewardModel
 from better_ai.training.grpo import GRPOTrainer, GRPOLoss
@@ -34,7 +35,7 @@ from better_ai.models.core import RMSNorm, SwiGLU, MultiHeadAttention, Transform
 
 class TestUtilities:
     """Test utility functions and classes"""
-    
+
     @staticmethod
     def assert_tensor_properties(tensor: torch.Tensor, expected_shape: Tuple, expected_dtype: torch.dtype):
         """Assert tensor properties"""
@@ -42,7 +43,7 @@ class TestUtilities:
         assert tensor.dtype == expected_dtype, f"Dtype mismatch: {tensor.dtype} != {expected_dtype}"
         assert not torch.isnan(tensor).any(), "Tensor contains NaN values"
         assert not torch.isinf(tensor).any(), "Tensor contains Inf values"
-    
+
     @staticmethod
     def assert_model_parameters(model: torch.nn.Module):
         """Assert model has valid parameters"""
@@ -50,7 +51,7 @@ class TestUtilities:
             assert param.requires_grad, f"Parameter {name} should require gradients"
             assert not torch.isnan(param).any(), f"Parameter {name} contains NaN"
             assert not torch.isinf(param).any(), f"Parameter {name} contains Inf"
-    
+
     @staticmethod
     @contextmanager
     def assert_no_memory_leak():
@@ -58,9 +59,9 @@ class TestUtilities:
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
             start_memory = torch.cuda.memory_allocated()
-        
+
         yield
-        
+
         if torch.cuda.is_available():
             end_memory = torch.cuda.memory_allocated()
             assert end_memory <= start_memory * 1.1, f"Memory leak detected: {start_memory} -> {end_memory}"
@@ -68,9 +69,9 @@ class TestUtilities:
 
 class TestConfig:
     """Test configuration"""
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dtype = torch.float32
-    
+
     tiny_config = ModelConfig(
         vocab_size=1000,
         hidden_dim=64,
@@ -80,7 +81,7 @@ class TestConfig:
         intermediate_dim=128,
         max_seq_length=128
     )
-    
+
     small_config = ModelConfig(
         vocab_size=5000,
         hidden_dim=256,
@@ -94,68 +95,68 @@ class TestConfig:
 
 class TestBranchRewardModel(unittest.TestCase):
     """Test BR-RM functionality"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.model = BranchRewardModel(self.config).to(self.device)
-    
+
     def test_forward_pass(self):
         """Test basic forward pass"""
         batch_size = 4
         seq_len = 128
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
-        
+
         scores = self.model(hidden_states)
         self.assertEqual(scores.shape, (batch_size,))
-        
+
         pooled = hidden_states[:, -1, :]
         scores = self.model(pooled)
         self.assertEqual(scores.shape, (batch_size,))
-    
+
     def test_branch_scores(self):
         """Test branch scoring"""
         batch_size = 4
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
-        
+
         scores, branches = self.model(hidden_states, return_branch_scores=True)
-        
+
         self.assertEqual(scores.shape, (batch_size,))
         self.assertIn("correctness", branches)
         self.assertIn("efficiency", branches)
         self.assertIn("readability", branches)
         self.assertIn("robustness", branches)
         self.assertIn("branch_weights", branches)
-    
+
     def test_pair_scoring(self):
         """Test preference pair scoring"""
         batch_size = 4
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
-        
+
         chosen_scores, rejected_scores = self.model.score_pair(
             torch.randn(batch_size, self.config.hidden_dim),
             torch.randn(batch_size, self.config.hidden_dim),
         )
-        
+
         self.assertEqual(chosen_scores.shape, (batch_size,))
         self.assertEqual(rejected_scores.shape, (batch_size,))
 
 
 class TestMultiAttributeRewardModel(unittest.TestCase):
     """Test multi-attribute reward model"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.model = MultiAttributeRewardModel(self.config, num_attributes=5).to(self.device)
-    
+
     def test_forward_pass(self):
         """Test multi-attribute forward pass"""
         batch_size = 4
         hidden_states = torch.randn(batch_size, self.config.hidden_dim).to(self.device)
-        
+
         results = self.model(hidden_states)
-        
+
         self.assertIn("correctness", results)
         self.assertIn("efficiency", results)
         self.assertIn("readability", results)
@@ -166,36 +167,36 @@ class TestMultiAttributeRewardModel(unittest.TestCase):
 
 class TestGRPOTrainer(unittest.TestCase):
     """Test GRPO training"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
         self.reward_model = BranchRewardModel(self.config).to(self.device)
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-4)
-        
+
         self.grpo_config = {
             "beta": 0.01,
             "group_size": 4,
             "device": self.device,
             "hidden_dim": self.config.hidden_dim,
         }
-    
+
     def test_advantage_computation(self):
         """Test group advantage estimation"""
         trainer = GRPOTrainer(self.model, self.reward_model, self.optimizer, self.grpo_config)
-        
+
         batch_size = 4
         group_size = 4
-        
+
         rewards = torch.randn(batch_size, group_size)
         logprobs = torch.randn(batch_size, group_size)
         values = torch.randn(batch_size, group_size)
-        
+
         advantages, returns, norm_advantages = trainer.compute_group_advantages(
             rewards, logprobs, values
         )
-        
+
         self.assertEqual(advantages.shape, (batch_size, group_size))
         self.assertEqual(returns.shape, (batch_size, group_size))
         self.assertEqual(norm_advantages.shape, (batch_size, group_size))
@@ -203,18 +204,18 @@ class TestGRPOTrainer(unittest.TestCase):
 
 class TestGRPOLoss(unittest.TestCase):
     """Test GRPO loss computation"""
-    
+
     def test_loss_computation(self):
         """Test GRPO loss"""
         loss_fn = GRPOLoss(beta=0.01, eps_clip=0.2)
-        
+
         batch_size = 4
         old_logprobs = torch.randn(batch_size, requires_grad=False)
         new_logprobs = torch.randn(batch_size, requires_grad=True)
         advantages = torch.randn(batch_size)
-        
+
         loss = loss_fn(old_logprobs, new_logprobs, advantages)
-        
+
         self.assertGreater(loss.item(), 0)
         loss.backward()
         self.assertIsNotNone(new_logprobs.grad)
@@ -222,75 +223,75 @@ class TestGRPOLoss(unittest.TestCase):
 
 class TestRMSNorm(unittest.TestCase):
     """Test RMSNorm layer"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-    
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     def test_forward_pass(self):
         """Test RMSNorm forward pass"""
         hidden_size = 64
         norm = RMSNorm(hidden_size).to(self.device)
-        
+
         x = torch.randn(2, 10, hidden_size, device=self.device)
         output = norm(x)
-        
+
         TestUtilities.assert_tensor_properties(output, x.shape, x.dtype)
         TestUtilities.assert_model_parameters(norm)
 
 
 class TestSwiGLU(unittest.TestCase):
     """Test SwiGLU activation"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-    
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     def test_forward_pass(self):
         """Test SwiGLU forward pass"""
         hidden_size = 64
         intermediate_size = 128
         swiglu = SwiGLU(hidden_size, intermediate_size).to(self.device)
-        
+
         x = torch.randn(2, 10, hidden_size, device=self.device)
         output = swiglu(x)
-        
+
         TestUtilities.assert_tensor_properties(output, (2, 10, hidden_size), x.dtype)
         TestUtilities.assert_model_parameters(swiglu)
 
 
 class TestMultiHeadAttention(unittest.TestCase):
     """Test MultiHeadAttention layer"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-    
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     def test_forward_pass(self):
         """Test MultiHeadAttention forward pass"""
         hidden_size = 64
         num_heads = 4
         num_key_value_heads = 2
         head_dim = hidden_size // num_heads
-        
+
         attn = MultiHeadAttention(
             hidden_size=hidden_size,
             num_heads=num_heads,
             num_key_value_heads=num_key_value_heads,
             head_dim=head_dim
         ).to(self.device)
-        
+
         x = torch.randn(2, 10, hidden_size, device=self.device)
         output, weights, cache = attn(x)
-        
+
         TestUtilities.assert_tensor_properties(output, x.shape, x.dtype)
         TestUtilities.assert_model_parameters(attn)
 
 
 class TestTransformerBlock(unittest.TestCase):
     """Test TransformerBlock"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = TestConfig.tiny_config
-    
+
     def test_forward_pass(self):
         """Test TransformerBlock forward pass"""
         block = TransformerBlock(
@@ -300,7 +301,7 @@ class TestTransformerBlock(unittest.TestCase):
             head_dim=self.config.hidden_dim // self.config.num_attention_heads,
             intermediate_size=self.config.intermediate_dim
         ).to(self.device)
-        
+
         x = torch.randn(2, 10, self.config.hidden_dim, device=self.device)
         try:
             output = block(x)
@@ -308,27 +309,27 @@ class TestTransformerBlock(unittest.TestCase):
             import traceback
             traceback.print_exc()
             self.fail(f"TransformerBlock forward pass failed with exception: {e}")
-        
+
         # Handle both tuple and tensor returns
         if isinstance(output, tuple):
             output = output[0]
-        
+
         TestUtilities.assert_tensor_properties(output, x.shape, x.dtype)
         TestUtilities.assert_model_parameters(block)
 
 
 class TestRecursiveScratchpad(unittest.TestCase):
     """Test recursive scratchpad"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.module = RecursiveScratchpad(
             self.config.hidden_dim,
             max_iterations=5,
             scratchpad_dim=256,
         ).to(self.device)
-    
+
     def test_forward_pass(self):
         """Test scratchpad processing"""
         batch_size = 4
@@ -339,22 +340,22 @@ class TestRecursiveScratchpad(unittest.TestCase):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            self.fail(f"RecursiveScratchpad forward pass failed with exception: {e}")    
+            self.fail(f"RecursiveScratchpad forward pass failed with exception: {e}")
         self.assertEqual(outputs["scratchpad_output"].shape, (batch_size, seq_len, self.config.hidden_dim))
         self.assertGreater(outputs["iteration_count"], 0)
 
 
 class TestCoTSpecializationHeads(unittest.TestCase):
     """Test CoT specialization"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.module = CoTSpecializationHeads(
             self.config.hidden_dim,
             num_cot_heads=4,
         ).to(self.device)
-    
+
     def test_forward_pass(self):
         """Test CoT heads"""
         batch_size = 4
@@ -372,15 +373,15 @@ class TestCoTSpecializationHeads(unittest.TestCase):
 
 class TestToolUseHeads(unittest.TestCase):
     """Test tool-use heads"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.module = ToolUseHeads(
             self.config.hidden_dim,
             tool_vocab_size=self.config.tool_vocab_size
         ).to(self.device)
-    
+
     def test_forward_pass(self):
         """Test tool-use prediction"""
         batch_size = 4
@@ -398,22 +399,22 @@ class TestToolUseHeads(unittest.TestCase):
 
 class TestEnhancedModel(unittest.TestCase):
     """Test integrated enhanced model"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.model = EnhancedDeepSeekModel(self.config).to(self.device)
-    
+
     def test_forward_pass(self):
         """Test basic forward pass"""
         batch_size = 2
         seq_len = 64
         input_ids = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
-        
+
         outputs = self.model(input_ids, return_advanced_features=False)
-        
+
         self.assertEqual(outputs["logits"].shape, (batch_size, seq_len, self.config.vocab_size))
-    
+
     def test_advanced_features(self):
         """Test with all advanced features"""
         batch_size = 2
@@ -427,15 +428,15 @@ class TestEnhancedModel(unittest.TestCase):
             self.fail(f"EnhancedDeepSeekModel forward pass with advanced features failed with exception: {e}")
         self.assertIn("advanced_features", outputs)
         advanced = outputs["advanced_features"]
-        
+
         if self.config.use_recursive_scratchpad:
             self.assertIn("scratchpad", advanced)
-        
+
         if self.config.use_tool_heads:
             self.assertIn("tool_use", advanced)
-        
+
         self.assertIn("reward", advanced)
-    
+
     def test_loss_computation(self):
         """Test loss computation"""
         batch_size = 2
@@ -447,7 +448,7 @@ class TestEnhancedModel(unittest.TestCase):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            self.fail(f"EnhancedDeepSeekModel loss computation failed with exception: {e}")    
+            self.fail(f"EnhancedDeepSeekModel loss computation failed with exception: {e}")
         self.assertIn("lm_loss", losses)
         self.assertIn("total_loss", losses)
         self.assertGreater(losses["lm_loss"].item(), 0)
@@ -455,31 +456,31 @@ class TestEnhancedModel(unittest.TestCase):
 
 class TestEntropyMonitoring(unittest.TestCase):
     """Test entropic steering"""
-    
+
     def setUp(self):
-        self.device = torch.device("cpu")
-        self.config = ModelConfig()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.config = get_small_model_config()
         self.module = EntropicSteering(self.config.hidden_dim).to(self.device)
-    
+
     def test_entropy_computation(self):
         """Test entropy monitoring"""
         batch_size = 4
         seq_len = 128
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(self.device)
         logits = torch.randn(batch_size, seq_len, self.config.vocab_size).to(self.device)
-        
+
         outputs = self.module.forward(hidden_states, logits)
-        
+
         self.assertEqual(outputs["entropy_scores"].shape, (batch_size, seq_len))
         self.assertEqual(outputs["spike_detected"].shape, (batch_size, seq_len))
 
 
 class TestWorkflow(unittest.TestCase):
     """Test main workflow file"""
-    
+
     def setUp(self):
         torch.set_default_device("cpu" if not torch.cuda.is_available() else "cuda")
-    
+
     def test_workflow_whole(self):
         """Test full training workflow"""
         n = subprocess.run(

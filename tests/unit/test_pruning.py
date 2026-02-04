@@ -14,7 +14,8 @@ class TestPruning(unittest.TestCase):
 
     def test_prune_expert_widths(self):
         """Test that the prune_expert_widths function correctly prunes the expert layers."""
-        model = SimpleModel()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = SimpleModel().to(device)
         pruning_ratio = 0.5
 
         # Save original weights for comparison

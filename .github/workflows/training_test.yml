@@ -7,6 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
+  
   test-training:
     runs-on: ubuntu-latest
     strategy:
@@ -43,4 +44,70 @@ jobs:
       run: |
         python -m unittest discover tests/unit
 
+  trigger_profiling_dispatch:
+    name: Trigger Profiling Dispatch (auto)
+    runs-on: ubuntu-latest
+    needs: [test-training]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Trigger profiling for high-resource tests
+        run: |
+          python tools/trigger_profile_dispatch.py --kind high
+      - name: Trigger profiling for low-resource tests
+        if: always()
+        run: |
+          python tools/trigger_profile_dispatch.py --kind low
 
+  discover_high_resource_tests:
+    name: Discover High-Resource Tests
+    runs-on: ubuntu-latest
+    outputs:
+      test_ids: ${{ steps.set.outputs.test_ids }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: List high-resource tests
+        id: set
+        shell: bash
+        run: |
+          python tools/list_high_resource_test_ids.py --output .ci/high_resource_ids.json
+          test_ids=$(jq -c . .ci/high_resource_ids.json)
+          echo "test_ids=$test_ids" >> "$GITHUB_OUTPUT"
+
+  run_high_resource_tests:
+    name: Run High-Resource Tests (Per Test)
+    needs: [discover_high_resource_tests]
+    if: ${{ needs.discover_high_resource_tests.outputs.test_ids != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test_id: ${{ fromJSON(needs.discover_high_resource_tests.outputs.test_ids) }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run Test (per-test isolation)
+        run: |
+          python tools/runtest.py --test "${{ matrix.test_id }}"
+      
+
+# TODO: Flame graphs and profiling data upload

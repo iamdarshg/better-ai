@@ -152,6 +152,18 @@ class EnhancedMoETrainer:
         self.checkpoint_loaded = False
         self.save_dir = getattr(config, 'output_dir', './checkpoints')
         os.makedirs(self.save_dir, exist_ok=True)
+
+        # Initialize reference model for DPO/RLHF
+        self.ref_model = self._setup_ref_model()
+
+    def _setup_ref_model(self):
+        """Create a frozen copy of the model as reference"""
+        import copy
+        ref_model = copy.deepcopy(self.model)
+        ref_model.eval()
+        for param in ref_model.parameters():
+            param.requires_grad = False
+        return ref_model
     
     _rl_forward_pass = rl_forward_pass
     _rl_stage2_forward_pass = rl_stage2_forward_pass

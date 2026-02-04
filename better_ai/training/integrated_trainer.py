@@ -13,6 +13,7 @@ from .cleaner import CLEANERDataCollector, create_cleaner_pipeline
 from .kv_cache_grpo import OptimizedGRPOWithKVCache, KVCacheManager
 from .grpo import GRPOTrainer
 from .machine_feedback import MachineFeedbackTrainer
+from .steca import STeCaController, TrajectoryRefiner
 
 
 class IntegratedAdvancedTrainer:
@@ -83,6 +84,15 @@ class IntegratedAdvancedTrainer:
         else:
             self.mf_trainer = None
 
+        # STeCa component
+        if self.config.get("enable_steca", True):
+            refiner = TrajectoryRefiner(self.model, getattr(self.model, "tokenizer", None))
+            self.steca_controller = STeCaController(
+                refiner, calibration_threshold=self.config.get("steca_threshold", 0.7)
+            )
+        else:
+            self.steca_controller = None
+
         # Fallback to standard GRPO
         if not any([self.arpo_trainer, self.kv_optimized_trainer, self.mf_trainer]):
             self.grpo_trainer = GRPOTrainer(
@@ -101,6 +111,10 @@ class IntegratedAdvancedTrainer:
         # Pre-process batch with CLEANER if enabled
         if self.cleaner_collector:
             batch = self._preprocess_batch_with_cleaner(batch)
+
+        # Apply STeCa calibration if enabled
+        if self.steca_controller:
+            batch = self._calibrate_batch_with_steca(batch)
 
         # Choose training approach based on enabled components
         if self.mf_trainer and self.config.get("current_stage") == "machine_feedback":
@@ -131,11 +145,21 @@ class IntegratedAdvancedTrainer:
             )
 
         elif self.grpo_trainer:
-            # Use standard GRPO
+            # Use standard GRPO with real data
+            # Generate rewards if not provided in batch
+            if "rewards" not in batch:
+                with torch.no_grad():
+                    outputs = self.model(batch["input_ids"], attention_mask=batch.get("attention_mask"), return_advanced_features=True)
+                    rewards = outputs.get("advanced_features", {}).get("reward", torch.zeros(batch["input_ids"].size(0)))
+                    logprobs = torch.nn.functional.log_softmax(outputs["logits"], dim=-1).gather(-1, batch["input_ids"].unsqueeze(-1)).squeeze(-1)
+            else:
+                rewards = batch["rewards"]
+                logprobs = batch["logprobs"]
+
             grpo_metrics = self.grpo_trainer.train_step(
                 batch,
-                torch.randn(batch["input_ids"].shape[0], 4),  # Mock rewards
-                torch.randn(batch["input_ids"].shape[0], 4),  # Mock logprobs
+                rewards,
+                logprobs
             )
             step_metrics.update(grpo_metrics)
 
@@ -150,14 +174,14 @@ class IntegratedAdvancedTrainer:
         if not self.cleaner_collector:
             return batch
 
-        # Extract trajectories from batch (mock implementation)
+        # Extract trajectories from batch
         raw_trajectories = self._extract_trajectories_from_batch(batch)
 
         # Apply CLEANER purification
         purified_trajectories = self.cleaner_collector.collect_batch(raw_trajectories)
 
         # Convert back to batch format
-        purified_batch = self._convert_trajectories_to_batch(purified_trajectories)
+        purified_batch = self._convert_trajectories_to_batch(purified_trajectories, batch)
 
         # Track corrections
         cleaner_stats = self.cleaner_collector.get_statistics()
@@ -170,36 +194,86 @@ class IntegratedAdvancedTrainer:
     def _extract_trajectories_from_batch(
         self, batch: Dict[str, torch.Tensor]
     ) -> List[List[Dict[str, Any]]]:
-        """Extract trajectory format from batch data"""
-        # Mock implementation - in practice would parse actual batch structure
-        batch_size = batch.get("input_ids", torch.tensor([])).shape[0]
-        trajectories = []
+        """Extract real trajectory format from batch data by decoding input_ids"""
+        if 'trajectories' in batch:
+            return batch['trajectories']
 
-        for i in range(batch_size):
+        # Implement real parsing from input_ids
+        input_ids = batch.get("input_ids")
+        if input_ids is None or not hasattr(self, "tokenizer") or self.tokenizer is None:
+            return []
+
+        trajectories = []
+        for i in range(input_ids.size(0)):
+            text = self.tokenizer.decode(input_ids[i], skip_special_tokens=True)
+
+            # Parse trajectory: split into steps based on markers
+            # Markers could be "Step N:", "<thought>", or just newline segments
+            steps_text = text.split("\n\n") # Simplified heuristic for steps
             trajectory = []
-            # Create mock steps
-            for step in range(5):  # Assume 5 steps per trajectory
-                step_data = {
-                    "content": f"Step {step} content",
-                    "error": {"message": f"Error {step}"} if step % 2 == 0 else {},
-                    "correction": f"Correction {step}" if step % 2 == 0 else "",
-                }
-                trajectory.append(step_data)
+            for step_text in steps_text:
+                if step_text.strip():
+                    trajectory.append({
+                        "content": step_text.strip(),
+                        "metadata": {"batch_idx": i}
+                    })
             trajectories.append(trajectory)
 
         return trajectories
 
-    def _convert_trajectories_to_batch(
-        self, trajectories: List[List[Dict[str, Any]]]
+    def _calibrate_batch_with_steca(
+        self, batch: Dict[str, torch.Tensor]
     ) -> Dict[str, torch.Tensor]:
-        """Convert purified trajectories back to batch format"""
-        # Mock implementation
-        batch_size = len(trajectories)
-        return {
-            "input_ids": torch.randint(0, 1000, (batch_size, 10)),
-            "attention_mask": torch.ones(batch_size, 10),
-            "target_ids": torch.randint(0, 1000, (batch_size, 10)),
-        }
+        """
+        Calibrate batch trajectories using STeCa
+        """
+        if not self.steca_controller:
+            return batch
+
+        # Extract trajectories
+        trajectories = self._extract_trajectories_from_batch(batch)
+
+        # Get current rewards for calibration decision
+        with torch.no_grad():
+            outputs = self.model(batch["input_ids"], return_advanced_features=True)
+            rewards = outputs.get("advanced_features", {}).get("reward", torch.zeros(batch["input_ids"].size(0)))
+
+        # Calibrate
+        # STeCa expects a list of dicts with "steps" key
+        steca_input = [{"steps": traj} for traj in trajectories]
+        calibrated_steps = self.steca_controller.calibrate(steca_input, rewards)
+
+        # Convert back to batch
+        return self._convert_trajectories_to_batch(calibrated_steps, batch)
+
+    def _convert_trajectories_to_batch(
+        self, trajectories: List[List[Dict[str, Any]]], original_batch: Dict[str, torch.Tensor]
+    ) -> Dict[str, torch.Tensor]:
+        """Convert purified trajectories back to batch format via re-tokenization"""
+        if not trajectories or not hasattr(self, "tokenizer") or self.tokenizer is None:
+            return original_batch
+
+        device = original_batch["input_ids"].device
+        purified_texts = []
+        for traj in trajectories:
+            # Reconstruct text from trajectory steps
+            purified_text = "\n\n".join([step["content"] for step in traj])
+            purified_texts.append(purified_text)
+
+        # Re-tokenize
+        tokens = self.tokenizer(
+            purified_texts,
+            padding=True,
+            truncation=True,
+            max_length=original_batch["input_ids"].size(1),
+            return_tensors="pt"
+        ).to(device)
+
+        new_batch = original_batch.copy()
+        new_batch["input_ids"] = tokens["input_ids"]
+        new_batch["attention_mask"] = tokens["attention_mask"]
+
+        return new_batch
 
     def train_epoch(
         self, dataloader: torch.utils.data.DataLoader, num_epochs: int = 1

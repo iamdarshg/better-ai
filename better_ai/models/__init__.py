@@ -12,7 +12,7 @@ from .attention import (
     get_optimized_attention_config
 )
 from .ring_attention import RingAttention
-from .reward_model import BranchRewardModel, MultiAttributeRewardModel
+from .reward_model import BranchRewardModel, MultiAttributeRewardModel, HierarchicalRewardModel
 from .advanced_features import (
     RecursiveScratchpad,
     CoTSpecializationHeads,
@@ -44,6 +44,7 @@ __all__ = [
     "RingAttention",
     "BranchRewardModel",
     "MultiAttributeRewardModel",
+    "HierarchicalRewardModel",
     "RecursiveScratchpad",
     "CoTSpecializationHeads",
     "InnerMonologue",

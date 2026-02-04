@@ -43,7 +43,8 @@ class ExpertRouter(nn.Module):
         num_experts_per_token: int = 2,
         router_bias: bool = False,
         router_dtype: torch.dtype = torch.float32,
-        pre_router_dim: Optional[int] = None
+        pre_router_dim: Optional[int] = None, 
+        device: Optional[torch.device] = torch.device('cpu')
     ):
         super().__init__()
         
@@ -59,18 +60,21 @@ class ExpertRouter(nn.Module):
             hidden_size,
             num_experts,
             bias=router_bias,
-            dtype=router_dtype
+            dtype=router_dtype, 
+            device=device
         )
         
         # Pre-router network will be created dynamically in forward pass
         self.pre_router_net = None
         self._input_dim = None
-    
+        self.device = device 
+        self.to(self.device)
+
     def forward(
         self, 
         hidden_states: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        
+        hidden_states = hidden_states.to(self.router_dtype).to(self.device)
         batch_size, sequence_length, hidden_dim = hidden_states.shape
         
         # Dynamic pre-router network creation based on actual input dimension
@@ -103,14 +107,14 @@ class ExpertRouter(nn.Module):
         """Create or update the pre-router network based on input dimension"""
         if self.pre_router_dim is None:
             # Use identity if no pre-router dimension specified
-            self.pre_router_net = nn.Identity()
+            self.pre_router_net = nn.Identity().to(self.device)
         else:
             # Create adaptive pre-router network
             self.pre_router_net = nn.Sequential(
                 nn.Linear(input_dim, self.pre_router_dim),
                 nn.ReLU(),
                 nn.Linear(self.pre_router_dim, input_dim)
-            )
+            ).to(self.device)
         
         # Also update the router linear layer to match the input dimension
         self.router_linear = nn.Linear(
@@ -118,7 +122,7 @@ class ExpertRouter(nn.Module):
             self.num_experts,
             bias=self.router_bias,
             dtype=self.router_dtype
-        )
+        ).to(self.device)
 
 
 class MoELayer(nn.Module):

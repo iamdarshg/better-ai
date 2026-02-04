@@ -5,6 +5,7 @@ Combines progressive curriculum learning with tree-based reasoning search
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from typing import Dict, List, Optional, Any, Tuple, Union
 import logging
 import time
@@ -66,8 +67,8 @@ class CurriculumMCTSTrainer:
     ):
         self.model = model
         self.reward_model = (
-            reward_model or model
-        )  # Use model as reward model if not provided
+            reward_model or getattr(model, "reward_model", model)
+        )
         self.optimizer = optimizer
         self.tokenizer = tokenizer
         self.config = config or CurriculumMCTSConfig()
@@ -193,7 +194,6 @@ class CurriculumMCTSTrainer:
         if not self.mcts_searcher or not self.tokenizer:
             return {"mcts_applied": 0.0}
 
-        # Extract questions from batch (simplified - in practice would decode input_ids)
         questions = self._extract_questions_from_batch(batch)
 
         if not questions:
@@ -260,15 +260,29 @@ class CurriculumMCTSTrainer:
     def _extract_questions_from_batch(
         self, batch: Dict[str, torch.Tensor]
     ) -> List[str]:
-        """Extract questions from batch (simplified implementation)"""
-        # This is a simplified implementation
-        # In practice, would decode input_ids and extract actual questions
+        """Extract questions from batch using tokenizer decoding and GBNF hints"""
         questions = []
+        input_ids = batch.get("input_ids")
 
-        batch_size = batch.get("input_ids", torch.tensor([])).shape[0]
-        for i in range(min(batch_size, 2)):  # Limit to 2 questions
-            # Mock question extraction
-            questions.append(f"Sample question {i + 1} from step {self.current_step}")
+        if input_ids is not None and self.tokenizer is not None:
+            # Decode top few examples
+            batch_size = input_ids.shape[0]
+            for i in range(min(batch_size, 2)):
+                text = self.tokenizer.decode(input_ids[i], skip_special_tokens=True)
+
+                # Use GBNF-style hints: look for structured tags
+                # (e.g., [PROBLEM]...[/PROBLEM] or Answer:)
+                if "[PROBLEM]" in text and "[/PROBLEM]" in text:
+                    question = text.split("[/PROBLEM]")[0].split("[PROBLEM]")[-1].strip()
+                else:
+                    # Fallback to simple heuristic
+                    question = text.split("Answer:")[0].strip()
+
+                if question:
+                    # Further refine: remove thought blocks if they leaked into question
+                    if "<thought>" in question:
+                        question = question.split("<thought>")[0].strip()
+                    questions.append(question)
 
         return questions
 
@@ -279,7 +293,6 @@ class CurriculumMCTSTrainer:
         if not self.config.use_mcts_for_training_data or not self.mcts_generated_data:
             return batch
 
-        # Get recent MCTS data
         recent_mcts_data = [
             data
             for data in self.mcts_generated_data
@@ -289,52 +302,53 @@ class CurriculumMCTSTrainer:
         if not recent_mcts_data:
             return batch
 
-        # Mix MCTS data with original batch
-        # This is a simplified implementation
-        # In practice, would convert MCTS results to proper tensor format
-
         mixed_batch = batch.copy()
-
-        # Add MCTS-specific metrics to batch
-        mixed_batch["has_mcts_data"] = torch.tensor([True])
+        mixed_batch["has_mcts_data"] = torch.tensor([True], device=batch["input_ids"].device)
         mixed_batch["mcts_success_rate"] = torch.tensor(
             [
                 len([d for d in recent_mcts_data if d["value"] > 0.5])
                 / max(1, len(recent_mcts_data))
-            ]
+            ],
+            device=batch["input_ids"].device
         )
 
         return mixed_batch
 
     def _perform_grpo_update(self, batch: Dict[str, torch.Tensor]) -> Dict[str, float]:
-        """Perform GRPO update with curriculum-adjusted parameters"""
+        """Perform GRPO update with real reward and logprob calculations"""
         if not self.grpo_trainer:
             return {"grpo_loss": 0.0}
 
-        # Get curriculum-adjusted parameters if available
-        curriculum_params = {}
-        if self.config.enable_curriculum and self.curriculum_scheduler:
-            curriculum_state = (
-                self.curriculum_scheduler.step()
-                if self.current_step % self.config.curriculum_update_frequency == 0
-                else {}
-            )
-            curriculum_params = curriculum_state.get("sampling_params", {})
+        input_ids = batch.get("input_ids")
+        attention_mask = batch.get("attention_mask")
 
-        # Generate mock rewards for GRPO (in practice would use reward model)
-        batch_size = batch.get("input_ids", torch.tensor([])).shape[0]
-        rewards = torch.randn(batch_size)
+        # 1. Forward pass to get real rewards and logprobs
+        self.model.eval()
+        with torch.no_grad():
+            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask, return_advanced_features=True)
+            logits = outputs.get("logits")
 
-        # Generate mock logprobs for GRPO
-        logprobs = torch.randn(batch_size, 4)
+            # Use real reward model
+            if hasattr(self.reward_model, "forward"):
+                 # If reward model is separate
+                 rewards = self.reward_model(outputs["last_hidden_state"], attention_mask)
+            else:
+                 # If reward model is internal to the model (DeepSeek style)
+                 rewards = outputs.get("advanced_features", {}).get("reward", torch.zeros(input_ids.size(0)))
 
-        # Perform GRPO update
+            # Calculate logprobs for the chosen actions
+            logprobs_all = F.log_softmax(logits, dim=-1)
+            logprobs = logprobs_all.gather(dim=-1, index=input_ids.unsqueeze(-1)).squeeze(-1)
+
+        self.model.train()
+
+        # Perform real GRPO update
         try:
             grpo_result = self.grpo_trainer.train_step(batch, rewards, logprobs)
             return {
                 "grpo_loss": grpo_result.get("loss", 0.0),
                 "grpo_reward_mean": rewards.mean().item(),
-                "grpo_reward_std": rewards.std().item(),
+                "grpo_reward_std": rewards.std().item() if rewards.numel() > 1 else 0.0,
             }
         except Exception as e:
             logging.warning(f"GRPO update failed: {e}")
@@ -344,22 +358,18 @@ class CurriculumMCTSTrainer:
         """Log training progress"""
         log_msg = f"Step {self.current_step}: "
 
-        # Add curriculum info
         if "curriculum_difficulty" in metrics:
             log_msg += f"Diff={metrics['curriculum_difficulty']:.3f}, "
             log_msg += f"Progress={metrics['curriculum_progress']:.3f}, "
 
-        # Add MCTS info
         if "mcts_applied" in metrics and metrics["mcts_applied"] > 0:
             log_msg += f"MCTS={metrics['mcts_applied']}, "
             if "mcts_avg_value" in metrics:
                 log_msg += f"MCTS_Val={metrics['mcts_avg_value']:.3f}, "
 
-        # Add GRPO info
         if "grpo_loss" in metrics:
             log_msg += f"Loss={metrics['grpo_loss']:.4f}, "
 
-        # Add performance summary
         if self.performance_stats["mcts_searches"] > 0:
             success_rate = (
                 self.performance_stats["mcts_successes"]
@@ -382,12 +392,10 @@ class CurriculumMCTSTrainer:
         for batch_idx, batch in enumerate(dataloader):
             step_metrics = self.train_step(batch)
 
-            # Collect metrics
             for key, value in step_metrics.items():
                 if key in epoch_metrics:
                     epoch_metrics[key].append(value)
 
-            # Progress logging
             if batch_idx % 20 == 0:
                 logging.info(f"Epoch batch {batch_idx}/{len(dataloader)} completed")
 
@@ -397,14 +405,12 @@ class CurriculumMCTSTrainer:
         """Evaluate model with and without MCTS"""
         eval_results = {}
 
-        # Standard evaluation
         self.model.eval()
         total_loss = 0.0
         total_samples = 0
 
         with torch.no_grad():
             for batch in eval_dataloader:
-                # Simple loss calculation
                 outputs = self.model(**batch)
                 if hasattr(outputs, "loss") and outputs.loss is not None:
                     total_loss += outputs.loss.item()
@@ -412,12 +418,10 @@ class CurriculumMCTSTrainer:
 
         eval_results["eval_loss"] = total_loss / max(1, total_samples)
 
-        # MCTS evaluation if enabled
         if self.config.enable_mcts and self.config.evaluate_mcts_separately:
             mcts_eval_results = self._evaluate_mcts_separately()
             eval_results.update(mcts_eval_results)
 
-        # Curriculum statistics
         if self.config.enable_curriculum and self.curriculum_scheduler:
             curriculum_stats = self.curriculum_scheduler.get_statistics()
             eval_results.update(
@@ -435,7 +439,6 @@ class CurriculumMCTSTrainer:
         if not self.mcts_searcher:
             return {}
 
-        # Generate evaluation questions
         eval_questions = [
             "What is 15 + 27?",
             "If a train travels 60 mph for 2 hours, how far does it travel?",
@@ -464,7 +467,6 @@ class CurriculumMCTSTrainer:
             except Exception as e:
                 logging.warning(f"MCTS evaluation failed for question: {e}")
 
-        # Calculate averages
         if eval_questions:
             mcts_results["mcts_eval_avg_value"] /= len(eval_questions)
             mcts_results["mcts_eval_avg_reasoning_steps"] /= len(eval_questions)
@@ -478,18 +480,15 @@ class CurriculumMCTSTrainer:
         """Get comprehensive training statistics"""
         stats = self.performance_stats.copy()
 
-        # Add curriculum statistics
         if self.config.enable_curriculum and self.curriculum_scheduler:
             stats["curriculum"] = self.curriculum_scheduler.get_statistics()
 
-        # Add MCTS statistics
         if self.config.enable_mcts and self.mcts_searcher:
             stats["mcts_search_stats"] = self.mcts_searcher.search_stats
             stats["mcts_generated_data_count"] = len(self.mcts_generated_data)
 
-        # Add recent performance
         if self.training_metrics:
-            recent_metrics = self.training_metrics[-10:]  # Last 10 steps
+            recent_metrics = self.training_metrics[-10:]
             stats["recent_avg_loss"] = sum(
                 m.get("grpo_loss", 0) for m in recent_metrics
             ) / len(recent_metrics)
@@ -505,22 +504,19 @@ class CurriculumMCTSTrainer:
             "config": self.config.__dict__,
             "current_step": self.current_step,
             "performance_stats": self.performance_stats,
-            "training_metrics": self.training_metrics[-1000:],  # Last 1000 steps
-            "mcts_generated_data": self.mcts_generated_data[-100:],  # Last 100 examples
+            "training_metrics": self.training_metrics[-1000:],
+            "mcts_generated_data": self.mcts_generated_data[-100:],
         }
 
-        # Save component states
         if self.config.enable_curriculum and self.curriculum_scheduler:
             curriculum_state_path = filepath.replace(".pt", "_curriculum.pt")
             self.curriculum_scheduler.save_state(curriculum_state_path)
             state["curriculum_state_path"] = curriculum_state_path
 
-        # Save model state
         model_state_path = filepath.replace(".pt", "_model.pt")
         torch.save(self.model.state_dict(), model_state_path)
         state["model_state_path"] = model_state_path
 
-        # Save main state
         torch.save(state, filepath)
         logging.info(f"Training state saved to {filepath}")
 
@@ -534,13 +530,11 @@ class CurriculumMCTSTrainer:
             self.training_metrics = state.get("training_metrics", [])
             self.mcts_generated_data = state.get("mcts_generated_data", [])
 
-            # Load curriculum state
             if self.config.enable_curriculum and self.curriculum_scheduler:
                 curriculum_state_path = state.get("curriculum_state_path")
                 if curriculum_state_path:
                     self.curriculum_scheduler.load_state(curriculum_state_path)
 
-            # Load model state
             model_state_path = state.get("model_state_path")
             if model_state_path:
                 self.model.load_state_dict(torch.load(model_state_path))

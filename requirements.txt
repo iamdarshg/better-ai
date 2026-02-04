@@ -11,6 +11,7 @@ scipy>=1.11.0
 tqdm>=4.64.0
 pyyaml>=6.0
 tokenizers>=0.13.0
+lark>=1.1.0
 
 # Optional for GPU optimization
 # flash-attn>=2.3.0

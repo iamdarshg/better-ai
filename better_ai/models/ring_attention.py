@@ -68,8 +68,25 @@ class RingAttention(nn.Module):
         # Ring communication setup
         self.rank = 0
         self.world_size = 1
-        self.setup_ring_communication()
+        self._detect_distributed_env()
     
+    def _detect_distributed_env(self):
+        """Automatically detect distributed environment parameters"""
+        if dist.is_initialized():
+            self.rank = dist.get_rank()
+            self.world_size = dist.get_world_size()
+        else:
+            # Fallback for local testing/single GPU
+            self.rank = 0
+            self.world_size = 1
+
+    def shard_for_striped_attention(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """Shard the full hidden states into a stripe for the current rank"""
+        batch_size, seq_len, hidden_dim = hidden_states.shape
+        indices = torch.arange(seq_len, device=hidden_states.device)
+        my_indices = indices[self.rank::self.world_size]
+        return hidden_states[:, my_indices, :]
+
     def repeat_kv(self, x: torch.Tensor, num_rep: int) -> torch.Tensor:
         """Repeat KV heads to match query heads (grouped-query attention)"""
         batch, num_kv_heads, seq_len, head_dim = x.shape
@@ -77,12 +94,6 @@ class RingAttention(nn.Module):
             return x
         return x[:, :, None, :, :].expand(batch, num_kv_heads, num_rep, seq_len, head_dim).reshape(batch, num_kv_heads * num_rep, seq_len, head_dim)
         
-    def setup_ring_communication(self):
-        """Setup distributed ring communication"""
-        if dist.is_initialized():
-            self.rank = dist.get_rank()
-            self.world_size = dist.get_world_size()
-            
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -120,9 +131,9 @@ class RingAttention(nn.Module):
             value_states = torch.cat([past_value, value_states], dim=2)
         
         # Ring attention computation
-        if self.world_size > 1 and seq_len > self.block_size:
+        if self.world_size > 1:
             attn_output, attn_weights = self.ring_attention_forward(
-                query_states, key_states, value_states, attention_mask
+                query_states, key_states, value_states, attention_mask, output_attentions
             )
         else:
             # Standard attention for small sequences or single device
@@ -146,87 +157,58 @@ class RingAttention(nn.Module):
         query_states: torch.Tensor,
         key_states: torch.Tensor,
         value_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None
+        attention_mask: Optional[torch.Tensor] = None,
+        output_attentions: bool = False
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         
         batch_size, num_heads, seq_len, head_dim = query_states.shape
         
-        # Split sequence into blocks
-        num_blocks = (seq_len + self.block_size - 1) // self.block_size
-        blocks_per_device = (num_blocks + self.world_size - 1) // self.world_size
+        # Local Q, K, V
+        local_q = query_states
+        curr_k = key_states
+        curr_v = value_states
         
-        # Initialize output
-        output = torch.zeros_like(query_states)
-        attn_weights = None
+        # Online softmax accumulation buffers
+        # out: [B, H, S, D], lse: [B, H, S, 1]
+        out = torch.zeros_like(local_q)
+        lse = torch.full((batch_size, num_heads, seq_len, 1), -float('inf'), device=local_q.device, dtype=torch.float32)
         
-        # Process blocks in ring fashion
-        for block_idx in range(num_blocks):
-            # Determine which device processes this block
-            device_rank = block_idx % self.world_size
+        for step in range(self.world_size):
+            # Compute attention scores: [B, H, S_q, S_kv]
+            attn_scores = torch.matmul(local_q, curr_k.transpose(-2, -1)) / math.sqrt(self.head_dim)
+
+            if attention_mask is not None:
+                # Proper slicing of attention mask for distributed shards
+                # attention_mask: [B, 1, S_q, S_total]
+                kv_offset = step * seq_len
+                mask_slice = attention_mask[..., kv_offset : kv_offset + seq_len]
+                attn_scores = attn_scores + mask_slice
+
+            # Online softmax update logic
+            # mi: max of current block
+            mi = torch.max(attn_scores, dim=-1, keepdim=True).values
+            # Pi: unnormalized attention weights for current block
+            Pi = torch.exp(attn_scores - mi)
+            # Li: sum of weights for current block
+            Li = torch.sum(Pi, dim=-1, keepdim=True)
+
+            # Update global LSE and Output
+            new_lse = torch.maximum(lse, mi) + torch.log(
+                torch.exp(lse - torch.maximum(lse, mi)) +
+                torch.exp(mi - torch.maximum(lse, mi)) * Li
+            )
             
-            if device_rank == self.rank:
-                # This device processes the current block
-                start_idx = block_idx * self.block_size
-                end_idx = min(start_idx + self.block_size, seq_len)
-                
-                # Extract current block
-                q_block = query_states[:, :, start_idx:end_idx, :]
-                
-                # Compute attention with all key/value blocks
-                block_output, block_attn = self.compute_block_attention(
-                    q_block, key_states, value_states, start_idx, end_idx, attention_mask
-                )
-                
-                output[:, :, start_idx:end_idx, :] = block_output
-                
-                if output_attentions and block_attn is not None:
-                    if attn_weights is None:
-                        attn_weights = torch.zeros(
-                            batch_size, num_heads, seq_len, seq_len,
-                            device=query_states.device, dtype=query_states.dtype
-                        )
-                    attn_weights[:, :, start_idx:end_idx, :] = block_attn
+            # Rescale previous output and add new block contribution
+            out = out * torch.exp(lse - new_lse) + torch.matmul(Pi, curr_v) * torch.exp(mi - new_lse)
+            lse = new_lse
             
-            # Ring communication: send processed block to next device
+            # Circulate K, V around the ring
             if self.world_size > 1:
-                self.ring_communicate(block_idx, output, attn_weights)
-        
-        return output, attn_weights
-    
-    def compute_block_attention(
-        self,
-        query_block: torch.Tensor,
-        key_states: torch.Tensor,
-        value_states: torch.Tensor,
-        start_idx: int,
-        end_idx: int,
-        attention_mask: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        
-        batch_size, num_heads, block_len, head_dim = query_block.shape
-        _, _, kv_seq_len, _ = key_states.shape
-        
-        # Compute attention scores
-        attn_scores = torch.matmul(
-            query_block.transpose(1, 2),  # [B, block_len, num_heads, head_dim]
-            key_states.permute(0, 2, 3, 1)  # [B, num_heads, head_dim, kv_seq_len]
-        ) / math.sqrt(self.head_dim)
-        
-        # Apply attention mask if provided
-        if attention_mask is not None:
-            if attention_mask.dim() == 3:
-                attention_mask = attention_mask.unsqueeze(1)
-            attn_scores = attn_scores + attention_mask[:, :, start_idx:end_idx, :]
-        
-        # Apply softmax and attention dropout
-        attn_weights = F.softmax(attn_scores, dim=-1)
-        attn_weights = self.attention_dropout(attn_weights)
-        
-        # Compute attention output
-        attn_output = torch.matmul(attn_weights, value_states.permute(0, 2, 1, 3))
-        attn_output = attn_output.transpose(1, 2)  # [B, block_len, num_heads, head_dim]
-        
-        return attn_output, attn_weights
+                curr_k, curr_v = self.ring_communicate(curr_k, curr_v)
+            else:
+                break
+
+        return out, None
     
     def standard_attention_forward(
         self,
@@ -261,25 +243,32 @@ class RingAttention(nn.Module):
     
     def ring_communicate(
         self,
-        block_idx: int,
-        output: torch.Tensor,
-        attn_weights: Optional[torch.Tensor]
-    ):
-        """Ring communication for block processing"""
-        if not dist.is_initialized():
-            return
+        k: torch.Tensor,
+        v: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Ring communication: send K,V to next device, receive from previous"""
+        if self.world_size <= 1:
+            return k, v
+
+        next_rank = (self.rank + 1) % self.world_size
+        prev_rank = (self.rank - 1) % self.world_size
         
-        # Send to next device, receive from previous device
-        send_rank = (self.rank + 1) % self.world_size
-        recv_rank = (self.rank - 1) % self.world_size
+        new_k = torch.empty_like(k)
+        new_v = torch.empty_like(v)
         
-        # Non-blocking communication
-        send_req = dist.isend(output, send_rank)
-        recv_req = dist.irecv(output, recv_rank)
-        
-        # Wait for completion
-        send_req.wait()
-        recv_req.wait()
+        # Use send/recv for ring communication
+        # In production, use dist.batch_isend_irecv for better performance
+        ops = [
+            dist.P2POp(dist.isend, k, next_rank),
+            dist.P2POp(dist.isend, v, next_rank),
+            dist.P2POp(dist.irecv, new_k, prev_rank),
+            dist.P2POp(dist.irecv, new_v, prev_rank),
+        ]
+        reqs = dist.batch_isend_irecv(ops)
+        for req in reqs:
+            req.wait()
+
+        return new_k, new_v
 
 
 class RotaryEmbedding(nn.Module):
@@ -314,6 +303,7 @@ class RotaryEmbedding(nn.Module):
             seq_len = query_states.size(-2)
         
         # Use cached cos/sin if available, handle offset for KV cache
+        # Ensure we don't go out of bounds
         cos = self.cos_cached[offset:offset+seq_len].unsqueeze(0).unsqueeze(0)
         sin = self.sin_cached[offset:offset+seq_len].unsqueeze(0).unsqueeze(0)
         
@@ -330,23 +320,11 @@ class RotaryEmbedding(nn.Module):
         sin: torch.Tensor
     ) -> torch.Tensor:
         
-        # Get the dimensions
-        batch_size, num_heads, seq_len, head_dim = x.shape
-        
-        # Ensure cos and sin have the right shape with bounds checking
-        cos_seq_len = min(seq_len, cos.size(2))
-        cos_head_dim = min(head_dim // 2, cos.size(3))
-        sin_seq_len = min(seq_len, sin.size(2))
-        sin_head_dim = min(head_dim // 2, sin.size(3))
-        
-        cos = cos[:, :, :cos_seq_len, :cos_head_dim]
-        sin = sin[:, :, :sin_seq_len, :sin_head_dim]
-        
         # Split into real and imaginary parts
-        x_real = x[..., :head_dim // 2]
-        x_imag = x[..., head_dim // 2:]
+        x_real = x[..., :self.head_dim // 2]
+        x_imag = x[..., self.head_dim // 2:]
         
-        # Apply rotation with proper broadcasting
+        # Apply rotation
         x_rot_real = x_real * cos - x_imag * sin
         x_rot_imag = x_real * sin + x_imag * cos
         
@@ -380,67 +358,80 @@ class StripedAttention(RingAttention):
                 hidden_states, attention_mask, past_key_value, use_cache, output_attentions
             )
 
-        # Striping: device i processes tokens [i, i+world_size, i+2*world_size, ...]
-        # This implementation simulates the logic by reordering tokens
+        # Striped Attention sharding logic
+        if hidden_states.size(1) == seq_len:
+            # Input is full sequence, we must shard it
+            striped_hidden = self.shard_for_striped_attention(hidden_states)
+            local_seq_len = striped_hidden.size(1)
+            indices = torch.arange(seq_len, device=hidden_states.device)
+            my_indices = indices[self.rank::self.world_size]
+        else:
+            # Input is already sharded
+            striped_hidden = hidden_states
+            local_seq_len = striped_hidden.size(1)
+            # Reconstruct global indices based on rank and world size
+            # (Assuming standard interleaving)
+            my_indices = torch.arange(self.rank, seq_len, self.world_size, device=hidden_states.device)
 
-        # 1. Reorder hidden states for striped processing
-        indices = torch.arange(seq_len, device=hidden_states.device)
-        striped_indices = []
-        for i in range(self.world_size):
-            striped_indices.append(indices[i::self.world_size])
-        striped_indices = torch.cat(striped_indices)
-
-        # Map original positions to striped positions
-        rev_indices = torch.zeros_like(indices)
-        rev_indices[striped_indices] = torch.arange(seq_len, device=hidden_states.device)
-
-        reordered_hidden = hidden_states[:, striped_indices, :]
-
-        # 2. Run standard Ring Attention on reordered states
-        # Note: We need to ensure RoPE uses original position indices!
-        # Our RotaryEmbedding uses seq_len which might be wrong if we just pass reordered_hidden.
-        # So we project and apply RoPE BEFORE reordering.
-
-        # Project to Q, K, V
-        query_states = self.q_proj(hidden_states)
-        key_states = self.k_proj(hidden_states)
-        value_states = self.v_proj(hidden_states)
+        # Local Q, K, V
+        query_states = self.q_proj(striped_hidden)
+        key_states = self.k_proj(striped_hidden)
+        value_states = self.v_proj(striped_hidden)
 
         # Reshape
-        query_states = query_states.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        query_states = query_states.view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        key_states = key_states.view(batch_size, -1, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = value_states.view(batch_size, -1, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        # Apply RoPE on ORIGINAL positions
-        offset = past_key_value[0].size(2) if past_key_value is not None else 0
-        query_states, key_states = self.rotary_emb(query_states, key_states, offset=offset)
-
-        # Reorder AFTER RoPE
-        query_states = query_states[:, :, striped_indices, :]
-        key_states = key_states[:, :, striped_indices, :]
-        value_states = value_states[:, :, striped_indices, :]
+        # Apply RoPE with CORRECT global offsets
+        # Each token in my_indices has its own offset
+        # We need a variant of rotary_emb that takes a tensor of offsets
+        query_states, key_states = self.rotary_emb_striped(query_states, key_states, my_indices)
 
         # Expand KV heads
         if self.num_key_value_heads != self.num_heads:
             key_states = self.repeat_kv(key_states, self.num_heads // self.num_key_value_heads)
             value_states = self.repeat_kv(value_states, self.num_heads // self.num_key_value_heads)
 
-        # 3. Distributed Ring forward pass
-        # Since we are simulating, we use the standard ring_attention_forward but it now
-        # operates on striped blocks.
-        attn_output, attn_weights = self.ring_attention_forward(
-            query_states, key_states, value_states, attention_mask
+        # Distributed Ring forward pass
+        attn_output, _ = self.ring_attention_forward(
+            query_states, key_states, value_states, attention_mask, output_attentions
         )
 
-        # 4. Un-stripe output
-        attn_output = attn_output[:, :, rev_indices, :]
-
-        # Reshape and project
+        # Project
         attn_output = attn_output.transpose(1, 2).contiguous()
-        attn_output = attn_output.view(batch_size, seq_len, self.hidden_dim)
+        attn_output = attn_output.view(batch_size, -1, self.hidden_dim)
         attn_output = self.o_proj(attn_output)
-        attn_output = self.output_dropout(attn_output)
+
+        # Now we have local outputs for our stripe.
+        # We need to gather them back to match the input shape if needed,
+        # or keep them sharded depending on the training strategy.
+        # For now, let's gather to return full output
+        full_output = torch.zeros(batch_size, seq_len, self.hidden_dim, device=hidden_states.device, dtype=hidden_states.dtype)
+
+        # Use all_gather to collect all striped outputs
+        all_striped_outputs = [torch.zeros_like(attn_output) for _ in range(self.world_size)]
+        dist.all_gather(all_striped_outputs, attn_output)
+
+        # Place them in the right positions
+        for r, out in enumerate(all_striped_outputs):
+            full_output[:, r::self.world_size, :] = out
+
+        full_output = self.output_dropout(full_output)
 
         past_key_value = (key_states, value_states) if use_cache else None
 
-        return attn_output, past_key_value, attn_weights
+        return full_output, past_key_value, None
+
+    def rotary_emb_striped(self, q, k, indices):
+        """Apply RoPE with per-token indices"""
+        # q, k: [B, H, S_local, D]
+        # indices: [S_local]
+
+        cos = self.rotary_emb.cos_cached[indices].unsqueeze(0).unsqueeze(0) # [1, 1, S_local, D/2]
+        sin = self.rotary_emb.sin_cached[indices].unsqueeze(0).unsqueeze(0)
+
+        q_rot = self.rotary_emb.apply_rotary_pos_emb(q, cos, sin)
+        k_rot = self.rotary_emb.apply_rotary_pos_emb(k, cos, sin)
+
+        return q_rot, k_rot

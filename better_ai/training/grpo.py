@@ -36,18 +36,13 @@ class GRPOTrainer:
         self.eps_clip = config.get("eps_clip", 0.2)
         self.entropy_coef = config.get("entropy_coef", 0.01)
         self.value_loss_coef = config.get("value_loss_coef", 0.5)
-        self.group_size = config.get(
-            "group_size", 4
-        )  # Group size for advantage estimation
-        self.device = config.get(
-            "device", torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        )
+        self.group_size = config.get("group_size", 4)  # Group size for advantage estimation
+        self.device = config.get("device", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
         # Value function for baseline
-        self.value_head = nn.Linear(config["hidden_dim"], 1).to(self.device)
-        self.value_optimizer = torch.optim.Adam(
-            self.value_head.parameters(), lr=config.get("value_lr", 5e-5)
-        )
+        hidden_dim = config.get("hidden_dim", getattr(model, "config", None).hidden_dim if hasattr(model, "config") else 128)
+        self.value_head = nn.Linear(hidden_dim, 1).to(self.device)
+        self.value_optimizer = torch.optim.Adam(self.value_head.parameters(), lr=config.get("value_lr", 5e-5))
 
         # Ref policy for KL divergence computation
         self.ref_model = None
@@ -73,57 +68,32 @@ class GRPOTrainer:
         """
         batch_size, group_size = group_rewards.shape
 
-        # Ensure group_values has shape (batch_size, group_size)
-        if group_values.dim() == 1:
-            # Broadcast a single value per batch to all group steps
-            group_values = group_values.unsqueeze(1).expand(-1, group_size)
-        elif group_values.shape[1] != group_size:
-            # If an accidental extra dimension exists, trim/pad to match group_size
-            group_values = group_values[:, :group_size]
-
-        # Prepare outputs
-        # Returns and advantages computed per time step within each group
+        # Compute returns within each group
         returns = torch.zeros_like(group_rewards)
         advantages = torch.zeros_like(group_rewards)
 
         # Use GAE (Generalized Advantage Estimation) within each group
-        gae = torch.zeros(
-            batch_size, device=group_rewards.device, dtype=group_rewards.dtype
-        )
+        next_value = 0
+        gae = 0
 
         for t in reversed(range(group_size)):
-            v_t = group_values[:, t]
-            if t < group_size - 1:
-                v_next = group_values[:, t + 1]
-                done_next = (
-                    group_dones[:, t + 1]
-                    if group_dones is not None
-                    else torch.zeros(
-                        batch_size,
-                        device=group_rewards.device,
-                        dtype=group_rewards.dtype,
-                    )
-                )
-                # If next state is terminal, we set its value contribution to 0
-                v_next = v_next * (1.0 - done_next)
+            if group_dones is not None and t < group_size - 1:
+                next_value = group_values[:, t + 1] * (1 - group_dones[:, t + 1])
             else:
-                v_next = torch.zeros(
-                    batch_size, device=group_rewards.device, dtype=group_rewards.dtype
-                )
+                next_value = 0
 
-            # TD error (delta)
-            delta = group_rewards[:, t] + self.gamma * v_next - v_t
+            # TD error
+            delta = group_rewards[:, t] + self.gamma * next_value - group_values[:, t]
 
-            # GAE accumulation
+            # GAE
             gae = delta + self.gamma * self.lam * gae
             if group_dones is not None:
-                done_t = group_dones[:, t]
-                gae = gae * (1.0 - done_t)
+                gae = gae * (1 - group_dones[:, t])
 
             advantages[:, t] = gae
-            returns[:, t] = gae + v_t
+            returns[:, t] = gae + group_values[:, t]
 
-        # Normalize advantages per group (per row)
+        # Normalize advantages per group
         group_mean = advantages.mean(dim=1, keepdim=True)
         group_std = advantages.std(dim=1, keepdim=True) + 1e-8
         normalized_advantages = (advantages - group_mean) / group_std
@@ -136,7 +106,7 @@ class GRPOTrainer:
         new_logprobs: torch.Tensor,
         advantages: torch.Tensor,
         ref_logprobs: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """
         Compute GRPO policy loss with clipping
 
@@ -167,30 +137,11 @@ class GRPOTrainer:
             kl_loss = self.beta * kl
             policy_loss = policy_loss + kl_loss
 
-        # Normalize outputs to Python floats for safety in downstream code
-        policy_loss_val = (
-            policy_loss.item()
-            if isinstance(policy_loss, torch.Tensor)
-            else float(policy_loss)
-        )
-        kl_penalty_val = None
-        if isinstance(kl_loss, torch.Tensor):
-            kl_penalty_val = kl_loss.item()
-        else:
-            kl_penalty_val = float(kl_loss)
-
-        # Safely extract scalar values for ratio stats
-        ratio_mean_val = (
-            ratio.mean().tolist() if isinstance(ratio, torch.Tensor) else ratio
-        )
-        ratio_std_val = (
-            ratio.std().tolist() if isinstance(ratio, torch.Tensor) else ratio
-        )
         loss_dict = {
-            "policy_loss": policy_loss_val,
-            "kl_penalty": kl_penalty_val,
-            "ratio_mean": ratio_mean_val,
-            "ratio_std": ratio_std_val,
+            "policy_loss": policy_loss.item(),
+            "kl_penalty": kl_loss if isinstance(kl_loss, float) else kl_loss.item(),
+            "ratio_mean": ratio.mean().item(),
+            "ratio_std": ratio.std().item(),
         }
 
         return policy_loss, loss_dict
@@ -251,28 +202,17 @@ class GRPOTrainer:
         # Compute value estimates
         value_preds = self.value_head(hidden_states[:, -1, :])
 
-        # Prepare group_values with matching shape (batch_size, group_size)
-        group_values = value_preds.detach()
-        if group_values.dim() == 2 and group_values.shape[1] != self.group_size:
-            if group_values.shape[1] == 1:
-                group_values = group_values.expand(-1, self.group_size)
-            else:
-                group_values = group_values[:, : self.group_size]
-
-        # Compute advantages for each group
+        # Compute advantages
         advantages, returns, norm_advantages = self.compute_group_advantages(
             reward_scores,
             old_logprobs,
-            group_values,
+            value_preds.detach(),
         )
 
-        # Flatten for loss computation and align shapes for group dimension
+        # Flatten for loss computation
         flat_advantages = norm_advantages.view(-1)
-        # new_logprobs currently has shape (batch_size,) per-sequence; broadcast to (batch_size, group_size)
-        flat_new_logprobs = (
-            new_logprobs.unsqueeze(1).expand(-1, self.group_size).contiguous().view(-1)
-        )
-        flat_old_logprobs = old_logprobs.contiguous().view(-1)
+        flat_new_logprobs = new_logprobs.view(-1) if new_logprobs.dim() > 1 else new_logprobs
+        flat_old_logprobs = old_logprobs.view(-1)
 
         # Compute policy loss
         policy_loss, policy_loss_dict = self.compute_policy_loss(
@@ -292,11 +232,7 @@ class GRPOTrainer:
         entropy = -(probs * log_probs).sum(dim=-1).mean()
 
         # Total loss
-        total_loss = (
-            policy_loss
-            + self.value_loss_coef * value_loss
-            - self.entropy_coef * entropy
-        )
+        total_loss = policy_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy
 
         # Optimize
         self.optimizer.zero_grad()
@@ -337,9 +273,7 @@ class GRPOTrainer:
         for epoch in range(num_epochs):
             for batch_idx, batch in enumerate(dataloader):
                 # Compute reward scores using the reward model
-                reward_scores, old_logprobs = self._compute_group_rewards_and_logprobs(
-                    batch
-                )
+                reward_scores, old_logprobs = self._compute_group_rewards_and_logprobs(batch)
 
                 loss_dict = self.train_step(batch, reward_scores, old_logprobs)
 
@@ -378,16 +312,12 @@ class GRPOTrainer:
         for group_idx in range(self.group_size):
             try:
                 # Generate response with different sampling parameters for diversity
-                generated_response, response_logprobs = (
-                    self._generate_response_with_logprobs(
-                        input_ids, attention_mask, group_idx
-                    )
+                generated_response, response_logprobs = self._generate_response_with_logprobs(
+                    input_ids, attention_mask, group_idx
                 )
 
                 # Compute reward for the generated response
-                response_reward = self._compute_response_reward(
-                    generated_response, attention_mask
-                )
+                response_reward = self._compute_response_reward(generated_response, attention_mask)
 
                 # Store results
                 reward_scores[:, group_idx] = response_reward
@@ -397,11 +327,8 @@ class GRPOTrainer:
                 # Fallback to random values if generation/reward computation fails
                 # This ensures training continues even if individual responses fail
                 import logging
-
                 logging.warning(f"Failed to compute reward for group {group_idx}: {e}")
-                reward_scores[:, group_idx] = torch.randn(
-                    batch_size, device=self.device
-                )
+                reward_scores[:, group_idx] = torch.randn(batch_size, device=self.device)
                 old_logprobs[:, group_idx] = torch.randn(batch_size, device=self.device)
 
         return reward_scores, old_logprobs
@@ -433,12 +360,8 @@ class GRPOTrainer:
             base_top_p = 0.9
 
             # Vary sampling parameters based on group index
-            temperature = base_temperature * (
-                0.8 + 0.4 * group_idx / (self.group_size - 1)
-            )  # 0.8 to 1.2
-            top_p = base_top_p * (
-                1.1 - 0.2 * group_idx / (self.group_size - 1)
-            )  # 0.9 to 0.72
+            temperature = base_temperature * (0.8 + 0.4 * group_idx / (self.group_size - 1))  # 0.8 to 1.2
+            top_p = base_top_p * (1.1 - 0.2 * group_idx / (self.group_size - 1))  # 0.9 to 0.72
 
             # Generate response
             generated_ids = self._sample_tokens(
@@ -454,19 +377,14 @@ class GRPOTrainer:
             full_sequence = generated_ids
             full_attention_mask = attention_mask
 
-            if (
-                attention_mask is not None
-                and full_sequence.shape[1] > attention_mask.shape[1]
-            ):
+            if attention_mask is not None and full_sequence.shape[1] > attention_mask.shape[1]:
                 # Extend attention mask for generated tokens
                 new_tokens_mask = torch.ones(
                     full_sequence.shape[0],
                     full_sequence.shape[1] - attention_mask.shape[1],
-                    device=attention_mask.device,
+                    device=attention_mask.device
                 )
-                full_attention_mask = torch.cat(
-                    [attention_mask, new_tokens_mask], dim=1
-                )
+                full_attention_mask = torch.cat([attention_mask, new_tokens_mask], dim=1)
 
             # Forward pass to get logits
             outputs = self.model(
@@ -486,22 +404,18 @@ class GRPOTrainer:
             # Find where the input ends and generation begins
             input_length = input_ids.shape[1]
             if shift_logits.shape[1] > input_length - 1:
-                gen_logits = shift_logits[:, input_length - 1 :, :]
-                gen_labels = shift_labels[:, input_length - 1 :]
+                gen_logits = shift_logits[:, input_length - 1:, :]
+                gen_labels = shift_labels[:, input_length - 1:]
 
                 # Compute log probabilities
                 log_probs = F.log_softmax(gen_logits, dim=-1)
-                gen_logprobs = log_probs.gather(-1, gen_labels.unsqueeze(-1)).squeeze(
-                    -1
-                )
+                gen_logprobs = log_probs.gather(-1, gen_labels.unsqueeze(-1)).squeeze(-1)
 
                 # Average log probability across generated tokens for each sequence
                 response_logprobs = gen_logprobs.mean(dim=-1)  # (batch_size,)
             else:
                 # No tokens were generated
-                response_logprobs = torch.zeros(
-                    input_ids.shape[0], device=input_ids.device
-                )
+                response_logprobs = torch.zeros(input_ids.shape[0], device=input_ids.device)
 
         self.model.train()
         return generated_ids, response_logprobs
@@ -532,16 +446,12 @@ class GRPOTrainer:
 
         # Store generated tokens
         generated = input_ids.clone()
-        current_attention_mask = (
-            attention_mask.clone() if attention_mask is not None else None
-        )
+        current_attention_mask = attention_mask.clone() if attention_mask is not None else None
 
         for _ in range(max_new_tokens):
             # Forward pass
             outputs = self.model(
-                input_ids=generated[:, -1:]
-                if current_attention_mask is not None
-                else generated,
+                input_ids=generated[:, -1:] if current_attention_mask is not None else generated,
                 attention_mask=current_attention_mask,
                 output_hidden_states=False,
             )
@@ -554,29 +464,21 @@ class GRPOTrainer:
             # Top-P (Nucleus) sampling
             if top_p < 1.0:
                 sorted_logits, sorted_indices = torch.sort(logits, descending=True)
-                cumulative_probs = torch.cumsum(
-                    F.softmax(sorted_logits, dim=-1), dim=-1
-                )
+                cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
 
                 # Remove tokens with cumulative probability above the threshold (nucleus filtering)
                 sorted_indices_to_remove = cumulative_probs > top_p
                 # Shift the indices to the right to keep also the first token above the threshold
-                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
-                    ..., :-1
-                ].clone()
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
                 sorted_indices_to_remove[..., 0] = False
 
                 # scatter sorted tensors to original indexing
-                indices_to_remove = torch.zeros_like(logits, dtype=torch.bool).scatter_(
-                    dim=1, index=sorted_indices, src=sorted_indices_to_remove
-                )
+                indices_to_remove = torch.zeros_like(logits, dtype=torch.bool).scatter_(dim=1, index=sorted_indices, src=sorted_indices_to_remove)
                 logits[indices_to_remove] = float("-inf")
 
             # Sample next token
             probs = F.softmax(logits, dim=-1)
-            next_tokens = torch.multinomial(probs, num_samples=1).squeeze(
-                -1
-            )  # (batch_size,)
+            next_tokens = torch.multinomial(probs, num_samples=1).squeeze(-1)  # (batch_size,)
 
             # Append to generated sequence
             generated = torch.cat([generated, next_tokens.unsqueeze(-1)], dim=-1)
@@ -584,9 +486,7 @@ class GRPOTrainer:
             # Update attention mask if present
             if current_attention_mask is not None:
                 new_mask = torch.ones(batch_size, 1, device=device)
-                current_attention_mask = torch.cat(
-                    [current_attention_mask, new_mask], dim=1
-                )
+                current_attention_mask = torch.cat([current_attention_mask, new_mask], dim=1)
 
             # Stop if all sequences have generated EOS token
             if (next_tokens == 2).all():  # Assuming EOS token ID is 2
@@ -620,15 +520,13 @@ class GRPOTrainer:
                     output_hidden_states=True,
                 )
 
-                hidden_states = outputs.hidden_states[
-                    -1
-                ]  # (batch_size, seq_len, hidden_dim)
+                hidden_states = outputs.hidden_states[-1]  # (batch_size, seq_len, hidden_dim)
 
                 # Compute reward using the reward model
-                if hasattr(self.reward_model, "forward"):
+                if hasattr(self.reward_model, 'forward'):
                     # Standard reward model interface
                     reward_scores = self.reward_model(hidden_states, attention_mask)
-                elif hasattr(self.reward_model, "score_pair"):
+                elif hasattr(self.reward_model, 'score_pair'):
                     # Pair-wise scoring interface (for comparison-based rewards)
                     # For now, we'll use the standard interface
                     reward_scores = self.reward_model(hidden_states, attention_mask)
@@ -643,21 +541,13 @@ class GRPOTrainer:
                         hidden_repr = hidden_states[:, -1, :]  # Last token
 
                     # Simple linear projection as fallback reward
-                    reward_scores = torch.nn.functional.linear(
-                        hidden_repr,
-                        torch.randn(
-                            hidden_repr.shape[-1], 1, device=hidden_repr.device
-                        ),
-                    ).squeeze(-1)
+                    reward_scores = torch.nn.functional.linear(hidden_repr, torch.randn(hidden_repr.shape[-1], 1, device=hidden_repr.device)).squeeze(-1)
 
             except Exception as e:
                 # Fallback to random rewards if reward computation fails
                 import logging
-
                 logging.warning(f"Reward computation failed: {e}")
-                reward_scores = torch.randn(
-                    generated_response.shape[0], device=generated_response.device
-                )
+                reward_scores = torch.randn(generated_response.shape[0], device=generated_response.device)
 
         self.reward_model.train()
         return reward_scores

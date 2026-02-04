@@ -16,8 +16,9 @@ from .features.gbnf_constraint import GBNFConstraint
 from .features.json_enforcer import JSONEnforcer
 from .features.entropic_steering import EntropicSteering
 from .tidar import TiDAR
-from .reward_model import BranchRewardModel, MultiAttributeRewardModel
+from .reward_model import BranchRewardModel, MultiAttributeRewardModel, HierarchicalRewardModel
 from .generation import generate, compute_loss, self_correct
+from .features.reasoning_rewards import TraceValidityScorer, StructuralSignalReward, AHAMomentDetector
 
 
 # To avoid circular imports
@@ -314,6 +315,7 @@ class DeepSeekModel(nn.Module):
         # Initialize weights
         self.apply(self._init_weights)
 
+
     def _init_advanced_features(self, config, device):
         """Initialize all advanced features if enabled in config"""
         if getattr(config, "use_recursive_scratchpad", False):
@@ -388,12 +390,19 @@ class DeepSeekModel(nn.Module):
         if getattr(config, "use_entropic_steering", False):
             self.entropic_steering = EntropicSteering(config.hidden_dim, entropy_threshold=getattr(config, "entropy_threshold", 2.5))
 
-        # Reward models
+        # Reward models and other heads (Only initialized if explicitly requested or in production)
         self.reward_model = BranchRewardModel(config, hidden_dim=512)
-        self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=7, num_quantiles=5)
+        if getattr(config, "use_reward_models", False):
+            self.multi_attr_reward = MultiAttributeRewardModel(config, num_attributes=7, num_quantiles=5)
+            self.hrm = HierarchicalRewardModel(config)
 
-        # Value head for PPO/GRPO
-        self.value_head = nn.Linear(config.hidden_dim, 1, bias=False)
+        if getattr(config, "use_reasoning_rewards", False):
+            self.trace_validity_scorer = TraceValidityScorer(self)
+            self.structural_reward_engine = StructuralSignalReward()
+            self.aha_moment_detector = AHAMomentDetector()
+
+        if getattr(config, "use_value_head", False):
+            self.value_head = nn.Linear(config.hidden_dim, 1, bias=False)
     
     def _init_weights(self, module):
         """Initialize weights using scaled normal distribution"""
@@ -444,6 +453,7 @@ class DeepSeekModel(nn.Module):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         return_advanced_features: bool = False,
+        use_compiled_mask: bool = False,
     ) -> Any:
         
         output_attentions = output_attentions if output_attentions is not None else False
@@ -537,7 +547,10 @@ class DeepSeekModel(nn.Module):
         # Compute advanced features if requested
         advanced_features = {}
         if return_advanced_features:
-            advanced_features = self._compute_advanced_features(hidden_states, input_ids, raw_attention_mask, logits=logits)
+            advanced_features = self._compute_advanced_features(
+                hidden_states, input_ids, raw_attention_mask,
+                logits=logits, use_compiled_mask=use_compiled_mask
+            )
 
         if not return_dict:
             res = [logits, hidden_states, next_cache, all_hidden_states, all_self_attns]
@@ -593,12 +606,15 @@ class DeepSeekModel(nn.Module):
             # Replace attention in layer
             layer.self_attn = ring_attn
 
-    def _compute_advanced_features(self, hidden_states, input_ids, attention_mask, logits=None):
+    def _compute_advanced_features(self, hidden_states, input_ids, attention_mask, logits=None, use_compiled_mask: bool = False):
         """Compute all advanced features and return them in a dictionary"""
         advanced_outputs = {}
 
+        # Ensure hidden_states is on correct device if needed
+        # (Usually already handled, but being safe)
+
         # Recursive Scratchpad
-        if hasattr(self, "scratchpad"):
+        if hasattr(self, "scratchpad") and getattr(self.config, "use_recursive_scratchpad", False):
             scratchpad_out = self.scratchpad(hidden_states)
             advanced_outputs["scratchpad"] = scratchpad_out
             hidden_states = scratchpad_out["scratchpad_output"]
@@ -658,7 +674,7 @@ class DeepSeekModel(nn.Module):
 
         # Grammar Constraints
         if hasattr(self, "gbnf_constraint") and logits is not None:
-            gbnf_out = self.gbnf_constraint(hidden_states, logits)
+            gbnf_out = self.gbnf_constraint(hidden_states, logits, input_ids=input_ids, use_compiled_mask=use_compiled_mask)
             advanced_outputs["gbnf"] = gbnf_out
             logits = gbnf_out["constrained_logits"]
 
@@ -677,11 +693,26 @@ class DeepSeekModel(nn.Module):
         advanced_outputs["constrained_logits"] = logits
 
         # Reward models
-        advanced_outputs["reward"] = self.reward_model(hidden_states, attention_mask)
-        advanced_outputs["multi_attr_reward"] = self.multi_attr_reward(hidden_states, attention_mask)
+        if hasattr(self, "reward_model"):
+            advanced_outputs["reward"] = self.reward_model(hidden_states, attention_mask)
+        if hasattr(self, "multi_attr_reward"):
+            advanced_outputs["multi_attr_reward"] = self.multi_attr_reward(hidden_states, attention_mask)
+
+        # Reasoning-specific rewards
+        if hasattr(self, "trace_validity_scorer"):
+            # We need the full decoded text for some of these
+            # This is a simplification; in production, we'd pass the actual traces
+            full_text = ""
+            if input_ids is not None and hasattr(self, "tokenizer") and self.tokenizer:
+                full_text = self.tokenizer.decode(input_ids[0], skip_special_tokens=True)
+
+            advanced_outputs["trace_validity"] = self.trace_validity_scorer.score_trace([full_text], "Solve the problem")
+            advanced_outputs["structural_signal"] = self.structural_reward_engine.compute_reward(full_text)
+            advanced_outputs["aha_moment"] = self.aha_moment_detector.compute_aha_reward(full_text)
 
         # Value head output
-        advanced_outputs["value"] = self.value_head(hidden_states)
+        if hasattr(self, "value_head"):
+            advanced_outputs["value"] = self.value_head(hidden_states)
 
         return advanced_outputs
 

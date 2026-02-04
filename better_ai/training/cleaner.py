@@ -17,8 +17,8 @@ class SemanticSimilarityCalculator:
     Computes semantic similarity between text segments for SAAR
     """
 
-    def __init__(self, similarity_threshold: float = 0.7):
-        self.similarity_threshold = similarity_threshold
+    def __init__(self, min_similarity: float = 0.7):
+        self.min_similarity = min_similarity
 
     def compute_textual_similarity(self, text1: str, text2: str) -> float:
         """Compute text similarity using multiple metrics"""
@@ -63,96 +63,19 @@ class SemanticSimilarityCalculator:
         return 0.5 * struct_similarity + 0.5 * token_similarity
 
     def _extract_code_structure(self, code: str) -> str:
-        """Extract structural elements from code
-        Prefer a structural AST-based signature for robust similarity.
-        Fallback to a literal-stripping approach if parsing fails.
-        """
-        # First, attempt to build a structural signature from the AST
-        try:
-            import ast
-
-            class StructureVisitor(ast.NodeVisitor):
-                def __init__(self):
-                    self.parts: List[str] = []
-
-                def visit_FunctionDef(self, node: ast.FunctionDef):
-                    self.parts.append(f"FunctionDef:{node.name}")
-                    self.generic_visit(node)
-
-                def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
-                    self.parts.append(f"AsyncFunctionDef:{node.name}")
-                    self.generic_visit(node)
-
-                def visit_ClassDef(self, node: ast.ClassDef):
-                    self.parts.append(f"ClassDef:{node.name}")
-                    self.generic_visit(node)
-
-                def visit_Import(self, node: ast.Import):
-                    self.parts.append("Import")
-                    self.generic_visit(node)
-
-                def visit_ImportFrom(self, node: ast.ImportFrom):
-                    self.parts.append(f"ImportFrom:{getattr(node, 'module', '')}")
-                    self.generic_visit(node)
-
-                def visit_For(self, node: ast.For):
-                    self.parts.append("For")
-                    self.generic_visit(node)
-
-                def visit_While(self, node: ast.While):
-                    self.parts.append("While")
-                    self.generic_visit(node)
-
-                def visit_If(self, node: ast.If):
-                    self.parts.append("If")
-                    self.generic_visit(node)
-
-                def visit_With(self, node: ast.With):
-                    self.parts.append("With")
-                    self.generic_visit(node)
-
-                def visit_Try(self, node: ast.Try):
-                    self.parts.append("Try")
-                    self.generic_visit(node)
-
-                def visit_Assign(self, node: ast.Assign):
-                    self.parts.append("Assign")
-                    self.generic_visit(node)
-
-                def visit_Return(self, node: ast.Return):
-                    self.parts.append("Return")
-                    self.generic_visit(node)
-
-                def visit_Call(self, node: ast.Call):
-                    # capture simple function/method name if available
-                    name = ""
-                    if isinstance(node.func, ast.Attribute):
-                        name = node.func.attr
-                    elif isinstance(node.func, ast.Name):
-                        name = node.func.id
-                    if name:
-                        self.parts.append(f"Call:{name}")
-                    self.generic_visit(node)
-
-            tree = ast.parse(code)
-            visitor = StructureVisitor()
-            visitor.visit(tree)
-            if visitor.parts:
-                return "STRUCT:" + " ".join(visitor.parts)
-        except Exception:
-            pass
-
-        # Fallback: Remove literals and keep a lightweight structural proxy
+        """Extract structural elements from code"""
+        # Remove variable content, keep structure
         import re
 
-        code_str = code
         # Replace literals with placeholders
-        code_str = re.sub(r'"[^\"]*"', '"X"', code_str)
-        code_str = re.sub(r"'[^']*'", "'X'", code_str)
-        code_str = re.sub(r"\d+", "N", code_str)
+        code = re.sub(r'"[^"]*"', '"X"', code)
+        code = re.sub(r"'[^']*'", "'X'", code)
+        code = re.sub(r"\d+", "N", code)
+
         # Remove whitespace
-        code_str = " ".join(code_str.split())
-        return code_str
+        code = " ".join(code.split())
+
+        return code
 
 
 class RollbackGranularityEstimator:
@@ -406,7 +329,8 @@ class CLEANERDataCollector:
         self, trajectory: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Detect errors and apply corrections using SAAR"""
-        purified_trajectory = trajectory.copy()
+        import copy
+        purified_trajectory = copy.deepcopy(trajectory)
         errors_found = 0
 
         for i, step in enumerate(trajectory):

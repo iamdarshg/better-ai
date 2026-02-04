@@ -2,7 +2,7 @@
 Integration tests for Machine Feedback RLHF pipeline
 """
 
-import pytest
+import unittest
 import torch
 import sys
 import os
@@ -13,45 +13,48 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from better_ai.training.machine_feedback import MachineFeedbackReward, MachineFeedbackTrainer
 from better_ai.models.core import DeepSeekModel
 from better_ai.config import ModelConfig
+from better_ai.test_config_utils import get_small_model_config
+from better_ai.test_resource_tags import high_resource
+@high_resource
+class TestMachineFeedbackRLHF(unittest.TestCase):
+    def test_machine_feedback_reward(self):
+        reward_engine = MachineFeedbackReward({"grammar_type": "python"})
 
-def test_machine_feedback_reward():
-    reward_engine = MachineFeedbackReward()
+        # Good code
+        good_code = "def hello():\n    print('world')"
+        good_reward = reward_engine.compute_reward(good_code)
 
-    # Good code
-    good_code = "def hello():\n    print('world')"
-    good_reward = reward_engine.compute_reward(good_code)
+        # Bad code (syntax error)
+        bad_code = "def hello("
+        bad_reward = reward_engine.compute_reward(bad_code)
 
-    # Bad code (syntax error)
-    bad_code = "def hello("
-    bad_reward = reward_engine.compute_reward(bad_code)
+        # Code with style issues
+        style_code = "def hello():\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass"
+        style_reward = reward_engine.compute_reward(style_code)
 
-    # Code with style issues
-    style_code = "def hello():\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass\n    pass"
-    style_reward = reward_engine.compute_reward(style_code)
+        self.assertGreater(good_reward, bad_reward)
+        self.assertGreater(good_reward, style_reward)
+        print(f"Good: {good_reward}, Bad: {bad_reward}, Style: {style_reward}")
 
-    assert good_reward > bad_reward
-    assert good_reward > style_reward
-    print(f"Good: {good_reward}, Bad: {bad_reward}, Style: {style_reward}")
+    def test_mf_trainer_step(self):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        config = get_small_model_config()
+        config.vocab_size = 100
+        config.num_layers = 1
 
-def test_mf_trainer_step():
-    config = ModelConfig()
-    config.vocab_size = 100
-    config.hidden_dim = 32
-    config.num_layers = 1
+        model = DeepSeekModel(config).to(device)
+        # Mock tokenizer if needed
 
-    model = DeepSeekModel(config)
-    # Mock tokenizer if needed
+        trainer = MachineFeedbackTrainer(model, {"group_size": 2, "max_new_tokens": 10})
 
-    trainer = MachineFeedbackTrainer(model, {"group_size": 2, "max_new_tokens": 10})
+        batch = {
+            'input_ids': torch.randint(0, 100, (1, 5)).to(device)
+        }
 
-    batch = {
-        'input_ids': torch.randint(0, 100, (1, 5))
-    }
+        metrics = trainer.train_step(batch)
 
-    metrics = trainer.train_step(batch)
-
-    assert "mf_reward_mean" in metrics
-    assert isinstance(metrics["mf_reward_mean"], float)
+        self.assertIn("mf_reward_mean", metrics)
+        self.assertIsInstance(metrics["mf_reward_mean"], float)
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    unittest.main()

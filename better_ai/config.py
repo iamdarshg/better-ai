@@ -3,25 +3,30 @@ Model configuration for DeepSeek V3.2 inspired toy model
 """
 
 import math
-from dataclasses import dataclass
-from typing import Optional, List, Union
+import json
+import yaml
+import os
+from dataclasses import dataclass, asdict
+from typing import Optional, List, Union, Dict, Any
+from .utils.exceptions import ConfigError
 
 
 @dataclass
 class ModelConfig:
     """Configuration for the transformer model"""
     
-    # Architecture parameters
-    vocab_size: int = 640  # Increased for better coding coverage
-    hidden_dim: int = 128  # Increased for better representation
-    num_layers: int = 1  # Reduced for efficiency
-    num_attention_heads: int = 8  # Increased proportionally
-    num_key_value_heads: Optional[int] = 4  # For GQA, maintain 2:1 ratio
-    intermediate_dim: int = 32  # 4x hidden_dim for SwiGLU
-    max_seq_length: int = 1024  # Increased with Ring Attention
+    # Architecture parameters - Defaults kept reasonable for CI/Testing
+    # Use get_production_config() for full-scale training
+    vocab_size: int = 64000
+    hidden_dim: int = 1536
+    num_layers: int = 16
+    num_attention_heads: int = 24
+    num_key_value_heads: Optional[int] = 12 # Default: num_attention_heads // 2
+    intermediate_dim: int = 16384
+    max_seq_length: int = 524288
     
     # MoE parameters
-    num_experts: int = 18  # Reduced for efficiency
+    num_experts: int = 8
     num_experts_per_token: int = 2
     expert_capacity_factor: float = 1.25
     shared_experts: int = 1
@@ -46,11 +51,11 @@ class ModelConfig:
     init_method: str = "normal"
     
     # Quantization
-    use_fp8: bool = True
+    use_fp8: bool = False
     fp8_e4m3: bool = True  # E4M3 for forward, E5M2 for gradients
     
     # Sparse attention
-    use_sparse_attention: bool = True
+    use_sparse_attention: bool = False
     local_window_size: int = 8192
     global_stride: int = 1024
     
@@ -60,33 +65,32 @@ class ModelConfig:
     use_paged_attention: bool = True
     
     # Ring Attention parameters
-    use_ring_attention: bool = True
-    use_striped_attention: bool = True
+    use_ring_attention: bool = False
+    use_striped_attention: bool = False
     ring_block_size: int = 1024
     ring_num_devices: Optional[int] = None  # Auto-detect
-    # max_seq_length: int = 1024  # Keep the value from above
     
     # Linear Attention parameters
     use_linear_attention: bool = False
 
     # CoT Specialization parameters
-    use_cot_specialization: bool = True
+    use_cot_specialization: bool = False
     cot_num_heads: int = 5
     cot_hidden_dim: int = 32
     
     # Inner Monologue parameters
-    use_inner_monologue: bool = True
+    use_inner_monologue: bool = False
     thought_token_id: Optional[int] = 100  # Default for testing
     thought_end_token_id: Optional[int] = 101  # Default for testing
     private_subspace_dim: int = 4096
     
     # STaR parameters
-    use_star: bool = True
+    use_star: bool = False
     star_bootstrap_rounds: int = 3
     star_consistency_samples: int = 10
     
     # Tool-Use parameters
-    use_tool_heads: bool = True
+    use_tool_heads: bool = False
     tool_vocab_size: int = 32  # Number of tool tokens
     tool_hidden_dim: int = 32
 
@@ -106,25 +110,147 @@ class ModelConfig:
     algorithm_internal_dim: int = 256
     
     # Grammar Constraint parameters
-    use_grammar_constraints: bool = True
+    use_grammar_constraints: bool = False
     grammar_type: str = "gbnf"  # "gbnf" or "none"
-    enforce_json_output: bool = True
+    enforce_json_output: bool = False
     
     # Entropic Steering parameters
-    use_entropic_steering: bool = True
+    use_entropic_steering: bool = False
     entropy_threshold: float = 2.5
     clarify_token_id: Optional[int] = None  # Will be set during tokenization
     
     # Recursive Scratchpad parameters
-    use_recursive_scratchpad: bool = True
+    use_recursive_scratchpad: bool = False
     scratchpad_max_iterations: int = 8
     scratchpad_hidden_dim: int = 32
 
     # TiDAR parameters
-    use_tidar: bool = True
+    use_tidar: bool = False
     tidar_num_steps: int = 5
     tidar_diffusion_dim: int = 128
     tidar_num_layers: int = 2
+
+    # Feature Toggles for Memory management
+    use_reward_models: bool = False
+    use_reasoning_rewards: bool = False
+    use_value_head: bool = False
+
+    def __post_init__(self):
+        self.validate()
+
+    def validate(self):
+        """Validate configuration parameters"""
+        if self.vocab_size <= 0:
+            raise ConfigError("vocab_size must be positive")
+        if self.hidden_dim <= 0:
+            raise ConfigError("hidden_dim must be positive")
+        if self.num_layers <= 0:
+            raise ConfigError("num_layers must be positive")
+        if self.num_attention_heads <= 0:
+            raise ConfigError("num_attention_heads must be positive")
+        if self.hidden_dim % self.num_attention_heads != 0:
+            raise ConfigError("hidden_dim must be divisible by num_attention_heads")
+
+        if self.num_experts < 0:
+            raise ConfigError("num_experts cannot be negative")
+
+        if self.num_key_value_heads is not None:
+            if self.num_key_value_heads > self.num_attention_heads:
+                raise ConfigError("num_key_value_heads cannot be greater than num_attention_heads")
+
+        if self.num_experts_per_token > self.num_experts + self.shared_experts:
+             raise ConfigError("num_experts_per_token cannot be greater than total experts")
+
+        if self.use_ring_attention and self.ring_block_size <= 0:
+            raise ConfigError("ring_block_size must be positive if ring attention is enabled")
+
+        return True
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]):
+        """Create from dictionary"""
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
+    def to_json(self) -> str:
+        """Convert to JSON string"""
+        return json.dumps(self.to_dict(), indent=2)
+
+    @classmethod
+    def get_production_config(cls):
+        """Returns a production-ready configuration with larger dimensions"""
+        return cls(
+            vocab_size=64000,
+            hidden_dim=1536,
+            num_layers=12,
+            num_attention_heads=24,
+            num_key_value_heads=12,
+            intermediate_dim=6144,
+            max_seq_length=8192,
+            num_experts=8,
+            use_ring_attention=True,
+            use_striped_attention=True,
+            use_tidar=True,
+            use_star=True,
+            use_recursive_scratchpad=True,
+            use_grammar_constraints=True,
+            use_cot_specialization=True,
+            use_tool_heads=True,
+            use_inner_monologue=True
+        )
+
+    @classmethod
+    def get_small_model_config(cls):
+        """Returns a minimal configuration for CI/Testing safety"""
+        return cls(
+            vocab_size=10000,
+            hidden_dim=128,
+            num_layers=2,
+            num_attention_heads=4,
+            num_key_value_heads=2,
+            intermediate_dim=512,
+            max_seq_length=512,
+            use_ring_attention=False,
+            use_striped_attention=False,
+            use_tidar=False,
+            use_star=False,
+            use_recursive_scratchpad=False,
+            use_grammar_constraints=False
+        )
+
+    def to_file(self, filepath: str):
+        """Save config to file"""
+        _, ext = os.path.splitext(filepath)
+        if ext.lower() == ".json":
+            with open(filepath, "w") as f:
+                json.dump(self.to_dict(), f, indent=2)
+        elif ext.lower() in [".yaml", ".yml"]:
+            with open(filepath, "w") as f:
+                yaml.dump(self.to_dict(), f)
+        else:
+            raise ValueError(f"Unsupported file extension: {ext}")
+
+    @classmethod
+    def from_file(cls, filepath: str):
+        """Load config from file"""
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Config file not found: {filepath}")
+
+        _, ext = os.path.splitext(filepath)
+        if ext.lower() == ".json":
+            with open(filepath, "r") as f:
+                data = json.load(f)
+        elif ext.lower() in [".yaml", ".yml"]:
+            with open(filepath, "r") as f:
+                data = yaml.safe_load(f)
+        else:
+            raise ValueError(f"Unsupported file extension: {ext}")
+
+        return cls.from_dict(data)
+
 
 @dataclass
 class TrainingConfig:
@@ -232,6 +358,39 @@ class TrainingConfig:
     tui_log_file: str = "./logs/enhanced_training.json"
     tui_show_plots: bool = False
 
+    def __post_init__(self):
+        self.validate()
+
+    def validate(self):
+        """Validate training configuration"""
+        if self.batch_size <= 0:
+            raise ConfigError("batch_size must be positive")
+        if self.learning_rate <= 0:
+            raise ConfigError("learning_rate must be positive")
+        if self.optimizer not in ["adamw", "lion", "adafactor"]:
+            raise ConfigError(f"Unsupported optimizer: {self.optimizer}")
+        if self.lr_schedule not in ["cosine", "linear", "constant"]:
+            raise ConfigError(f"Unsupported lr_schedule: {self.lr_schedule}")
+        if self.gradient_accumulation_steps <= 0:
+            raise ConfigError("gradient_accumulation_steps must be positive")
+        if self.save_steps <= 0:
+            raise ConfigError("save_steps must be positive")
+
+        if self.beta1 < 0 or self.beta1 >= 1:
+            raise ConfigError("beta1 must be in [0, 1)")
+        if self.beta2 < 0 or self.beta2 >= 1:
+            raise ConfigError("beta2 must be in [0, 1)")
+
+        return True
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]):
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
+
 @dataclass
 class InferenceConfig:
     """Configuration for inference"""
@@ -264,4 +423,27 @@ class InferenceConfig:
     # Serving
     serve_port: int = 8080
     serve_host: str = "0.0.0.0"
-    max_concurrent_requests: int =  10
+    max_concurrent_requests: int = 10
+
+    def __post_init__(self):
+        self.validate()
+
+    def validate(self):
+        """Validate inference configuration"""
+        if self.temperature < 0 or self.temperature > 2.0:
+            raise ConfigError("temperature must be between 0 and 2.0")
+        if self.top_p < 0 or self.top_p > 1.0:
+            raise ConfigError("top_p must be between 0 and 1.0")
+        if self.top_k <= 0:
+            raise ConfigError("top_k must be positive")
+        if self.weight_bits not in [4, 8, 16]:
+            raise ConfigError("weight_bits must be 4, 8 or 16")
+
+        return True
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]):
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})

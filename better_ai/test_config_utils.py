@@ -73,7 +73,7 @@ def get_small_model_config():
         use_linear_attention=False,  # Keep same
         
         # CoT Specialization parameters
-        use_cot_specialization=False,  # Disable for faster testing
+        use_cot_specialization=True,  # Enabled for testing
         cot_num_heads=2,  # 64 -> 8
         cot_hidden_dim=8,  # 768 -> 24
         
@@ -83,12 +83,12 @@ def get_small_model_config():
         private_subspace_dim=128,  # 4096 -> 128
         
         # STaR parameters
-        use_star=False,  # Disable for faster testing
+        use_star=True,  
         star_bootstrap_rounds=2,  # 3 -> 2
         star_consistency_samples=2,  # 10 -> 2
         
         # Tool-Use parameters
-        use_tool_heads=False,  # Disable for faster testing
+        use_tool_heads=True,  # Enabled for testing
         tool_vocab_size=10,  # 1000 -> 100
         tool_hidden_dim=24,  # 192 -> 24
         
@@ -118,9 +118,10 @@ def get_small_model_config():
         clarify_token_id=None,  # Keep same
         
         # Recursive Scratchpad parameters
-        use_recursive_scratchpad=False,  # Disable for testing
+        use_recursive_scratchpad=True,  # Enable for testing
         scratchpad_max_iterations=2,  # 8 -> 2
         scratchpad_hidden_dim=256,  # 8192 -> 256
+
     )
 
 

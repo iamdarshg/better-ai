@@ -11,6 +11,9 @@ def generate(
     top_k: int = 50,
     top_p: float = 0.9,
     use_cache: bool = True,
+    use_compiled_mask: bool = False,
+    retry_on_error: bool = True,
+    tokenizer: Optional[Any] = None,
 ) -> torch.Tensor:
     """
     Generate tokens using the model
@@ -41,7 +44,8 @@ def generate(
             input_ids=generated[:, -1:] if past_key_values else generated,
             past_key_values=past_key_values,
             use_cache=use_cache,
-            return_advanced_features=False,
+            return_advanced_features=True if use_compiled_mask else False,
+            # We pass use_compiled_mask to the forward so GBNFConstraint can use it
         )
 
         logits = outputs["logits"][:, -1, :]  # (batch_size, vocab_size)
@@ -80,6 +84,25 @@ def generate(
         # Stop if EOS token
         if (next_tokens == 2).all():  # Assuming EOS token ID is 2
             break
+
+    # Retry logic if verification fails
+    if retry_on_error and tokenizer is not None and hasattr(self, "gbnf_constraint"):
+        generated_text = tokenizer.decode(generated[0], skip_special_tokens=True)
+        is_valid = self.gbnf_constraint.state_machine.verify(generated_text)
+
+        if not is_valid:
+            # Re-run with compiled state machine mask and skip neural logic
+            return self.generate(
+                input_ids=input_ids,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                use_cache=use_cache,
+                use_compiled_mask=True,
+                retry_on_error=False, # Avoid infinite loop
+                tokenizer=tokenizer
+            )
 
     return generated
 
