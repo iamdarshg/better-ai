@@ -38,7 +38,7 @@ class TestDataloader(unittest.TestCase):
 
         self.assertEqual(
             formatted_text,
-            "<problem>This is a problem.</problem><constraints>These are the constraints.</constraints><examples>These are the examples.</examples>"
+            "[PROBLEM]This is a problem.[/PROBLEM]\n[CONSTRAINTS]These are the constraints.[/CONSTRAINTS]\n[EXAMPLES]These are the examples.[/EXAMPLES]"
         )
 
 if __name__ == "__main__":
