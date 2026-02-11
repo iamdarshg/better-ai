@@ -580,6 +580,16 @@ Transform Better AI repository into advanced RLHF system with BR-RM, GRPO, Multi
 - **Description**: Implement all new features and optimisations into a single, new model class and use it to replace the model currently in enhanced_training.
 - **Status**: ✅ **FULLY IMPLEMENTED**
 - **Implementation**: `better_ai/training/curriculum_mcts_trainer.py`
+
+### 7.22 Security DPO Phase
+- **Description**: Final training phase focused on CVE repair, memory safety, and prompt injection resistance.
+- **Status**: ✅ **FULLY IMPLEMENTED**
+- **Implementation**: `better_ai/scripts/main_workflow.py`, `better_ai/training/rlvr_security.py`
+- **Features**:
+    - Integrated `security_dpo` stage in `main_workflow.py`
+    - Security-focused datasets: `cve-dpo-4b`, `code-vulnerability-security-dpo`, etc.
+    - RLVR stubs for static code analysis in `rlvr_security.py`
+    - Enhanced context handling with `[CONTEXT]` tags to prevent prompt injection
 - **Features**:
     - CurriculumMCTSTrainer combining cosine curriculum with MCTS for CoT
     - Unified training interface with curriculum-driven MCTS frequency

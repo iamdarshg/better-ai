@@ -227,4 +227,45 @@ datasets:
     stage: "eval"
     split: "test"
     max_seq_length: 131072
+
+  # -----------------------------------------------------------------------------
+  # SECURITY DPO STAGE
+  # Final alignment phase focused on CVE remediation, memory safety, and
+  # prompt injection resistance. Takes ~15% of total training time.
+  # -----------------------------------------------------------------------------
+  - name: "cve-dpo-4b"
+    type: "huggingface"
+    path: "RLLab/cve-dpo-4b"
+    stage: "security_dpo"
+    split: "train"
+    data_format: "rlhf"
+    max_seq_length: 8192
+    num_training_steps: 15000
+
+  - name: "code-vulnerability-security-dpo"
+    type: "huggingface"
+    path: "CyberNative/Code_Vulnerability_Security_DPO"
+    stage: "security_dpo"
+    split: "train"
+    data_format: "rlhf"
+    max_seq_length: 8192
+    num_training_steps: 20000
+
+  - name: "secure-code-repair-dpo"
+    type: "huggingface"
+    path: "Younis2003/secure-code-repair-dpo"
+    stage: "security_dpo"
+    split: "train"
+    data_format: "rlhf"
+    max_seq_length: 8192
+    num_training_steps: 15000
+
+  - name: "pku-safe-rlhf-security"
+    type: "huggingface"
+    path: "PKU-Alignment/PKU-SafeRLHF"
+    stage: "security_dpo"
+    split: "train"
+    data_format: "rlhf"
+    max_seq_length: 8192
+    num_training_steps: 7000
   
