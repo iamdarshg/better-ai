@@ -102,6 +102,8 @@ def main():
                     if fallback_result.returncode == 0:
                         print(f"[SUCCESS] Fallback to {fallback_id} succeeded.")
                         break
+                    else:
+                        sys.exit(int(fallback_result.returncode))
 
     except Exception as e:
         print(f"\n[ERROR] An unexpected error occurred while running the test: {e}")
