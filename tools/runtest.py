@@ -28,6 +28,7 @@ def main():
                 log_file.write(f"Output:\n{o.stdout.decode()}\n\n")
         raise RuntimeError(f"Subprocess for {test} failed with exit code {o.returncode}.")
     print(o.stderr.decode() + "\n"+ o.stdout.decode()+ "\n"+o.returncode.__str__())
+    sys.exit(int(o.returncode))
     
 if __name__ == "__main__":
     main()
