@@ -17,7 +17,7 @@ class ModelConfig:
 
     vocab_size: int = 64000
     hidden_dim: int = 3072
-    num_layers: int = 12
+    num_layers: int = 10
     num_attention_heads: int = 24
     num_key_value_heads: Optional[int] = 4  # Default: num_attention_heads // 2
     intermediate_dim: int = 16384
