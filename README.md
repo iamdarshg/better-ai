@@ -1,4 +1,4 @@
-# Better AI: Advanced RLHF System for Coding
+# Better AI
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/)
@@ -7,376 +7,406 @@
 [![Language](https://img.shields.io/github/languages/top/iamdarshg/better-ai)](https://github.com/iamdarshg/better-ai)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/iamdarshg/better-ai/training_test.yml)](https://github.com/iamdarshg/better-ai/actions)
 
-**Better AI** is a cutting-edge RLHF (Reinforcement Learning from Human Feedback) system designed for training advanced coding models with superior reasoning, correctness, and alignment capabilities.
 
-## 🚀 Features
+Production-grade RLHF training system for coding models. Built on DeepSeek architecture with Mixture of Experts, advanced reasoning mechanisms, and multi-stage reinforcement learning.
 
-- **Cutting-Edge Training Pipeline**: A multi-stage pipeline that takes the model from pretraining to supervised fine-tuning (SFT) and finally to Reinforcement Learning from Human Feedback (RLHF) with Group Reward Policy Optimization (GRPO). This ensures a robust and well-aligned model.
-- **DeepSeek-Inspired Architecture**: At its core, Better AI features a powerful and efficient transformer model inspired by the DeepSeek V3.2 architecture. This includes innovations like Ring Attention for near-infinite context processing and a Mixture of Experts (MoE) for dynamic routing and specialization.
-- **Advanced Reasoning Capabilities**: To tackle complex coding challenges, Better AI is equipped with a suite of advanced reasoning features, including a Recursive Scratchpad for iterative problem-solving, Chain-of-Thought (CoT) Specialization for improved reasoning, Self-Taught Reasoner (STaR) Bootstrapping for self-improvement, and a self-correction mechanism to identify and fix errors.
-- **Sophisticated Reward Modeling**: The RLHF process is guided by a Hierarchical Reward Model (HRM), a dual-reward framework that scores both single-step soundness and end-to-end coherence. This ensures that the model generates code that is not only locally correct but also globally coherent and well-structured.
-- **State-of-the-Art Training Optimizations**: The training process is enhanced with a range of advanced techniques, including expert specialization tracking to encourage expert diversity, selective gradient checkpointing to reduce memory usage, dynamic expert capacity adjustment to handle varying loads, and a coherence-based scheduler to dynamically adjust the learning rate.
-- **Memory and Distribution**: The system is designed for large-scale training with memory optimization techniques like FP8 quantization and support for distributed training with DDP/FSDP.
+## What Makes It Different
 
-## 📋 Table of Contents
+Better AI combines proven techniques into a cohesive training pipeline:
 
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Training Pipeline](#-training-pipeline)
-- [Architecture Overview](#-architecture-overview)
-- [Configuration](#-configuration)
-- [Dataset Configuration](#-dataset-configuration)
-- [Testing](#-testing)
-- [GitHub Actions CI/CD](#-github-actions-cicd)
-- [Contributing](#-contributing)
-- [License](#-license)
+- **Ring Attention** — Process 524k+ token contexts efficiently across multiple GPUs
+- **GRPO with KV-Cache Reuse** — Memory-optimized policy gradient training
+- **Hierarchical Reward Models** — Multi-attribute scoring for code quality (correctness, efficiency, readability, robustness)
+- **MCTS for Chain-of-Thought** — Tree search constructs high-quality reasoning data
+- **Security Hardening** — Dedicated DPO phase for CVE repair and vulnerability mitigation
 
-## 🛠️ Installation
-
-### Prerequisites
-
-- Python 3.8+
-- PyTorch 2.0+
-- CUDA 11.8+ (for GPU acceleration)
-- 20GB+ GPU memory (recommended)
-
-### Install Dependencies
+## Installation
 
 ```bash
 git clone https://github.com/iamdarshg/better-ai.git
 cd better-ai
 pip install -r requirements.txt
-
-# Optional: Install for better performance
-pip install flash-attn triton
 ```
 
-## 🚀 Quick Start
+**Requirements:** Python 3.8+, PyTorch 2.0+, CUDA 11.8+, 20GB+ VRAM
 
-### Run Full Training Pipeline
+## Quick Start
+
+### Train from Scratch
 
 ```bash
-# Full pipeline with evaluation (uses mock data for testing)
-python train_enhanced.py --stage full --eval --test
+# Full pipeline: Pretrain → SFT → RLHF → Security
+python better_ai/scripts/main_workflow.py --stage full
 
-# Individual stages
+# Or individual stages
 python train_enhanced.py --stage pretrain --test
-python train_enhanced.py --stage sft --test
 python train_enhanced.py --stage rlhf --test
 ```
 
-### Python API Example
+### Python API
 
 ```python
 from better_ai.config import ModelConfig, TrainingConfig
-from better_ai.models.enhanced_model import EnhancedDeepSeekModel
-from better_ai.training.enhanced_trainer import EnhancedMoETrainer
+from better_ai.models import DeepSeekMoEModel
+from better_ai.training import CurriculumMCTSTrainer
 
-# Setup configuration
-model_config = ModelConfig()
-training_config = TrainingConfig(batch_size=2, learning_rate=1e-4, max_steps=100)
-
-# Initialize model and trainer
-model = EnhancedDeepSeekModel(model_config)
-trainer = EnhancedMoETrainer(model, training_config)
-
-# Train (uses mock data by default)
-trainer.train()
-```
-
-## 🔄 The Better AI Training Pipeline
-
-The Better AI training pipeline is a carefully designed multi-stage process that progressively refines the model's capabilities. Each stage builds upon the last, resulting in a highly capable and well-aligned coding model.
-
-### Stage 1: Pretraining
-The foundation of the Better AI model is built during the pretraining stage. Here, the model is exposed to a massive corpus of code from a variety of sources, such as "The Stack v2". The primary objective of this stage is to teach the model the fundamental syntax, structures, and patterns of programming languages. This is achieved through a self-supervised learning process where the model learns to predict the next token in a sequence of code.
-
-### Stage 2: Supervised Fine-Tuning (SFT)
-Once the model has a solid understanding of code, it moves to the supervised fine-tuning (SFT) stage. In this stage, the model is trained on a curated dataset of high-quality code and natural language instructions, such as the "Magicoder" and "Code-Feedback" datasets. The goal of SFT is to teach the model to follow instructions and generate high-quality code that is not only syntactically correct but also well-structured and easy to understand.
-
-### Stage 3: Reinforcement Learning from Human Feedback (RLHF)
-The final stage of the training pipeline is Reinforcement Learning from Human Feedback (RLHF). In this stage, the model is further refined using a reward model that has been trained to predict human preferences. The model is presented with a prompt and generates multiple responses, which are then evaluated by the reward model. The model is then updated using Group Reward Policy Optimization (GRPO) to generate responses that are more likely to be preferred by humans. This process is guided by a sophisticated Hierarchical Reward Model that scores both single-step soundness and end-to-end coherence.
-
-## 🏗️ A DeepSeek-Inspired Architecture for a Cutting-Edge System
-
-The Better AI architecture is a modular and extensible system designed for cutting-edge research and development in RLHF and advanced model training. It is built around a powerful and efficient transformer model inspired by the DeepSeek V3.2 architecture, and it incorporates a suite of advanced features for enhanced reasoning and performance.
-
-At its core, the Better AI model is a decoder-only transformer with a number of key architectural innovations that are inspired by the DeepSeek V3.2 architecture. These include:
-
-- **Ring Attention**: To handle the long sequences of code that are common in software development, Better AI uses Ring Attention, a novel attention mechanism that allows for near-infinite context processing with linear complexity.
-- **Mixture of Experts (MoE)**: To increase the model's capacity without a proportional increase in computational cost, Better AI uses a Mixture of Experts (MoE) architecture. This allows the model to dynamically route different parts of the input to different "expert" sub-networks, resulting in a more efficient and effective model.
-- **Grouped Query Attention (GQA)**: To further improve the efficiency of the attention mechanism, Better AI uses Grouped Query Attention (GQA), which groups queries together to reduce the number of attention computations.
-
-In addition to these core architectural features, Better AI also incorporates a number of advanced features to enhance its reasoning capabilities, including a Recursive Scratchpad for iterative reasoning, CoT Specialization for improved chain-of-thought processing, and a self-correction mechanism to identify and fix errors. For a more detailed breakdown of the architecture, please refer to the `ARCHITECTURE.md` file.
-
-## ⚙️ Configuration
-
-### Minimal Configuration (Testing)
-
-```python
-from better_ai.config import ModelConfig, TrainingConfig
-
+# Configure model
 model_config = ModelConfig(
-    vocab_size=32000,
-    hidden_dim=512,
-    num_layers=4,
-    num_experts=4,
+    vocab_size=64000,
+    hidden_dim=1536,
+    num_layers=16,
+    num_experts=8,
+    use_ring_attention=True,
 )
 
-training_config = TrainingConfig(
-    batch_size=2,
-    learning_rate=5e-4,
-    max_steps=100,
-    use_mock_data=True  # Use mock data for testing
-)
-```
-
-### Production Configuration
-
-```python
-model_config = ModelConfig()  # Uses all defaults
+# Configure training
 training_config = TrainingConfig(
     batch_size=32,
     learning_rate=1e-4,
     max_steps=100000,
-    distributed_backend="fsdp",
-    use_fp8=True,
+    use_mcts=True,
+)
+
+# Initialize and train
+model = DeepSeekMoEModel(model_config)
+trainer = CurriculumMCTSTrainer(model, training_config)
+trainer.train_with_curriculum(train_loader)
+```
+
+## Architecture
+
+```
+DeepSeekMoEModel
+├── Ring Attention (distributed, 524k context)
+├── MoE Layers (8 experts, top-2 routing)
+├── Reasoning Features
+│   ├── Recursive Scratchpad (iterative refinement)
+│   ├── CoT Specialization (isolated reasoning heads)
+│   ├── MCTS Tree Search
+│   └── STaR Self-Learning
+└── Reward Stack
+    ├── Branch Reward Model (4 attributes)
+    └── Hierarchical Reward Model
+```
+
+**Specs:** 64k vocab | 1,536 hidden | 16 layers | 8 experts | GQA attention
+
+## Training Pipeline
+
+| Stage | Dataset | Duration | Purpose |
+|-------|---------|----------|---------|
+| Pretrain | The Stack v2 | 1-2 weeks | Foundation |
+| SFT | Magicoder + Code-Feedback | 3-5 days | Instruction following |
+| RLHF Stage 1 | CodeUltraFeedback | 5-7 days | Preference alignment |
+| RLHF Stage 2 | RLVR Coding | 3-5 days | Advanced reasoning |
+| Security | CVE datasets | 2-3 days | Vulnerability hardening |
+
+## Key Features
+
+### Implemented & Tested
+
+- **CurriculumMCTSTrainer** — Combines cosine curriculum with Monte Carlo Tree Search for CoT data generation
+- **ARPO** — Agentic Reinforced Policy Optimization with entropy-based adaptive rollouts
+- **GRPO** — Group Reward Policy Optimization with KV-cache reuse (40% memory reduction)
+- **Ring Attention** — Distributed attention sharding for near-infinite contexts
+- **BR-RM** — Branch Reward Model scores code on correctness, efficiency, readability, robustness
+- **Security DPO** — Final training phase for memory safety and prompt injection resistance
+- **Tool-Use Heads** — Specialized prediction for API calls
+- **JSON Enforcement** — Grammar-based constraints ensure valid outputs
+- **STaR Module** — Self-taught reasoning with bootstrap learning
+- **FP8 Quantization** — E4M3/E5M2 mixed precision for 50% memory savings
+
+## Configuration
+
+```python
+# Minimal (testing)
+ModelConfig(vocab_size=32000, hidden_dim=768, num_layers=8)
+
+# Production
+ModelConfig(
+    vocab_size=64000,
+    hidden_dim=1536,
+    num_layers=16,
+    num_experts=8,
+    use_ring_attention=True,
+    use_recursive_scratchpad=True,
+    use_cot_specialization=True,
 )
 ```
 
-## 🧪 Testing
-
-### Run Unit Tests
+## Testing
 
 ```bash
-python -m pytest tests/
+# All tests
+pytest tests/
+
+# Specific components
+pytest tests/unit/test_grpo_implementation.py
+pytest tests/integration/test_mf_rlhf.py
+python tests/test_curriculum_mcts.py
 ```
 
-### Test Training Pipeline
+## Project Structure
+
+```
+better-ai/
+├── better_ai/                      # Main package
+│   ├── __init__.py                # Package exports
+│   ├── config.py                  # ModelConfig, TrainingConfig, InferenceConfig
+│   ├── analysis_scripts/
+│   │   └── plot_scaling.py        # Scaling analysis plots
+│   ├── data/                      # Data loading & processing
+│   │   ├── __init__.py
+│   │   ├── curation.py            # Agent-FLAN style data curation
+│   │   ├── dataset.py             # Base dataset classes
+│   │   ├── dataset_config.py      # Dataset configuration management
+│   │   ├── hf_datasets.py         # HuggingFace dataset integration
+│   │   ├── unified_dataloader.py  # Unified data loading interface
+│   │   └── datasets/              # Dataset implementations
+│   │       ├── code_dataset.py
+│   │       ├── expert_aware_dataset.py
+│   │       ├── mixed_code_dataset.py
+│   │       └── rolling_window_dataset.py
+│   ├── inference/                 # Inference engine
+│   │   ├── __init__.py
+│   │   ├── engine.py              # InferenceEngine with KV-cache
+│   │   └── generator.py           # TextGenerator, GenerationConfig
+│   ├── models/                    # Model architectures
+│   │   ├── __init__.py            # Model exports
+│   │   ├── core.py                # DeepSeekModel, TransformerBlock
+│   │   ├── moe.py                 # DeepSeekMoEModel, Expert, MoELayer
+│   │   ├── moe_optimized.py       # Optimized MoE variants
+│   │   ├── optimized_model.py     # OptimizedDeepSeekMoEModel
+│   │   ├── attention.py           # FlashMultiHeadAttention
+│   │   ├── attention_optimized.py # Optimized attention variants
+│   │   ├── ring_attention.py      # RingAttention for long contexts
+│   │   ├── dsa.py                 # Distributed attention
+│   │   ├── rope.py                # RoPE positional embeddings
+│   │   ├── reward_model.py        # BranchRewardModel, HierarchicalRewardModel
+│   │   ├── generation.py          # Generation utilities
+│   │   ├── advanced_features.py   # Feature integrations
+│   │   ├── enhanced_model.py      # Enhanced model variants
+│   │   ├── tidar.py               # TiDAR diffusion module
+│   │   ├── tot.py                 # Tree-of-Thought implementation
+│   │   └── features/              # Specialized feature modules
+│   │       ├── cot_specialization.py      # CoT attention heads
+│   │       ├── recursive_scratchpad.py    # Iterative reasoning
+│   │       ├── inner_monologue.py         # Private reasoning subspaces
+│   │       ├── star_module.py             # Self-taught reasoning
+│   │       ├── tool_use.py                # Tool-use prediction heads
+│   │       ├── gbnf_constraint.py         # Grammar constraints
+│   │       ├── json_enforcer.py           # JSON output enforcement
+│   │       ├── entropic_steering.py       # Entropy-based steering
+│   │       ├── specialized_head.py        # Specialized attention heads
+│   │       └── reasoning_rewards.py       # Reasoning reward functions
+│   ├── optimizers/                # Custom optimizers
+│   │   ├── __init__.py
+│   │   ├── fp8.py                 # FP8AdamW, FP8Optimizer
+│   │   └── memory.py              # Memory-efficient optimizers
+│   ├── scripts/                   # Training scripts
+│   │   ├── __init__.py
+│   │   └── main_workflow.py       # Main production training pipeline
+│   ├── training/                  # Training algorithms
+│   │   ├── __init__.py            # Training exports
+│   │   ├── trainer.py             # Base Trainer class
+│   │   ├── enhanced_trainer.py    # EnhancedMoETrainer
+│   │   ├── integrated_trainer.py  # IntegratedAdvancedTrainer
+│   │   ├── curriculum_mcts_trainer.py  # Curriculum + MCTS trainer
+│   │   ├── grpo.py                # GRPOTrainer, GRPOLoss
+│   │   ├── kv_cache_grpo.py       # Memory-optimized GRPO
+│   │   ├── arpo.py                # ARPOTrainer (Agentic RL)
+│   │   ├── steca.py               # STeCa (Trajectory Calibration)
+│   │   ├── cleaner.py             # CLEANER self-purification
+│   │   ├── mcts_cot.py            # MCTSCoTSearcher
+│   │   ├── cosine_curriculum.py   # CosineCurriculumScheduler
+│   │   ├── machine_feedback.py    # MachineFeedbackTrainer
+│   │   ├── fault_localization.py  # Fault localization pipeline
+│   │   ├── rlvr_security.py       # Security DPO phase
+│   │   ├── evaluation.py          # RLHFEvaluator, benchmarks
+│   │   ├── checkpointing.py       # SelectiveCheckpointManager
+│   │   ├── expert_manager.py      # ExpertSpecializationManager
+│   │   ├── coherence_scheduler.py # CoherenceBasedScheduler
+│   │   ├── adaptive_optimizations.py  # Dynamic capacity management
+│   │   ├── diversity_metrics.py   # Reasoning diversity metrics
+│   │   ├── pruning.py             # Model pruning utilities
+│   │   ├── tui.py                 # Training TUI
+│   │   └── trainer_utils/         # Training utilities
+│   │       ├── callbacks.py
+│   │       ├── data.py
+│   │       ├── optimization.py
+│   │       └── rl.py
+│   ├── utils/                     # Utilities
+│   │   ├── __init__.py
+│   │   ├── exceptions.py          # Custom exceptions
+│   │   ├── react_notebook.py      # ReAct notebook format
+│   │   └── verification.py        # Math/code verification
+│   ├── test_config_utils.py       # Test utilities
+│   └── test_resource_tags.py      # Resource tagging
+├── tests/                         # Test suite
+│   ├── conftest.py                # Pytest configuration
+│   ├── low_resource_test.py       # Low-resource testing
+│   ├── test_advanced_features.py  # Feature tests
+│   ├── test_curriculum_mcts.py    # MCTS + curriculum tests
+│   ├── test_grpo_implementation.py # GRPO tests
+│   ├── test_rl_stage2.py          # RLHF stage 2 tests
+│   ├── test_striped_attn.py       # Striped attention tests
+│   ├── test_tidar_init.py         # TiDAR tests
+│   ├── e2e/                       # End-to-end tests
+│   │   └── __init__.py
+│   ├── integration/               # Integration tests
+│   │   ├── __init__.py
+│   │   ├── test_hrm.py            # HRM integration
+│   │   ├── test_low_resource_integration.py
+│   │   ├── test_mf_rlhf.py        # Machine feedback RLHF
+│   │   ├── test_refactored_modules.py
+│   │   ├── test_rlhf_components.py
+│   │   └── test_tot.py            # ToT integration
+│   └── unit/                      # Unit tests
+│       ├── __init__.py
+│       ├── test_advanced_features.py
+│       ├── test_arpo.py
+│       ├── test_cleaner.py
+│       ├── test_config_validation.py
+│       ├── test_dataloader.py
+│       ├── test_dataset_config.py
+│       ├── test_exceptions.py
+│       ├── test_integrated_trainer.py
+│       ├── test_kv_cache_grpo.py
+│       ├── test_length_dpo.py
+│       ├── test_memory_optimization.py
+│       ├── test_model_enhancements.py
+│       ├── test_new_phase7_features.py
+│       ├── test_pruning.py
+│       ├── test_react_notebook.py
+│       ├── test_security_workflow.py
+│       └── test_striped_attn.py
+├── tools/                         # Development tools
+│   ├── list_high_resource_test_ids.py
+│   ├── profile_high_resource_tests.py
+│   ├── run_low_resource_tests.py
+│   ├── run_test_with_torch_profiler.py
+│   ├── runtest.py                 # Test runner
+│   └── trigger_profile_dispatch.py
+├── checkpoints/                   # Model checkpoints
+├── logs/                          # Training logs
+├── example_advanced_features.py   # Feature examples
+├── train_enhanced.py             # CLI training script
+├── setup.py                      # Package setup
+├── setup.sh                      # Setup script
+├── requirements.txt              # Dependencies
+├── datasets.yml                  # Dataset configuration
+├── ARCHITECTURE.md              # Architecture docs
+├── QUICKSTART.md                # Quick start guide
+├── todo.md                      # Development roadmap
+├── README.md                    # This file
+└── LICENSE                      # MIT License
+```
+
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Detailed system design
+- [QUICKSTART.md](QUICKSTART.md) — Step-by-step tutorials
+- [todo.md](todo.md) — Implementation roadmap
+
+## Performance
+
+| Metric | Result |
+|--------|--------|
+| Memory (FP8) | 50% reduction |
+| Context Length | 524,288 tokens |
+| Expert Routing | Top-2 of 8 |
+| KV-Cache GRPO | 40% memory saved |
+
+Benchmarks: HumanEval, MBPP, SWE-bench
+
+## Contributing
 
 ```bash
-# Test with mock data (fast, no GPU required)
-python train_enhanced.py --stage full --test
+# Setup
+pip install -e .
 
-# Test individual components
-python test_model.py
-python test_enhanced_model.py
+# Before submitting
+black better_ai/
+pytest tests/
 ```
 
-## 🤖 GitHub Actions CI/CD
+Issues and PRs welcome at [github.com/iamdarshg/better-ai](https://github.com/iamdarshg/better-ai)
 
-The project includes a comprehensive GitHub Actions workflow that:
+## License
 
-1. **Runs on every push to main branch**
-2. **Tests the complete training pipeline**
-3. **Uses mock data for fast execution**
-4. **Validates all training stages**
-5. **Checks for crashes or errors**
+MIT — see [LICENSE](LICENSE)
 
-### Workflow File: `.github/workflows/training_test.yml`
+## Resource Estimates
 
-```yaml
-name: Training Pipeline Test
+*Auto-generated from config using production settings*
+*Last updated: 2026-02-12 19:18:45*
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+### Model Architecture
+- **Total Parameters**: 18.25B
+- **Active Parameters**: 5.57B (per token with MoE)
+- **Sparsity**: 69.5%
+- **Layers**: 12 (6 standard + 6 MoE)
+- **Hidden Dimension**: 3072
+- **Intermediate Dimension**: 16384
+- **Max Sequence Length**: 524,288 tokens
+- **Average Sequence Length**: 127,738 tokens (step-weighted from datasets)
 
-jobs:
-  test-training:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.8, 3.9, 3.10]
+**Parameter Breakdown:**
+| Component | Parameters | % of Total |
+|-----------|------------|------------|
+| Embeddings | 196.61M | 1.1% |
+| LM Head | 196.61M | 1.1% |
+| Attention | 264.24M | 1.4% |
+| FFN (Standard) | 905.97M | 5.0% |
+| FFN (MoE - All) | 16.31B | 89.3% |
+| FFN (MoE - Active) | 3.62B | 65.1% of active |
+| Routers | 294912 | 0.0% |
 
-    steps:
-    - uses: actions/checkout@v4
+**Advanced Features:**
+| Feature | Parameters |
+|---------|------------|
+| tidar | 273.68M |
+| monologue | 29.88M |
+| tool_heads | 44.04M |
+| scratchpad | 34.60M |
+| **Total Features** | **382.21M** |
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
+### VRAM Requirements (Batch=1, Seq=524,288)
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest
+**Inference VRAM per GPU:**
+| GPU | Available | BF16 Required | FP8 Required | BF16 Batch | FP8 Batch |
+|-----|-----------|---------------|--------------|------------|-----------|
+| RTX 2070 | 8 GB | 62 GB | 31 GB | 0 (need 62GB) | 0 (need 31GB) |
+| RTX 5090 | 32 GB | 62 GB | 31 GB | 0 (need 62GB) | 0 (need 31GB) |
+| H300e | 80 GB | 62 GB | 31 GB | 1 | 7 |
+| H200 | 141 GB | 62 GB | 31 GB | 5 | 15 |
 
-    - name: Test training pipeline with mock data
-      run: |
-        python train_enhanced.py --stage full --test --batch-size 2 --max-steps 10
+**Training VRAM per GPU (with 8-bit optimizer, avg seq length):**
+| GPU | Available | BF16 Required | FP8 Required | BF16 Batch | FP8 Batch |
+|-----|-----------|---------------|--------------|------------|-----------|
+| RTX 2070 | 8 GB | 280 GB | 260 GB | 0 (need 280GB) | 0 (need 260GB) |
+| RTX 5090 | 32 GB | 280 GB | 260 GB | 0 (need 280GB) | 0 (need 260GB) |
+| H300e | 80 GB | 280 GB | 260 GB | 0 (need 280GB) | 0 (need 260GB) |
+| H200 | 141 GB | 280 GB | 260 GB | 0 (need 280GB) | 0 (need 260GB) |
 
-    - name: Run unit tests
-      run: |
-        python -m pytest tests/ -v
+### Training Pipeline
 
-    - name: Validate checkpoints
-      run: |
-        ls -la checkpoints/
-        test -f checkpoints/pretrained_model.pt
-        test -f checkpoints/sft_model.pt
-        test -f checkpoints/rlhf_model.pt
-```
+**Total Steps**: 2,542,750
 
-### Key Features of the CI/CD Pipeline
+| Stage | Steps |
+|-------|-------|
+| pretraining | 1,342,000 |
+| rlhf | 319,250 |
+| security_dpo | 129,000 |
+| sft | 752,500 |
 
-- **Multi-Python Version Testing**: Tests on Python 3.8, 3.9, 3.10
-- **Fast Execution**: Uses mock data and small batch sizes
-- **Memory Efficient**: Small model configuration for CI
-- **Comprehensive Validation**: Tests all training stages
-- **Checkpoint Verification**: Ensures models are saved correctly
+### Training Time Estimates (100% utilization)
 
-## 📊 Performance Metrics
+| GPU | FP16 TFLOPS | Hours | Days |
+|-----|-------------|-------|------|
+| RTX 2070 | 8 | 10,562 | 440.1 |
+| RTX 5090 | 100 | 792 | 33.0 |
+| H300e | 2000 | 40 | 1.7 |
+| H200 | 1000 | 79 | 3.3 |
 
-### Training Metrics
-
-- **Perplexity**: Language modeling quality
-- **Loss**: Training and validation loss
-- **Accuracy**: Instruction following accuracy
-- **Reward Scores**: Multi-attribute quality scores
-
-### Evaluation Metrics
-
-- **Coding Accuracy**: Percentage of correct solutions
-- **Reasoning Quality**: Trace coherence and diversity
-- **Efficiency**: Time/space complexity scores
-- **Alignment**: Correlation with human preferences
-
-## 🔧 Configuration Options
-
-### Training Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `batch_size` | 1 | Batch size per device |
-| `learning_rate` | 1e-4 | Initial learning rate |
-| `max_steps` | 100000 | Total training steps |
-| `use_mock_data` | False | Use mock data for testing |
-| `distributed_backend` | "ddp" | "ddp" or "fsdp" |
-
-### Model Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `vocab_size` | 64000 | Vocabulary size |
-| `hidden_dim` | 1536 | Hidden dimension |
-| `num_layers` | 12 | Number of layers |
-| `num_experts` | 16 | Number of MoE experts |
-
-## 🐛 Debugging
-
-### Common Issues
-
-1. **CUDA Out of Memory**
-   - Reduce `batch_size`
-   - Enable `use_gradient_checkpointing`
-   - Use `use_fp8=True`
-
-2. **Slow Training**
-   - Enable `use_flash_attention`
-   - Use mixed precision (`bf16=True`)
-   - Increase `gradient_accumulation_steps`
-
-3. **Training Instability**
-   - Reduce `learning_rate`
-   - Increase `warmup_steps`
-   - Enable gradient clipping
-
-### Debug Commands
-
-```bash
-# Enable debug logging
-export LOG_LEVEL=DEBUG
-python train_enhanced.py --stage pretrain --test
-
-# Profile memory usage
-python -m memory_profiler train_enhanced.py --stage pretrain --test
-
-# Profile time
-python -m cProfile -s time train_enhanced.py --stage pretrain --test
-```
-
-## 📚 Documentation
-
-- **[ARCHITECTURE.md](ARCHITECTURE.md)**: Detailed architecture documentation
-- **[QUICKSTART.md](QUICKSTART.md)**: Quick start guide with examples
-- **API Documentation**: Comprehensive docstrings in all modules
-- **Examples**: Runnable examples in the `examples/` directory
-
-## 📝 Dataset Configuration
-
-The `datasets.yml` file allows for detailed configuration of each dataset, including parameters like maximum sequence length and the number of training steps.
-
-### Example `datasets.yml`
-
-```yaml
-datasets:
-  - name: "The Stack"
-    path: "/path/to/the_stack"
-    max_seq_length: 8192
-    num_training_steps: 100000
-  - name: "Magicoder"
-    path: "/path/to/magicoder"
-    max_seq_length: 4096
-    num_training_steps: 50000
-```
-
-### Configuration Options
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | string | The name of the dataset. |
-| `path` | string | The path to the dataset directory. |
-| `max_seq_length` | int | The maximum sequence length for this dataset. |
-| `num_training_steps` | int | The number of training steps to perform on this dataset. |
-
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -am 'Add some feature'`
-4. Push to the branch: `git push origin feature/your-feature`
-5. Create a pull request
-
-### Development Setup
-
-```bash
-git clone https://github.com/iamdarshg/better-ai.git
-cd better-ai
-pip install -e .  # Install in development mode
-pip install -r requirements-dev.txt
-```
-
-### Code Style
-
-- Follow PEP 8 guidelines
-- Use type hints
-- Write comprehensive docstrings
-- Include unit tests for new features
-
-## 📜 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- DeepSeek team for the original architecture
-- Hugging Face for transformers library
-- PyTorch team for the deep learning framework
-- All contributors and users of Better AI
-
-## 📬 Contact
-
-For questions, issues, or contributions:
-- **GitHub Issues**: https://github.com/iamdarshg/better-ai/issues
-- **Discussions**: https://github.com/iamdarshg/better-ai/discussions
-- **Email**: darshgupta@example.com
-
----
-
-**Happy Training! 🚀**
+_Note: Training times assume 100% GPU utilization. Real-world training typically achieves 30-70%._

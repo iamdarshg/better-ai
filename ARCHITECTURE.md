@@ -1,543 +1,380 @@
-# Better AI Architecture and Implementation Guide
+# Better AI Architecture
 
-## System Overview
+DeepSeek-inspired RLHF system for coding models with MoE architecture, Ring Attention, and advanced reasoning mechanisms.
 
-Better AI is a state-of-the-art RLHF (Reinforcement Learning from Human Feedback) system meticulously engineered for training sophisticated coding models. The system's design philosophy is centered around a multi-stage training pipeline that progressively refines the model's capabilities, from foundational code understanding to nuanced human-aligned reasoning. By integrating a suite of cutting-edge techniques, Better AI aims to produce models that excel in correctness, coherence, and alignment with human preferences.
-
-The architecture is designed to be both powerful and flexible, allowing for the seamless integration of new features and research ideas. It is built upon a DeepSeek-inspired transformer model that incorporates several key innovations, including Ring Attention for near-infinite context processing and a Mixture of Experts (MoE) for enhanced efficiency and specialization.
-
-## The Core: A DeepSeek-Inspired Architecture
-
-At the heart of the Better AI system is a decoder-only transformer model that draws inspiration from the highly successful DeepSeek V3.2 architecture. This choice was made to leverage the proven performance and efficiency of the DeepSeek design, while also providing a solid foundation for further innovation. The Better AI model incorporates several key architectural features that are inspired by DeepSeek, including:
-
-- **Ring Attention**: To effectively process the long and complex sequences of code that are common in software development, Better AI employs Ring Attention. This novel attention mechanism allows for near-infinite context processing with linear complexity, a significant advantage over traditional attention mechanisms that scale quadratically.
-- **Mixture of Experts (MoE)**: To increase the model's capacity without a proportional increase in computational cost, Better AI utilizes a Mixture of Experts (MoE) architecture. This allows the model to dynamically route different parts of the input to different "expert" sub-networks, resulting in a more efficient and effective model that can learn a wider range of specialized skills.
-- **Grouped Query Attention (GQA)**: To further enhance the efficiency of the attention mechanism, Better AI uses Grouped Query Attention (GQA). This technique groups queries together to reduce the number of attention computations, resulting in a significant speedup with minimal impact on performance.
-
-These architectural choices, combined with a suite of advanced reasoning features and training optimizations, make the Better AI model a powerful and efficient tool for a wide range of coding tasks.
-
-## Architecture Layers
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Enhanced DeepSeek Model                  │
+│                     Better AI Stack                         │
 ├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │        Advanced Reasoning Features (Layer 4)        │   │
-│  │ • Recursive Scratchpad  • CoT Specialization        │   │
-│  │ • Inner Monologue       • STaR Bootstrapping        │   │
-│  │ • Tool-Use Heads        • GBNF Constraints          │   │
-│  │ • JSON Enforcement      • Entropic Steering         │   │
-│  │ • TiDAR Diffusion       • Striped Attention         │   │
-│  └─────────────────────────────────────────────────────┘   │
+│  Application Layer                                          │
+│  ├── InferenceEngine (KV-cache, streaming)                  │
+│  ├── TextGenerator (generation config)                      │
+│  └── RLHFEvaluator (benchmarks, metrics)                    │
 ├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │        RLHF Reward Modeling (Layer 3)               │   │
-│  │ • BR-RM (Branch Reward Model)                       │   │
-│  │ • Multi-Attribute Regression                        │   │
-│  │ • Quantile Regression for Uncertainty               │   │
-│  └─────────────────────────────────────────────────────┘   │
+│  Training Layer                                             │
+│  ├── CurriculumMCTSTrainer (main production trainer)        │
+│  │   ├── CosineCurriculumScheduler                          │
+│  │   └── MCTSCoTSearcher                                    │
+│  ├── GRPOTrainer (group policy optimization)                │
+│  │   └── KVCacheManager (40% memory reduction)              │
+│  ├── ARPOTrainer (entropy-based rollouts)                   │
+│  └── EnhancedMoETrainer (base MoE training)                 │
 ├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │      Core Transformer Architecture (Layer 2)        │   │
-│  │ • Ring Attention for Distributed Processing         │   │
-│  │ • MoE Layers with 16 Experts                        │   │
-│  │ • RMSNorm + SwiGLU Activation                       │   │
-│  │ • Grouped Query Attention (GQA)                     │   │
-│  └─────────────────────────────────────────────────────┘   │
+│  Model Layer                                                │
+│  ├── DeepSeekMoEModel (main model class)                    │
+│  │   ├── MoELayer (8 experts, top-2 routing)                │
+│  │   ├── RingAttention (524k context)                       │
+│  │   └── TransformerBlock × 16                              │
+│  ├── Reward Models                                          │
+│  │   ├── BranchRewardModel (4 attributes)                   │
+│  │   └── HierarchicalRewardModel                            │
+│  └── Feature Modules                                        │
+│      ├── CoTSpecializationHeads                             │
+│      ├── RecursiveScratchpad                                │
+│      ├── STaRModule                                         │
+│      └── ToolUseHeads                                       │
 ├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │        Training Infrastructure (Layer 1)            │   │
-│  │ • GRPO (Group Reward Policy Optimization)           │   │
-│  │ • Multi-Stage Training Pipeline                     │   │
-│  │ • FP8 Quantization Support                          │   │
-│  │ • Distributed Training with DDP/FSDP                │   │
-│  └─────────────────────────────────────────────────────┘   │
+│  Data Layer                                                 │
+│  ├── UnifiedDataLoader (stages: pretrain→sft→rlhf)          │
+│  ├── CodeDataset (The Stack v2, Magicoder)                  │
+│  └── DatasetConfig (datasets.yml)                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Component Details
+## Core Components
 
-### 1. Core Model Architecture
+### 1. DeepSeekMoEModel (`better_ai/models/moe.py`)
 
-**Base Configuration:**
-- Vocabulary: 64,000 tokens (optimized for code)
-- Hidden Dimension: 1,536
-- Layers: 16 transformer blocks
-- Attention Heads: 24 (with GQA for efficiency)
-- Intermediate (FFN): 6,144 (4x hidden_dim)
-- Context Window: 8,192 tokens (extensible with Ring Attention)
+Main model architecture combining MoE with transformer blocks.
 
-**Key Components:**
-- **RMSNorm**: Residual layer normalization for stability
-- **SwiGLU**: Gated linear units instead of standard FFN
-- **Grouped Query Attention**: 2:1 key-value sharing for efficiency
-- **Residual Connections**: Explicit skip paths for gradient flow
-
-### 2. Ring Attention
-
-Enables near-infinite context length processing through distributed sharding:
-
-```
-Device 0: Q[0], K[1], V[1]  ──→  K[2], V[2]  ──→  K[3], V[3]  ──→  K[0], V[0]
-Device 1: Q[1], K[2], V[2]  ──→  K[3], V[3]  ──→  K[0], V[0]  ──→  K[1], V[1]
-Device 2: Q[2], K[3], V[3]  ──→  K[0], V[0]  ──→  K[1], V[1]  ──→  K[2], V[2]
-Device 3: Q[3], K[0], V[0]  ──→  K[1], V[1]  ──→  K[2], V[2]  ──→  K[3], V[3]
+**Configuration (default production):**
+```python
+ModelConfig(
+    vocab_size=64000,
+    hidden_dim=1536,
+    num_layers=16,
+    num_attention_heads=24,
+    num_key_value_heads=12,  # GQA 2:1 ratio
+    num_experts=8,
+    num_experts_per_token=2,
+    intermediate_dim=16384,
+    max_seq_length=524288,  # 524k with Ring Attention
+)
 ```
 
-**Benefits:**
-- Reduces memory per device
-- Enables longer sequences
-- Efficient communication pattern
-- Overlapped compute and communication
+**Key Classes:**
+- `DeepSeekMoEModel` - Main model (wrapper around transformer stack)
+- `MoELayer` - Mixture of Experts layer
+- `Expert` - Individual expert network (FFN)
+- `ExpertRouter` - Top-k routing with load balancing
 
-### 3. Mixture of Experts (MoE)
+### 2. Ring Attention (`better_ai/models/ring_attention.py`)
 
-**Configuration:**
-- 16 total experts
-- 2 experts per token (sparse routing)
-- Shared expert for all tokens
-- Dynamic capacity with 1.25x factor
-
-**Routing:**
-- Token embedding → Expert router
-- Top-2 expert selection with load balancing
-- Auxiliary loss for balanced loading
-- Expert specialization tracking
-
-### 4. Reward Modeling (BR-RM)
-
-**Architecture:**
-
-```
-Input Hidden States (batch_size, hidden_dim)
-        ↓
-    ┌───┴───┐
-    │       │
-    ↓       ↓
-Branch Selector  Main Head
-    │       │
-    ↓       ↓
- [4 branches]  Rethinking
-  • Correctness      ↓
-  • Efficiency    [Processing]
-  • Readability      ↓
-  • Robustness   Output Score
-    │       │
-    └───┬───┘
-        ↓
-  Final Reward (0-1)
-```
-
-**Branch Scoring:**
-1. **Correctness**: Does the code run and produce correct output?
-2. **Efficiency**: Time and space complexity optimization
-3. **Readability**: Code clarity and documentation
-4. **Robustness**: Error handling and edge cases
-
-**Adaptive Branching:**
-- Learned selection weights for each branch
-- Rethinking module refines estimates
-- Combined score with residual weighting
-
-### 5. GRPO (Group Reward Policy Optimization)
-
-Replaces PPO with group-based advantage estimation:
-
-**Algorithm:**
-```
-1. Sample group of N rollouts
-2. Compute rewards with BR-RM
-3. Estimate advantages using GAE
-4. Normalize advantages within group
-5. Compute clipped policy loss
-6. Add KL penalty to reference model
-7. Backpropagate and optimize
-```
-
-**Key Differences from PPO:**
-- Group-based instead of trajectory-based
-- More stable with smaller batch sizes
-- Better for preference learning
-- Integrated KL divergence penalty
-
-### 6. Advanced Reasoning Features
-
-#### Recursive Scratchpad
-- Iterative reasoning with up to 10 iterations
-- Attention-based scratchpad state
-- Automatic stopping based on confidence
-- Reasoning trace collection for analysis
-
-**Use Cases:**
-- Multi-step mathematical problems
-- Complex code debugging
-- Reasoning-heavy tasks
-
-#### CoT Specialization Heads
-- Prevents reasoning tokens from polluting outputs
-- 4 specialized CoT heads with learned routing
-- Output isolation gates
-- Separate handling for reasoning vs. generation
+Distributed attention mechanism for processing sequences longer than single GPU memory allows.
 
 **Implementation:**
-```
-Hidden States
-    ↓
-[CoT Head 1]  [CoT Head 2]  [CoT Head 3]  [CoT Head 4]
-    │             │             │             │
-    └─────────────┼─────────────┘
-              Routing Weights
-                  ↓
-            Combined CoT Output
-                  ↓
-          Isolation Gate (gating)
-                  ↓
-            Final Output
+```python
+class RingAttention(nn.Module):
+    def __init__(self, hidden_dim, num_heads, block_size=1024):
+        # Shards attention computation across devices
+        # Uses ring topology: device N talks to device (N+1) % world_size
 ```
 
-#### Inner Monologue
-- Private embedding subspaces for thinking
-- Control tokens: <thought>, </thought>
-- Token-level subspace switching
-- Prevents internal reasoning from leaking
-
-**Subspace Management:**
-- Public space: Final answers
-- Private space: Internal reasoning
-- Switching based on token type
-- Learned blending weights
-
-#### STaR (Self-Taught Reasoner)
-- Self-consistency checking
-- Trace validity scoring
-- Bootstrap learning from successful traces
-- Iterative refinement of reasoning
-
-**Process:**
-```
-Multiple Reasoning Paths
-         ↓
-  Validity Assessment
-         ↓
-  Consistency Checking
-         ↓
-  Select Best Traces
-         ↓
-  Learn from Winners
+**Usage:**
+```python
+config = ModelConfig(use_ring_attention=True, ring_block_size=1024)
+model = DeepSeekMoEModel(config)  # Enables 524k context
 ```
 
-#### Tool-Use Heads
-- Specialized prediction for API calls
-- Routing between text generation and tool use
-- Argument prediction
-- Hallucination prevention
+### 3. Reward Models (`better_ai/models/reward_model.py`)
 
-**Architecture:**
-```
-Input Hidden State
-         ↓
-   ┌─────┴─────┐
-   ↓           ↓
-Tool Head   Text Route
-   ↓           ↓
-API Pred    Generation
-```
-
-#### GBNF Constraints
-- Grammar-based constraints for valid code
-- Soft token masking for violations
-- Language-specific rules (Python, Java, etc.)
-- Runtime compliance checking
-
-#### JSON Enforcement
-- All outputs must be valid JSON
-- Structure prediction heads
-- Schema validation
-- Token-level constraint application
-
-#### Entropic Steering
-- Real-time entropy monitoring
-- Spike detection (uncertainty)
-- Clarifying question insertion
-- Graceful handling of ambiguity
-
-### 7. Hierarchical Reward Model (HRM)
-
-The Hierarchical Reward Model is a dual-reward framework that scores both single-step soundness and end-to-end coherence. This ensures that the model generates code that is not only locally correct but also globally coherent and well-structured. The HRM consists of two main components:
-
-- **Single-Step Model**: This model, typically a `BranchRewardModel`, evaluates the correctness and quality of individual code snippets or lines.
-- **End-to-End Model**: This model, usually a simpler MLP, assesses the overall coherence and structure of the generated code.
-
-The final reward is a weighted combination of the scores from both models, providing a more holistic assessment of the generated code's quality.
-
-### 8. Advanced Training Optimizations
-
-The training process is optimized with a range of advanced techniques to improve efficiency, stability, and performance:
-
-- **Expert Specialization Tracking**: Monitors the specialization of each expert in the MoE model to encourage diversity and prevent expert collapse.
-- **Selective Gradient Checkpointing**: Reduces memory usage by selectively checkpointing gradients for specific layers, rather than the entire model.
-- **Dynamic Expert Capacity Adjustment**: Dynamically adjusts the capacity of each expert based on its current load to prevent overfitting and improve performance.
-- **Coherence-Based Scheduling**: Dynamically adjusts the learning rate based on the coherence of the model's predictions to improve training stability.
-
-## The Better AI Training Pipeline: A Multi-Stage Approach to Excellence
-
-The Better AI training pipeline is a meticulously designed multi-stage process that progressively refines the model's capabilities, transforming it from a general-purpose code model into a highly specialized and human-aligned coding assistant. This multi-stage approach is critical to the success of the Better AI system, as it allows the model to learn in a structured and incremental manner, building upon its knowledge at each stage.
-
-### Stage 1: Pretraining - Building a Foundation of Code Understanding
-The journey of a Better AI model begins with the pretraining stage. Here, the model is exposed to a massive and diverse corpus of code from a wide range of sources, including "The Stack v2". The primary objective of this stage is to instill in the model a fundamental understanding of the syntax, structures, and patterns of programming languages. This is achieved through a self-supervised learning process, where the model is trained to predict the next token in a sequence of code. This seemingly simple task forces the model to learn a rich and hierarchical representation of code, which serves as the foundation for all subsequent stages of training.
-
-### Stage 2: Supervised Fine-Tuning (SFT) - Learning to Follow Instructions
-Once the model has developed a solid foundation of code understanding, it progresses to the supervised fine-tuning (SFT) stage. In this stage, the model is trained on a curated dataset of high-quality code and natural language instructions, such as the "Magicoder" and "Code-Feedback" datasets. The goal of SFT is to teach the model to align its vast knowledge of code with human intent, enabling it to follow instructions and generate code that is not only syntactically correct but also well-structured, efficient, and easy to understand.
-
-### Stage 3: Reinforcement Learning from Human Feedback (RLHF) - Aligning with Human Preferences
-The final and most advanced stage of the training pipeline is Reinforcement Learning from Human Feedback (RLHF). In this stage, the model's behavior is further refined to align with human preferences. This is achieved by training a reward model to predict which of two code snippets a human would prefer. The model is then trained to generate code that maximizes the reward signal from this model, using a state-of-the-art policy gradient algorithm called Group Reward Policy Optimization (GRPO). This process is guided by a sophisticated Hierarchical Reward Model that scores both single-step soundness and end-to-end coherence, ensuring that the model generates code that is not only locally correct but also globally coherent and well-structured.
-
-This multi-stage training pipeline, combined with a powerful DeepSeek-inspired architecture and a suite of advanced reasoning features, is what makes Better AI a truly cutting-edge system for training advanced coding models.
-
-```
-The Stack v2 Dataset
-    (billions of tokens)
-         ↓
-   Language Modeling Loss
-         ↓
-  Pretraining (1-2 weeks)
-         ↓
-  Pretrained Model
-```
-
-**Metrics:**
-- Perplexity on held-out code
-- Token accuracy
-- Language coverage
-
-### Stage 2: Supervised Fine-Tuning
-
-**Objective:** Learn instruction following
-
-```
-Magicoder + Code-Feedback
-    (100-200k examples)
-         ↓
-  Instruction Following Loss
-         ↓
-  SFT (3-5 days)
-         ↓
-  Instruction-Following Model
-```
-
-**Data Mixing:**
-- 75% Magicoder (instruction-response)
-- 25% Code-Feedback (multi-turn)
-
-### Stage 3: RLHF with GRPO
-
-**Objective:** Align with human preferences
-
-```
-CodeUltraFeedback
-(10k preference pairs)
-         ↓
-  Score with BR-RM
-         ↓
-  Compute Advantages (GRPO)
-         ↓
-  Policy Optimization
-         ↓
-  RLHF Stage 1 (5-7 days)
-         ↓
-         ↓
-RLVR Coding Data
-(80k reasoning traces)
-         ↓
-  Multi-Attribute Learning
-         ↓
-  STaR Bootstrapping
-         ↓
-  RLHF Stage 2 (3-5 days)
-         ↓
-  Final Model
-```
-
-## Configuration Examples
-
-### Minimal Setup (Testing)
+**BranchRewardModel:**
+- 4 branch heads: Correctness, Efficiency, Readability, Robustness
+- Rethinking module for refinement
+- Output: scalar reward [0, 1]
 
 ```python
-from better_ai.config import ModelConfig, TrainingConfig
+class BranchRewardModel(nn.Module):
+    def forward(self, hidden_states, return_branch_scores=True):
+        # Returns: (reward, {correctness, efficiency, readability, robustness})
+```
 
-model_config = ModelConfig(
-    vocab_size=32000,
-    hidden_dim=768,
-    num_layers=8,
-    num_attention_heads=12,
+**HierarchicalRewardModel:**
+- Combines single-step (BR-RM) and end-to-end scoring
+- Weighted combination for holistic quality assessment
+
+### 4. Training Infrastructure
+
+#### CurriculumMCTSTrainer (`better_ai/training/curriculum_mcts_trainer.py`)
+
+Production trainer combining curriculum learning with Monte Carlo Tree Search.
+
+```python
+from better_ai.training import CurriculumMCTSTrainer
+
+trainer = CurriculumMCTSTrainer(
+    model=model,
+    reward_model=reward_model,
+    config=CurriculumMCTSConfig(
+        enable_curriculum=True,
+        enable_mcts=True,
+        mcts_frequency=5,  # Every 5 steps
+        mcts_data_ratio=0.3,
+    )
 )
 
-training_config = TrainingConfig(
-    batch_size=4,
-    learning_rate=5e-4,
-    max_steps=1000,
+trainer.train_with_curriculum(train_loader, num_epochs=3)
+```
+
+**Components:**
+- `CosineCurriculumScheduler` - Smooth difficulty progression
+- `MCTSCoTSearcher` - Tree search for CoT data generation
+- `GRPOTrainer` - Integrated policy optimization
+
+#### GRPO with KV-Cache (`better_ai/training/grpo.py`, `better_ai/training/kv_cache_grpo.py`)
+
+Group Reward Policy Optimization with memory optimization.
+
+```python
+from better_ai.training import GRPOTrainer
+from better_ai.training.kv_cache_grpo import KVCacheManager
+
+grpo_trainer = GRPOTrainer(model, reward_model, config)
+
+# With KV-cache optimization
+cache_manager = KVCacheManager(max_cache_size=1000, cache_dim=1536)
+```
+
+**Memory Savings:** 40% reduction through sequential generation with cache reuse
+
+### 5. Reasoning Features (`better_ai/models/features/`)
+
+#### CoT Specialization (`cot_specialization.py`)
+```python
+config = ModelConfig(use_cot_specialization=True, cot_num_heads=5)
+```
+- Isolates reasoning tokens from final output
+- 5 specialized attention heads
+- Prevents reasoning pollution
+
+#### Recursive Scratchpad (`recursive_scratchpad.py`)
+```python
+config = ModelConfig(
+    use_recursive_scratchpad=True,
+    scratchpad_max_iterations=8,
 )
 ```
+- Iterative refinement up to 8 iterations
+- Automatic stopping based on confidence
+- Attention-based scratchpad state
 
-### Full Production Setup
+#### STaR Module (`star_module.py`)
+```python
+config = ModelConfig(use_star=True, star_bootstrap_rounds=3)
+```
+- Self-taught reasoning with bootstrap learning
+- Consistency checking across multiple paths
+- Learns from successful reasoning traces
+
+### 6. Data Pipeline (`better_ai/data/`)
+
+**UnifiedDataLoader** (`unified_dataloader.py`):
+```python
+from better_ai.data.unified_dataloader import create_dataloader
+from better_ai.data.dataset_config import load_datasets_by_stage
+
+# Load datasets for specific stage
+pretraining_datasets = load_datasets_by_stage('pretraining')
+train_loader = create_dataloader(pretraining_datasets, batch_size=32)
+```
+
+**Dataset Configuration** (`datasets.yml`):
+```yaml
+datasets:
+  - name: "The Stack"
+    path: "/data/the_stack"
+    max_seq_length: 8192
+    num_training_steps: 100000
+```
+
+## Training Pipeline
+
+### 5-Stage Pipeline
+
+```
+Stage 1: Pretraining (1-2 weeks)
+├── Dataset: The Stack v2 (multi-language code)
+├── Objective: Next-token prediction
+├── Output: Base model with code understanding
+└── Implementation: main_workflow.py --stage pretrain
+
+Stage 2: SFT (3-5 days)
+├── Dataset: Magicoder + Code-Feedback
+├── Mix: 75% single-turn, 25% multi-turn
+├── Objective: Instruction following
+└── Implementation: main_workflow.py --stage sft
+
+Stage 3: RLHF Stage 1 (5-7 days)
+├── Dataset: CodeUltraFeedback (10k pairs)
+├── Algorithm: GRPO with BR-RM
+├── Objective: Human preference alignment
+└── Implementation: main_workflow.py --stage rlhf
+
+Stage 4: RLHF Stage 2 (3-5 days)
+├── Dataset: RLVR Coding (80k traces)
+├── Features: Multi-attribute + STaR
+├── Objective: Advanced reasoning
+└── Implementation: main_workflow.py --stage rlhf2
+
+Stage 5: Security DPO (2-3 days)
+├── Dataset: CVE datasets
+├── Focus: Vulnerability repair, memory safety
+└── Implementation: main_workflow.py --stage security
+```
+
+### Running the Pipeline
+
+```bash
+# Full pipeline
+python better_ai/scripts/main_workflow.py --stage full
+
+# Individual stages with mock data for testing
+python train_enhanced.py --stage pretrain --test
+python train_enhanced.py --stage sft --test
+python train_enhanced.py --stage rlhf --test
+```
+
+## Memory Optimizations
+
+### FP8 Quantization (`better_ai/optimizers/fp8.py`)
+```python
+from better_ai.optimizers import FP8AdamW
+
+optimizer = FP8AdamW(model.parameters(), lr=1e-4)
+```
+- E4M3 for forward pass, E5M2 for gradients
+- 50% memory reduction
+
+### Gradient Checkpointing
+```python
+config = ModelConfig(use_gradient_checkpointing=True)
+```
+- Selective checkpointing for MoE layers
+- 25% memory savings
+
+### Expert Management (`better_ai/training/expert_manager.py`)
+```python
+from better_ai.training import ExpertSpecializationManager
+
+manager = ExpertSpecializationManager(num_experts=8)
+manager.update_specialization(expert_loads, losses)
+```
+- Tracks expert utilization
+- Prevents expert collapse
+- Dynamic capacity adjustment
+
+## Evaluation
+
+### Benchmarks (`better_ai/training/evaluation.py`)
 
 ```python
-from better_ai.config import ModelConfig, TrainingConfig
-
-model_config = ModelConfig()  # Uses defaults: 64k vocab, 1536 dim, 16 layers
-
-training_config = TrainingConfig(
-    batch_size=32,
-    gradient_accumulation_steps=4,
-    learning_rate=1e-4,
-    warmup_steps=2000,
-    max_steps=100000,
-    lr_schedule="cosine",
-    bf16=True,
-    distributed_backend="fsdp",
+from better_ai.training.evaluation import (
+    RLHFEvaluator,
+    CodingBenchmarkEvaluator,
+    MetricsAggregator,
 )
+
+evaluator = RLHFEvaluator(model, reward_model, device)
+metrics = evaluator.evaluate(test_data)
+
+# Coding benchmarks
+benchmark = CodingBenchmarkEvaluator()
+results = benchmark.evaluate_humaneval(model)
 ```
 
-## Performance Metrics
+**Supported Benchmarks:**
+- HumanEval (Python code generation)
+- MBPP (Python coding problems)
+- SWE-bench (software engineering tasks)
+- Custom coding tasks
 
-### Evaluation Metrics
+## Configuration Reference
 
-1. **Correctness**: Percentage of tests passed
-2. **Efficiency**: Time/space complexity scores
-3. **Reasoning Quality**: Trace diversity and coherence
-4. **Multi-Attribute**: Per-attribute alignment
-5. **Alignment**: Correlation with human preferences
-
-### Benchmarks
-
-- **SWE-bench**: 21k software engineering instances
-- **HumanEval**: Python code generation
-- **MBPP**: Python coding problems
-- **Custom**: Coding-specific tasks
-
-## Integration Points
-
-### Data Pipeline
-```
-Raw Data → Preprocessing → Tokenization → DataLoader
-```
-
-### Training Loop
-```
-Forward Pass → Loss Computation → Backward Pass → Optimization
-```
-
-### Evaluation Loop
-```
-Model Inference → Reward Scoring → Metric Computation → Reporting
-```
-
-## Memory and Compute Requirements
-
-### Minimum Setup
-- GPU Memory: 20GB (single A100)
-- Training Time: ~2 weeks
-- Batch Size: 8 (with gradient accumulation)
-
-### Recommended Setup
-- GPU Memory: 80GB (8x A100)
-- Training Time: ~1 week
-- Batch Size: 256 (distributed)
-
-### Optimizations
-- FP8 quantization: 50% memory savings
-- Ring Attention: 30% memory savings
-- Gradient checkpointing: 25% memory savings
-
-## Common Issues and Solutions
-
-### Issue: OOM (Out of Memory)
-
-**Solutions:**
-1. Reduce batch size
-2. Enable gradient checkpointing
-3. Use FP8 quantization
-4. Reduce sequence length
-5. Enable Ring Attention for longer sequences
-
-### Issue: Training Instability
-
-**Solutions:**
-1. Reduce learning rate
-2. Increase warmup steps
-3. Use smaller clipping epsilon
-4. Enable gradient clipping
-5. Use GRPO instead of PPO
-
-### Issue: Poor Reasoning Quality
-
-**Solutions:**
-1. Enable Recursive Scratchpad
-2. Increase scratchpad iterations
-3. Use STaR with more bootstrap rounds
-4. Collect more reasoning traces
-5. Increase CoT head count
-
-## Debugging and Profiling
-
-### Enable Logging
+### Model Config (`better_ai/config.py`)
 
 ```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
+@dataclass
+class ModelConfig:
+    # Architecture
+    vocab_size: int = 64000
+    hidden_dim: int = 1536
+    num_layers: int = 16
+    num_attention_heads: int = 24
+    num_key_value_heads: int = 12  # GQA
+    
+    # MoE
+    num_experts: int = 8
+    num_experts_per_token: int = 2
+    expert_capacity_factor: float = 1.25
+    
+    # Attention
+    use_ring_attention: bool = False
+    use_flash_attention: bool = True
+    max_seq_length: int = 524288
+    
+    # Features
+    use_cot_specialization: bool = False
+    use_recursive_scratchpad: bool = False
+    use_star: bool = False
 ```
 
-### Profile Memory
+### Training Config
 
 ```python
-from better_ai.training.evaluation import MetricsAggregator
-# Memory profiling integrated
+@dataclass
+class TrainingConfig:
+    batch_size: int = 32
+    learning_rate: float = 1e-4
+    max_steps: int = 100000
+    gradient_accumulation_steps: int = 4
+    
+    # Optimization
+    use_fp8: bool = False
+    bf16: bool = True
+    
+    # Curriculum + MCTS
+    use_mcts: bool = False
+    mcts_frequency: int = 5
 ```
 
-### Profile Time
+## Implementation Files Reference
 
-```python
-import torch
-torch.profiler.profile()  # Built-in PyTorch profiling
-```
+| Component | File | Key Classes |
+|-----------|------|-------------|
+| Model | `models/moe.py` | DeepSeekMoEModel, MoELayer |
+| Attention | `models/ring_attention.py` | RingAttention |
+| Rewards | `models/reward_model.py` | BranchRewardModel, HierarchicalRewardModel |
+| Main Trainer | `training/curriculum_mcts_trainer.py` | CurriculumMCTSTrainer |
+| GRPO | `training/grpo.py` | GRPOTrainer |
+| ARPO | `training/arpo.py` | ARPOTrainer |
+| MCTS | `training/mcts_cot.py` | MCTSCoTSearcher |
+| Curriculum | `training/cosine_curriculum.py` | CosineCurriculumScheduler |
+| Inference | `inference/engine.py` | InferenceEngine |
+| FP8 Optimizer | `optimizers/fp8.py` | FP8AdamW |
 
-## Advanced Techniques
+## Hardware Requirements
 
-### Multi-Modal Reasoning
-- Extend to image understanding
-- Add vision transformer backbone
-- Cross-modal attention
+| Setup | GPUs | Memory | Training Time |
+|-------|------|--------|---------------|
+| Minimum | 1× A100 | 40GB | ~3 weeks |
+| Recommended | 8× A100 | 80GB | ~1 week |
+| Production | 8× H100 | 80GB | ~5 days |
 
-### Curriculum Learning
-- Start with simple tasks
-- Progressively increase difficulty
-- Task-specific specialization
-
-### Mixture of Policies
-- Multiple policy heads
-- Task-specific routing
-- Dynamic selection
-
-## Future Enhancements
-
-1. **Longer Contexts**: Extend to 32k+ tokens
-2. **More Languages**: Support Java, C++, Rust
-3. **Code Execution**: Sandboxed test execution
-4. **Tool Integration**: API call prediction
-5. **Multi-Modal**: Code + documentation + diagrams
-
-## References and Citations
-
-1. DeepSeek-V3: Architecture innovations
-2. Ring Attention: Near-infinite context (Liu et al., 2023)
-3. GRPO: Group-based policy optimization
-4. STaR: Self-taught reasoning
-5. BR-RM: Branch reward modeling
-
-## Support and Community
-
-- GitHub Issues: Bug reports and feature requests
-- Discussions: General questions and ideas
-- Documentation: Comprehensive guides
-- Examples: Runnable code examples
+**Memory per component:**
+- Base model (16 layers, 1536 dim): ~12GB
+- With Ring Attention (524k context): +8GB
+- With MoE (8 experts): +4GB
+- With KV-cache for GRPO: +6GB
+- FP8 quantization: -50% from above

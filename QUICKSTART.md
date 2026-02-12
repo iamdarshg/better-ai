@@ -1,322 +1,319 @@
-# Quick Start Guide - Better AI RLHF System
+# Quick Start Guide
 
-## 5-Minute Setup
+Get started with Better AI in 5 minutes.
 
-### 1. Installation
+## Installation
 
 ```bash
-# Clone repository
-git clone https://github.com/your-org/better-ai.git
+git clone https://github.com/iamdarshg/better-ai.git
 cd better-ai
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Install optional optimizations
-pip install flash-attn triton  # For CUDA 11.8+
 ```
 
-### 2. Run Your First Training
+**Requirements:** Python 3.8+, PyTorch 2.0+, CUDA 11.8+
+
+## Your First Training Run
+
+### CLI Quick Start
 
 ```bash
-# Full pipeline: Pretrain → SFT → RLHF
-python train_enhanced.py --stage full --eval
+# Test with mock data (no GPU required)
+python train_enhanced.py --stage pretrain --test
 
-# Or run individual stages
-python train_enhanced.py --stage pretrain
-python train_enhanced.py --stage sft
-python train_enhanced.py --stage rlhf --eval
+# Full training pipeline
+python better_ai/scripts/main_workflow.py --stage full
+
+# Individual stages
+python train_enhanced.py --stage sft --test
+python train_enhanced.py --stage rlhf --test
 ```
 
-### 3. Custom Training Script
+### Python API
+
+#### Basic Training
 
 ```python
-from better_ai.config import ModelConfig, TrainingConfig
-from better_ai.models.enhanced_model import EnhancedDeepSeekModel
-from better_ai.training.enhanced_trainer import EnhancedTrainer
-from better_ai.data.dataset_loaders import create_dataloader
+import torch
+from better_ai import DeepSeekMoEModel, ModelConfig, TrainingConfig
+from better_ai.training import CurriculumMCTSTrainer
+from better_ai.data.unified_dataloader import create_dataloader
+from better_ai.data.dataset_config import load_datasets_by_stage
 
-# 1. Setup configuration
-model_config = ModelConfig()
+# 1. Configure model
+model_config = ModelConfig(
+    vocab_size=32000,
+    hidden_dim=768,
+    num_layers=8,
+    num_experts=4,
+)
+
+# 2. Initialize model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = DeepSeekMoEModel(model_config, device=device)
+
+# 3. Load data
+pretraining_datasets = load_datasets_by_stage('pretraining')
+train_loader = create_dataloader(pretraining_datasets, batch_size=8)
+
+# 4. Configure training
 training_config = TrainingConfig(
     batch_size=8,
     learning_rate=1e-4,
-    max_steps=10000,
+    max_steps=1000,
 )
 
-# 2. Initialize trainer
-trainer = EnhancedTrainer(model_config, training_config)
+# 5. Create trainer and train
+trainer = CurriculumMCTSTrainer(
+    model=model,
+    training_config=training_config,
+)
+trainer.train_with_curriculum(train_loader, num_epochs=1)
+```
 
-# 3. Load data
-train_loader = create_dataloader(
-    "stack_v2",
-    batch_size=8,
-    split="train",
+#### Production Training with All Features
+
+```python
+from better_ai import DeepSeekMoEModel, ModelConfig
+from better_ai.models import BranchRewardModel
+from better_ai.training import CurriculumMCTSTrainer, CurriculumMCTSConfig
+from better_ai.training.cosine_curriculum import CurriculumConfig
+from better_ai.training.mcts_cot import MCTSConfig
+from better_ai.optimizers import FP8AdamW
+
+# Production model config
+model_config = ModelConfig(
+    vocab_size=64000,
+    hidden_dim=1536,
+    num_layers=16,
+    num_experts=8,
+    use_ring_attention=True,
+    use_recursive_scratchpad=True,
+    use_cot_specialization=True,
+    use_star=True,
 )
 
-# 4. Train
-metrics = trainer.train_pretraining(train_loader, num_epochs=1)
+# Initialize model and reward model
+model = DeepSeekMoEModel(model_config)
+reward_model = BranchRewardModel(model_config)
 
-# 5. Evaluate
-trainer._save_checkpoint("my_model.pt")
+# Configure integrated trainer
+config = CurriculumMCTSConfig(
+    enable_curriculum=True,
+    enable_mcts=True,
+    mcts_frequency=5,
+    mcts_data_ratio=0.3,
+    curriculum=CurriculumConfig(
+        total_steps=100000,
+        structural_weight_end=0.3,
+        semantic_weight_end=0.7,
+    ),
+    mcts=MCTSConfig(
+        num_simulations=50,
+        exploration_constant=1.414,
+    ),
+)
+
+# Create FP8 optimizer
+optimizer = FP8AdamW(model.parameters(), lr=1e-4)
+
+# Initialize trainer
+trainer = CurriculumMCTSTrainer(
+    model=model,
+    reward_model=reward_model,
+    optimizer=optimizer,
+    config=config,
+)
+
+# Train with curriculum and MCTS
+trainer.train_with_curriculum(train_loader, num_epochs=3)
 ```
 
 ## Common Tasks
 
-### Evaluate a Model
+### Inference
 
 ```python
-from better_ai.training.evaluation import RLHFEvaluator
+from better_ai import DeepSeekMoEModel, ModelConfig, InferenceConfig
+from better_ai.inference import InferenceEngine
 
-evaluator = RLHFEvaluator(model, reward_model, device)
+# Load model
+model = DeepSeekMoEModel(ModelConfig())
+checkpoint = torch.load("checkpoints/model.pt")
+model.load_state_dict(checkpoint["model_state_dict"])
 
-# Compute preference accuracy
-accuracy = evaluator.compute_preference_accuracy(
-    chosen_scores, rejected_scores
+# Create inference engine
+inference_config = InferenceConfig(
+    max_new_tokens=512,
+    temperature=0.7,
+    top_p=0.9,
+    use_kv_cache=True,
 )
-print(f"Preference Accuracy: {accuracy:.4f}")
+engine = InferenceEngine(model, inference_config)
+
+# Generate
+input_ids = torch.tensor([[1, 2, 3, 4, 5]])
+output_ids = engine.generate(input_ids)
 ```
 
-### Use Reward Model
+### Reward Model Scoring
 
 ```python
-from better_ai.models.reward_model import BranchRewardModel
+from better_ai.models import BranchRewardModel
 
-reward_model = BranchRewardModel(config)
+# Initialize reward model
+reward_model = BranchRewardModel(model_config)
 
-# Score a response
-hidden_states = model(input_ids, output_hidden_states=True)['hidden_states']
-score = reward_model(hidden_states[-1])
-print(f"Response Score: {score:.4f}")
+# Get hidden states from model
+outputs = model(input_ids, output_hidden_states=True)
+hidden_states = outputs.hidden_states[-1]
 
-# Get attribute breakdown
-score, attributes = reward_model(hidden_states[-1], return_branch_scores=True)
+# Score response
+reward, attributes = reward_model(
+    hidden_states,
+    return_branch_scores=True
+)
+
+print(f"Total reward: {reward:.4f}")
 print(f"Correctness: {attributes['correctness']:.4f}")
 print(f"Efficiency: {attributes['efficiency']:.4f}")
 ```
 
-### Generate with Advanced Features
+### GRPO Training
 
 ```python
-# Enable all advanced features
-config = ModelConfig(
-    use_recursive_scratchpad=True,
-    use_cot_specialization=True,
-    use_tool_heads=True,
-    use_entropic_steering=True,
+from better_ai.training import GRPOTrainer
+from better_ai.training.grpo import GRPOConfig
+
+# Configure GRPO
+grpo_config = GRPOConfig(
+    group_size=8,
+    clip_epsilon=0.2,
+    kl_penalty=0.01,
 )
 
-model = EnhancedDeepSeekModel(config)
+# Create GRPO trainer
+grpo_trainer = GRPOTrainer(
+    model=model,
+    ref_model=ref_model,
+    reward_model=reward_model,
+    config=grpo_config,
+)
 
-# Generate with reasoning
-outputs = model(input_ids, return_advanced_features=True)
-reasoning_traces = outputs['advanced_features']['scratchpad']['reasoning_traces']
-print(f"Reasoning iterations: {len(reasoning_traces)}")
+# Train on preference pairs
+metrics = grpo_trainer.train_step(preference_batch)
+print(f"Policy loss: {metrics['policy_loss']:.4f}")
 ```
 
-### Fine-tune on Custom Data
+### MCTS Reasoning Search
 
 ```python
-from torch.utils.data import DataLoader, Dataset
+from better_ai.training.mcts_cot import MCTSCoTSearcher, MCTSConfig
 
-class CustomDataset(Dataset):
-    def __init__(self, examples):
-        self.examples = examples
-    
-    def __len__(self):
-        return len(self.examples)
-    
-    def __getitem__(self, idx):
-        example = self.examples[idx]
-        return {
-            "input_ids": example["input_ids"],
-            "labels": example["labels"],
-        }
+# Configure MCTS
+config = MCTSConfig(
+    num_simulations=100,
+    exploration_constant=1.414,
+    max_depth=10,
+)
 
-# Train on custom data
-custom_dataset = CustomDataset(my_examples)
-custom_loader = DataLoader(custom_dataset, batch_size=8)
+searcher = MCTSCoTSearcher(model, reward_model, config)
 
-trainer.train_sft(custom_loader, num_epochs=3)
+# Search for best reasoning path
+result = searcher.search(
+    prompt="def fibonacci(n):",
+    max_iterations=100,
+)
+
+print(f"Best value: {result.best_value:.4f}")
 ```
 
-## Configuration Presets
+### Evaluation
+
+```python
+from better_ai.training.evaluation import RLHFEvaluator, CodingBenchmarkEvaluator
+
+# Initialize evaluators
+rlhf_evaluator = RLHFEvaluator(model, reward_model, device)
+benchmark_evaluator = CodingBenchmarkEvaluator()
+
+# Evaluate on test set
+metrics = rlhf_evaluator.evaluate(test_dataloader)
+print(f"Preference accuracy: {metrics['preference_accuracy']:.4f}")
+
+# Run HumanEval benchmark
+results = benchmark_evaluator.evaluate_humaneval(model)
+print(f"HumanEval pass@1: {results['pass@1']:.4f}")
+```
+
+## Configuration Examples
 
 ### Minimal (Testing)
 ```python
-config = ModelConfig(
+ModelConfig(
     vocab_size=32000,
-    hidden_dim=512,
-    num_layers=4,
+    hidden_dim=768,
+    num_layers=8,
+    num_experts=4,
 )
 ```
 
-### Standard (Default)
+### Production
 ```python
-config = ModelConfig()  # Full config
-```
-
-### Large (Production)
-```python
-config = ModelConfig(
-    vocab_size=65536,
-    hidden_dim=2048,
-    num_layers=24,
-    num_experts=32,
+ModelConfig(
+    vocab_size=64000,
+    hidden_dim=1536,
+    num_layers=16,
+    num_experts=8,
+    use_ring_attention=True,
+    use_recursive_scratchpad=True,
+    use_cot_specialization=True,
 )
 ```
 
 ## Debugging
 
 ### Enable Debug Logging
-
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
-
-# Now all logs will show
-trainer = EnhancedTrainer(model_config, training_config)
 ```
 
 ### Check GPU Memory
-
 ```python
 import torch
 print(f"GPU Memory: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
 ```
 
-### Profile Training Step
-
+### Profile Training
 ```python
 import torch
-
-model = model.to(device)
-x = torch.randn(1, 128, config.hidden_dim).to(device)
-
 with torch.profiler.profile(
-    activities=[torch.profiler.ProfilerActivity.CPU,
-                torch.profiler.ProfilerActivity.CUDA],
+    activities=[
+        torch.profiler.ProfilerActivity.CPU,
+        torch.profiler.ProfilerActivity.CUDA,
+    ],
 ) as prof:
     output = model(x)
-
 print(prof.key_averages().table(sort_by="cuda_time_total"))
 ```
 
-## Data Formats
-
-### For Pretraining
-
-```python
-{
-    "input_ids": torch.Tensor,      # (seq_len,)
-    "attention_mask": torch.Tensor, # (seq_len,)
-    "labels": torch.Tensor,         # (seq_len,)
-}
-```
-
-### For SFT
-
-```python
-{
-    "input_ids": torch.Tensor,
-    "attention_mask": torch.Tensor,
-    "labels": torch.Tensor,
-}
-```
-
-### For RLHF
-
-```python
-{
-    "chosen_input_ids": torch.Tensor,
-    "chosen_attention_mask": torch.Tensor,
-    "rejected_input_ids": torch.Tensor,
-    "rejected_attention_mask": torch.Tensor,
-}
-```
-
-## Performance Tips
-
-1. **Use gradient accumulation** for larger effective batch sizes
-2. **Enable FP8 quantization** for 50% memory savings
-3. **Use Ring Attention** for longer sequences
-4. **Profile your code** to find bottlenecks
-5. **Use DDP/FSDP** for multi-GPU training
-
 ## Troubleshooting
 
-### Issue: CUDA Out of Memory
+**CUDA Out of Memory:**
 ```python
-# Reduce batch size or sequence length
 training_config.batch_size = 4
-training_config.max_seq_length = 4096
-
-# Or enable optimizations
-model_config.use_ring_attention = True
 model_config.use_gradient_checkpointing = True
+model_config.use_fp8 = True
 ```
 
-### Issue: Slow Training
+**Slow Training:**
 ```python
-# Check if GPU is being used
-print(torch.cuda.is_available())  # Should be True
-
-# Enable mixed precision
 training_config.bf16 = True
-
-# Use gradient accumulation
-training_config.gradient_accumulation_steps = 2
+model_config.use_flash_attention = True
 ```
-
-### Issue: Poor Model Quality
-```python
-# Train longer
-training_config.max_steps = 200000
-
-# Use better learning rate
-training_config.learning_rate = 2e-4
-
-# Enable advanced features
-model_config.use_recursive_scratchpad = True
-model_config.use_star = True
-```
-
-## Next Steps
-
-1. **Read Documentation**: See README_ENHANCED.md for full docs
-2. **Study Architecture**: ARCHITECTURE.md explains all components
-3. **Run Examples**: See `examples/` directory for runnable examples
-4. **Run Tests**: `python -m pytest tests/test_rlhf_components.py`
-5. **Try Evaluation**: Use the evaluation suite to benchmark your model
 
 ## Links
 
-- **GitHub**: https://github.com/your-org/better-ai
-- **Documentation**: See README_ENHANCED.md
-- **Architecture**: See ARCHITECTURE.md
-- **API Reference**: Docstrings in all modules
-- **Issues**: GitHub Issues for bug reports
-
-## Getting Help
-
-1. Check the FAQ in README_ENHANCED.md
-2. Search existing GitHub issues
-3. Read relevant source code documentation
-4. Post a new issue with details
-5. Join community discussions
-
-## Citation
-
-If you use Better AI, please cite:
-
-```bibtex
-@software{better_ai_2024,
-  title={Better AI: Advanced RLHF System for Coding},
-  author={Your Organization},
-  year={2024},
-}
-```
-
----
-
-**Happy Training! 🚀**
+- GitHub: https://github.com/iamdarshg/better-ai
+- Architecture: See ARCHITECTURE.md
+- Full API: Docstrings in all modules
