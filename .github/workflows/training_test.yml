@@ -8,7 +8,7 @@ on:
 
 jobs:
   
-  test-training-matrix:
+  test-training:
     runs-on: ubuntu-latest
     strategy:
       matrix:
