@@ -73,29 +73,68 @@ class ExpertSpecializationManager:
         # Update load history
         self.expert_load_history.append(expert_loads.cpu())
         
-        # Update language specialization if provided
+        # Update language specialization if provided - vectorized
         if language_tokens is not None and self.num_languages is not None:
-            for i, expert_id in enumerate(expert_ids.flatten()):
-                if i < len(language_tokens):
-                    lang = language_tokens[i].lower() if isinstance(language_tokens[i], str) else 'other'
-                    lang_idx = self.language_to_idx.get(lang, 9)  # Default to 'other'
-                    self.expert_language_counts[expert_id, lang_idx] += 1
+            # Map languages to indices once for the whole batch
+            lang_indices = torch.tensor([
+                self.language_to_idx.get(lang.lower() if isinstance(lang, str) else 'other', 9)
+                for lang in language_tokens
+            ], device=self.device)
+
+            # Repeat lang_indices if we have multiple experts per token
+            # expert_ids: [total_tokens, K]
+            K = expert_ids.size(-1) if expert_ids.dim() > 1 else 1
+            if K > 1:
+                lang_indices_rep = lang_indices.repeat_interleave(K)
+            else:
+                lang_indices_rep = lang_indices
+
+            # Efficiently update counts using 2D bincount/scatter
+            flat_expert_ids = expert_ids.flatten()
+            # Ensure same length
+            min_len = min(len(flat_expert_ids), len(lang_indices_rep))
+            if min_len > 0:
+                # We can use scatter_add for 2D updates
+                indices = flat_expert_ids[:min_len] * self.expert_language_counts.size(1) + lang_indices_rep[:min_len]
+                self.expert_language_counts.view(-1).put_(
+                    indices,
+                    torch.ones_like(indices, dtype=self.expert_language_counts.dtype),
+                    accumulate=True
+                )
         
-        # Update complexity scores if provided
+        # Update complexity scores if provided - vectorized
         if token_complexity is not None:
-            for i, expert_id in enumerate(expert_ids.flatten()):
-                if i < len(token_complexity):
-                    self.expert_complexity_scores[expert_id] += token_complexity[i].float()
+            flat_expert_ids = expert_ids.flatten()
+            K = expert_ids.size(-1) if expert_ids.dim() > 1 else 1
+            if K > 1:
+                token_complexity_rep = token_complexity.repeat_interleave(K)
+            else:
+                token_complexity_rep = token_complexity
+
+            min_len = min(len(flat_expert_ids), len(token_complexity_rep))
+            if min_len > 0:
+                self.expert_complexity_scores.index_add_(
+                    0,
+                    flat_expert_ids[:min_len],
+                    token_complexity_rep[:min_len].float()
+                )
         
-        # Update activation patterns if routing weights provided
+        # Update activation patterns if routing weights provided - optimized
         if routing_weights is not None:
-            # Track which experts tend to activate together
-            batch_expert_ids = expert_ids.flatten()
-            for i in range(len(batch_expert_ids)):
-                for j in range(i + 1, len(batch_expert_ids)):
-                    expert_i, expert_j = batch_expert_ids[i], batch_expert_ids[j]
-                    self.expert_activation_patterns[expert_i, expert_j] += 1
-                    self.expert_activation_patterns[expert_j, expert_i] += 1
+            # For activation patterns, we look at co-occurrences within tokens
+            # expert_ids: [total_tokens, K]
+            if expert_ids.dim() > 1 and expert_ids.size(1) > 1:
+                for k1 in range(expert_ids.size(1)):
+                    for k2 in range(k1 + 1, expert_ids.size(1)):
+                        e1 = expert_ids[:, k1]
+                        e2 = expert_ids[:, k2]
+                        # Update both directions for symmetry
+                        self.expert_activation_patterns.index_put_(
+                            (e1, e2), torch.tensor(1.0, device=self.device), accumulate=True
+                        )
+                        self.expert_activation_patterns.index_put_(
+                            (e2, e1), torch.tensor(1.0, device=self.device), accumulate=True
+                        )
         
         self.current_step += 1
         

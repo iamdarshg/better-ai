@@ -286,11 +286,15 @@ class EnhancedMoETrainer:
             "aux_loss": deque(maxlen=1000),
             "learning_rate": deque(maxlen=1000),
             "gradient_norm": deque(maxlen=1000),
+            "gradient_noise_scale": deque(maxlen=1000),
             "expert_utilization": deque(maxlen=1000),
             "memory_usage": deque(maxlen=1000),
             "throughput": deque(maxlen=200),
             "coherence_score": deque(maxlen=1000),
         }
+
+        # For GNS estimation
+        self._grad_buffer = deque(maxlen=20)
 
         # Performance tracking
         self.step_times = deque(maxlen=1000)
@@ -471,6 +475,49 @@ class EnhancedMoETrainer:
             f"Forward pass completed: loss={loss.item():.4f}, aux_loss={aux_loss.item():.4f}"
         )
         return loss, aux_loss, expert_ids
+
+    def _estimate_gradient_noise_scale(self) -> float:
+        """
+        Estimate Gradient Noise Scale (GNS) based on recent projected gradients.
+        GNS = (sum(var(g_i))) / (norm(mean(g)))^2
+        Uses random projection to maintain low memory footprint.
+        """
+        if len(self._grad_buffer) < 5:
+            return 0.0
+
+        try:
+            # Stack recent projected gradients
+            grads = torch.stack(list(self._grad_buffer))
+            # GNS formula: E[|g - E[g]|^2] / |E[g]|^2
+            mean_grad = grads.mean(dim=0)
+            diff = grads - mean_grad
+            var_sum = (diff**2).sum(dim=1).mean()
+            mean_norm_sq = (mean_grad**2).sum()
+
+            gns = var_sum / (mean_norm_sq + 1e-8)
+            return float(gns)
+        except Exception:
+            return 0.0
+
+    def _collect_grad_sample(self):
+        """Collect a small projected sample of current gradients for GNS estimation"""
+        try:
+            # Use a subset of parameters to save memory/time
+            grads = []
+            for p in self.model.parameters():
+                if p.requires_grad and p.grad is not None:
+                    # Take a small random sample of each gradient
+                    if p.grad.numel() > 100:
+                        # Fixed stride for deterministic-ish sampling
+                        grads.append(p.grad.flatten()[::p.grad.numel()//10].clone().detach())
+                    else:
+                        grads.append(p.grad.flatten().clone().detach())
+
+            if grads:
+                flat_grad = torch.cat(grads)
+                self._grad_buffer.append(flat_grad.to(device='cpu', dtype=torch.float32))
+        except Exception:
+            pass
 
     def _calculate_expert_utilization(self, expert_ids):
         """Calculate expert utilization for coherence scheduler"""

@@ -26,6 +26,10 @@ def handle_gradients_and_optimize(self) -> float:
                 list(self.model.parameters()), clip_norm
             )
 
+    # Collect gradient sample for GNS estimation before optimizer step
+    if hasattr(self, "_collect_grad_sample"):
+        self._collect_grad_sample()
+
     if hasattr(self.optimizer, "step"):
         if hasattr(self.optimizer, "param_groups"):
             self.optimizer.step()
@@ -59,6 +63,10 @@ def update_optimization_managers(
     self.metrics_history["learning_rate"].append(self._get_current_lr())
     self.metrics_history["gradient_norm"].append(grad_norm_val)
     self.metrics_history["throughput"].append(throughput)
+
+    # Update GNS metric
+    if hasattr(self, "_estimate_gradient_noise_scale"):
+        self.metrics_history["gradient_noise_scale"].append(self._estimate_gradient_noise_scale())
 
     if not self.use_enhanced_features:
         return
@@ -138,7 +146,7 @@ def update_optimization_managers(
     except Exception as e:
         print(f"TUI update error (non-critical): {e}")
 
-    # Update training monitor
+    # Update training monitor - restored once
     self.training_monitor.update_step(
         step=self.global_step,
         loss=loss_val,
@@ -151,45 +159,39 @@ def update_optimization_managers(
         batch_time=step_time,
     )
 
-    # Update memory manager
+    # Update memory manager - restored once
     self.memory_manager.step(loss_val, grad_norm_val)
 
     # Update capacity manager
     if expert_ids is not None:
         expert_loads = self._calculate_expert_loads(expert_ids)
-        # Convert dict to tensor if needed
         if hasattr(self.capacity_manager, "update_expert_loads"):
             try:
-                # Try to pass as tensor
                 loads_tensor = torch.tensor(
                     list(expert_loads.values()), device=self.device
                 )
                 self.capacity_manager.update_expert_loads(loads_tensor)
             except Exception:
-                # Fallback to dict
                 self.capacity_manager.update_expert_loads(expert_loads)
 
     # Memory usage for enhanced features
     self.metrics_history["memory_usage"].append(memory_usage)
 
     if expert_ids is not None:
-        expert_loads = self._calculate_expert_loads(expert_ids)
-        load_values = list(expert_loads.values())
+        expert_loads_dict = self._calculate_expert_loads(expert_ids)
+        load_values = list(expert_loads_dict.values())
         if len(load_values) > 1:
-            expert_util = 1.0 - float(torch.std(torch.tensor(load_values)))
+            expert_util = 1.0 - float(torch.std(torch.tensor(load_values, dtype=torch.float32)))
         else:
             expert_util = 0.5
         self.metrics_history["expert_utilization"].append(expert_util)
 
-    # Update TUI
+    # Update TUI - restored once
     expert_stats = {
-        "specialization": self.expert_manager.expert_specialization_scores,
-        "loads": self._calculate_expert_loads(expert_ids)
-        if expert_ids is not None
-        else {},
+        "specialization": getattr(self.expert_manager, "expert_specialization_scores", {}),
+        "loads": expert_loads_dict if expert_ids is not None else {},
     }
 
-    # Update TUI
     try:
         self.training_ui.update_metrics(
             step=self.global_step,
