@@ -48,6 +48,7 @@ jobs:
     name: Trigger Profiling Dispatch (auto)
     runs-on: ubuntu-latest
     needs: [test-training]
+    if: always()
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -87,8 +88,8 @@ jobs:
 
   run_high_resource_tests:
     name: Run High-Resource Tests (Per Test)
-    needs: [discover_high_resource_tests]
-    if: ${{ needs.discover_high_resource_tests.outputs.test_ids != '[]' }}
+    needs: [discover_high_resource_tests, test-training]
+    if: ${{ always() && needs.discover_high_resource_tests.outputs.test_ids != '[]' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -108,6 +109,21 @@ jobs:
       - name: Run Test (per-test isolation)
         run: |
           python tools/runtest.py --test "${{ matrix.test_id }}"
-      
+
+  test-training-status:
+    name: Test Training Status Check
+    runs-on: ubuntu-latest
+    needs: [test-training]
+    if: always()
+    steps:
+      - name: Check test-training result
+        run: |
+          if [ "${{ needs.test-training.result }}" = "success" ]; then
+            echo "✓ test-training passed"
+            exit 0
+          else
+            echo "✗ test-training failed"
+            exit 1
+          fi
 
 # TODO: Flame graphs and profiling data upload
