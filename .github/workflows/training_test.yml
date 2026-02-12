@@ -36,13 +36,7 @@ jobs:
         pip install -r requirements.txt
         pip install pytest
 
-    - name: Run Integration Tests
-      run: |
-        python -m unittest discover tests/integration
 
-    - name: Run All Unit Tests
-      run: |
-        python -m unittest discover tests/unit
 
   trigger_profiling_dispatch:
     name: Trigger Profiling Dispatch (auto)

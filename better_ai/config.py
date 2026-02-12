@@ -263,8 +263,6 @@ class ModelConfig:
 
         return cls.from_dict(data)
 
-@dataclass
-class HTSRConfig:
     """Configuration for HTSR (Hurst Temperature Spectral Rigidity) monitoring.
 
     This config enables grokking detection during training by monitoring
@@ -308,7 +306,7 @@ class HTSRConfig:
     htsr_val_loss_warning: float = 1.5
     htsr_val_loss_critical: float = 0.2
 
-
+HTSRConfig = ModelConfig
 
 @dataclass
 class TrainingConfig:
