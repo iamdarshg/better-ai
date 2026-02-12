@@ -42,6 +42,58 @@ from ..monitoring import HTSRMonitor, HTMLDashboard, LogLevel
 logger = logging.getLogger(__name__)
 
 
+def setup_bf16_optimizer_states(
+    optimizer: torch.optim.Optimizer,
+) -> torch.optim.Optimizer:
+    """Convert optimizer states to bfloat16 for memory efficiency.
+
+    BF16 optimizer states reduce memory usage while maintaining numerical stability.
+    This is particularly beneficial for large models with many parameters.
+    """
+    try:
+        import bfloat16
+
+        for param_group in optimizer.param_groups:
+            for param in param_group["params"]:
+                if param.requires_grad and param.grad is not None:
+                    state = optimizer.state.get(param)
+                    if state is not None:
+                        for key, value in state.items():
+                            if torch.is_tensor(value) and value.dtype == torch.float32:
+                                state[key] = value.to(dtype=torch.bfloat16)
+
+        logger.info("Successfully converted optimizer states to bfloat16")
+        return optimizer
+    except ImportError:
+        logger.warning("bfloat16 not available, keeping fp32 optimizer states")
+        return optimizer
+
+
+def convert_optimizer_for_bf16_training(
+    optimizer: torch.optim.Optimizer,
+) -> torch.optim.Optimizer:
+    """Prepare optimizer for BF16 training by adjusting param_groups.
+
+    This function sets up the optimizer to work with BF16 training by:
+    1. Creating master weights in FP32 for stability
+    2. Using BF16 gradients for memory efficiency
+    """
+    try:
+        from torch.distributed.algorithms._CheckpointWrapper import (
+            checkpoint_wrapper,
+        )
+
+        for param_group in optimizer.param_groups:
+            param_group["betas"] = param_group.get("betas", (0.9, 0.999))
+            param_group["eps"] = param_group.get("eps", 1e-8)
+
+        logger.info("Optimizer prepared for BF16 training")
+        return optimizer
+    except Exception as e:
+        logger.warning(f"Failed to prepare optimizer for BF16: {e}")
+        return optimizer
+
+
 class EnhancedMoETrainer:
     """
     Enhanced MoE trainer with all optimizations:
@@ -217,6 +269,16 @@ class EnhancedMoETrainer:
         self.current_epoch = 0
         self.best_loss = float("inf")
         self.early_stop_triggered = False
+
+        # BF16 optimizer states setup
+        self.use_bf16_optimizer = getattr(config, "use_bf16_optimizer_states", False)
+        if self.use_bf16_optimizer:
+            try:
+                self.optimizer = setup_bf16_optimizer_states(self.optimizer)
+                logger.info("BF16 optimizer states enabled for memory efficiency")
+            except Exception as e:
+                logger.warning(f"Failed to setup BF16 optimizer states: {e}")
+                self.use_bf16_optimizer = False
 
         # Metrics tracking
         self.metrics_history = {

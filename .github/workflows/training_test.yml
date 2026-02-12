@@ -8,7 +8,7 @@ on:
 
 jobs:
   
-  test-training:
+  test-training-matrix:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -47,7 +47,7 @@ jobs:
   trigger_profiling_dispatch:
     name: Trigger Profiling Dispatch (auto)
     runs-on: ubuntu-latest
-    needs: [test-training]
+    needs: [test-training-complete]
     if: always()
     steps:
       - uses: actions/checkout@v4
@@ -88,7 +88,7 @@ jobs:
 
   run_high_resource_tests:
     name: Run High-Resource Tests (Per Test)
-    needs: [discover_high_resource_tests, test-training]
+    needs: [discover_high_resource_tests, test-training-complete]
     if: ${{ always() && needs.discover_high_resource_tests.outputs.test_ids != '[]' }}
     runs-on: ubuntu-latest
     strategy:
@@ -110,20 +110,16 @@ jobs:
         run: |
           python tools/runtest.py --test "${{ matrix.test_id }}"
 
-  test-training-status:
-    name: Test Training Status Check
+  test-training-complete:
+    name: test-training
     runs-on: ubuntu-latest
-    needs: [test-training]
+    needs: [test-training-matrix]
     if: always()
     steps:
-      - name: Check test-training result
-        run: |
-          if [ "${{ needs.test-training.result }}" = "success" ]; then
-            echo "✓ test-training passed"
-            exit 0
-          else
-            echo "✗ test-training failed"
-            exit 1
-          fi
+      - name: Fail if test-training failed
+        if: needs.test-training.result != 'success'
+        run: exit 1
+      - name: Success
+        run: echo "All training tests passed"
 
 # TODO: Flame graphs and profiling data upload

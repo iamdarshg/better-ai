@@ -7,7 +7,7 @@ import torch.nn as nn
 from unittest.mock import Mock, patch
 import sys
 import os
-
+from better_ai.test_resource_tags import low_resource, high_resource
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from better_ai.monitoring.htsr_monitor import (
@@ -23,7 +23,7 @@ from better_ai.monitoring.htsr_monitor import (
     ALPHA_VARIANCE_THRESHOLD,
 )
 
-
+@low_resource
 class TestComputeAlphaFromESD:
     """Tests for α computation from empirical spectral density."""
 
@@ -57,7 +57,7 @@ class TestComputeAlphaFromESD:
         alpha = compute_alpha_from_esd(W)
         assert alpha == float("inf") or 2.0  # Returns default
 
-
+@high_resource
 class TestDetectCorrelationTraps:
     """Tests for correlation trap detection."""
 
@@ -82,7 +82,7 @@ class TestDetectCorrelationTraps:
         assert is_trap == False
         assert p_value == 1.0
 
-
+@low_resource
 class TestLayerAlphaAnalyzer:
     """Tests for layer α analyzer."""
 
@@ -123,7 +123,7 @@ class TestLayerAlphaAnalyzer:
         assert "alpha" in result
         assert "layer_name" in result
 
-
+@high_resource
 class TestGrokkingDetector:
     """Tests for grokking detector."""
 
@@ -160,7 +160,7 @@ class TestGrokkingDetector:
         assert is_detected == False
         assert details["reason"] == "no_metrics"
 
-
+@low_resource
 class TestHTSRLogger:
     """Tests for HTSR logger with log classification."""
 
@@ -211,7 +211,7 @@ class TestHTSRLogger:
         major_logs = logger.get_logs_by_level(LogLevel.MAJOR)
         assert len(major_logs) == 1
 
-
+@low_resource
 class TestCommunicationStub:
     """Tests for communication stub."""
 
@@ -247,7 +247,7 @@ class TestCommunicationStub:
         notifications = stub.get_queued_notifications()
         assert len(notifications) == 1
 
-
+@high_resource
 class TestHTSRMonitor:
     """Tests for main HTSR monitor."""
 
@@ -308,7 +308,7 @@ class TestHTSRMonitor:
         assert "status" in report
         assert "model_alpha" in report
 
-
+@high_resource
 class TestIntegration:
     """Integration tests for HTSR monitoring."""
 
