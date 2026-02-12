@@ -4,13 +4,29 @@ datasets:
   # High-quality "base soup" with a focus on real-world Python/C/Rust and 
   # deduplicated knowledge.
   # -----------------------------------------------------------------------------
+  - name: "wikitext"
+    type: "huggingface"
+    path: "Salesforce/wikitext"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 4096
+    num_training_steps: 20000
+
   - name: "the-stack-v2-dedup"
     type: "huggingface"
     path: "bigcode/the-stack-v2-dedup"
     stage: "pretraining"
     split: "train"
     max_seq_length: 4096
-    num_training_steps: 20000
+    num_training_steps: 30000
+  
+  - name: "math-reasoning"
+    type: "huggingface"
+    path: "169Pi/mathreasoning"
+    stage: "pretraining" 
+    split: "train" 
+    max_seq_length: 8192 
+    num_training_steps: 160000
 
   - name: "codesearchnet"
     type: "huggingface"
@@ -25,40 +41,72 @@ datasets:
     path: "BAAI/TACO"
     stage: "pretraining"
     split: "train"
-    max_seq_length: 8192
-    num_training_steps: 6000
+    max_seq_length: 32768
+    num_training_steps: 320000
 
   - name: "learn-rust"
     type: "huggingface"
     path: "gaianet/learn-rust"
     stage: "pretraining"
     split: "train"
-    max_seq_length: 8192
-    num_training_steps: 4000
+    max_seq_length: 32768
+    num_training_steps: 96000
 
   - name: "the-vault"
     type: "huggingface"
     path: "unnatural-code/The-Vault"
     stage: "pretraining"
     split: "train"
-    max_seq_length: 8192
-    num_training_steps: 6000
+    max_seq_length: 262144
+    num_training_steps: 64000
 
   - name: "jupyter-code-text"
     type: "huggingface"
     path: "ncoop57/jupyter_code_text_coarse"
     stage: "pretraining"
     split: "train"
-    max_seq_length: 8192
+    max_seq_length: 262144
     num_training_steps: 4000
+  
+  - name: "FineWeb-Edu"
+    type: "huggingface"
+    path: "HuggingFaceFW/fineweb-edu"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 131072 
+    num_training_steps: 48000
+
+  - name: "cpp-the-stack"
+    type: "huggingface"
+    path: "ningani/stack-v2-cpp-2019"
+    stage: "pretraining"
+    split: "train" 
+    max_seq_length: 262144
+    num_training_steps: 32000
+  
+  - name: "pretraining-math"
+    type: "huggingface"
+    path: "openbmb/UltraData-Math"
+    stage: "pretraining"
+    split: "train" 
+    max_seq_length: 131072 
+    num_training_steps: 32000
 
   - name: "github-code"
     type: "huggingface"
     path: "codeparrot/github-code"
     stage: "pretraining"
     split: "train"
-    max_seq_length: 16384
-    num_training_steps: 14000
+    max_seq_length: 524288
+    num_training_steps: 128000
+
+  - name: "the-stack-v2-long"
+    type: "huggingface"
+    path: "bigcode/the-stack-v2-dedup"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 524288
+    num_training_steps: 128000
 
   # -----------------------------------------------------------------------------
   # SFT STAGE (Supervised Fine-Tuning)
@@ -70,15 +118,15 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 8192
-    num_training_steps: 5000
+    num_training_steps: 50000
 
   - name: "OpenMathInstruct"
     type: "huggingface"
-    path: "nvidia/OpenMathInstruct-1"
+    path: "nvidia/OpenMathInstruct-2"
     stage: "sft"
     split: "train"
     max_seq_length: 16384
-    num_training_steps: 10000
+    num_training_steps: 256000
 
   - name: "opencodeinstruct"
     type: "huggingface"
@@ -86,46 +134,46 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 16384
-    num_training_steps: 10000
+    num_training_steps: 30000
 
   - name: "bigcodebench"
     type: "huggingface"
     path: "bigcode/bigcodebench"
     stage: "sft"
     split: "train"
-    max_seq_length: 16384
-    num_training_steps: 2000
+    max_seq_length: 131072
+    num_training_steps: 32000
 
   - name: "secure-code-v2"
     type: "huggingface"
     path: "SecureCode-v2"
     stage: "sft"
     split: "train"
-    max_seq_length: 16384
-    num_training_steps: 2000
+    max_seq_length: 262144
+    num_training_steps: 12000
 
   - name: "agent-tool-use"
     type: "huggingface"
     path: "DeepNLP/Agent-Tool-Use-Dialogue-Open-Dataset"
     stage: "sft"
     split: "train"
-    max_seq_length: 16384
-    num_training_steps: 4000
+    max_seq_length: 524288
+    num_training_steps: 20000
 
   - name: "code-doc-pairs"
     type: "huggingface"
     path: "code2doc/function-doc-pairs"
     stage: "sft"
     split: "train"
-    max_seq_length: 4096
-    num_training_steps: 4000
+    max_seq_length: 262144
+    num_training_steps: 8000
 
   - name: "self-oss-instruct"
     type: "huggingface"
     path: "bigcode/self-oss-instruct-sc2-exec-filter-50k"
     stage: "sft"
     split: "train"
-    max_seq_length: 16384
+    max_seq_length: 262144
     num_training_steps: 2500
 
   - name: "apps-filtered"
@@ -134,23 +182,96 @@ datasets:
     stage: "sft"
     split: "train"
     max_seq_length: 32768
-    num_training_steps: 5000
+    num_training_steps: 20000
+  
+  - name: "arxiv-papers"
+    type: "huggingface"
+    path: "nick007x/arxiv-papers"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 32768
+    num_training_steps: 20000
+
+  - name: "arxiv-papers-2"
+    type: "huggingface"
+    path: "nick007x/arxiv-papers"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 524288
+    num_training_steps: 10000
 
   - name: "stackoverflow-data"
     type: "huggingface"
     path: "bigcode/stackoverflow-data"
     stage: "sft"
     split: "train"
-    max_seq_length: 65536
-    num_training_steps: 16000
+    max_seq_length: 524288
+    num_training_steps: 18000
   
   - name: "Deepseek-Distilled"
     type: "huggingface"
     path: "ibndias/DeepSeek-Distilled-40M"
     stage: "sft"
     split: "train"
+    max_seq_length: 262144
+    num_training_steps: 32000
+
+  - name: "reasoning-gym"
+    type: "huggingface"
+    path: "theblackcat102/reasoning-gym-merged"
+    stage: "sft"
+    split : "train"
+    num_training_steps: 80000
+    max_seq_length: 32768
+  
+  - name: "RepoBench-1"
+    type: "huggingface"
+    path: "tianyang/repobench_python_v1.1"
+    stage: "sft"
+    split: "train"
+    num_training_steps: 80000
     max_seq_length: 131072
-    num_training_steps: 20000
+
+  - name: "RepoBench-2"
+    type: "huggingface"
+    path: "tianyang/repobench-r"
+    stage: "sft"
+    split: "train_hard"
+    num_training_steps: 24000
+    max_seq_length: 131072
+  
+  - name: "OASST1"
+    type: "huggingface"
+    path: "OpenAssistant/oasst1"
+    stage: "sft"
+    split: "train"
+    num_training_steps: 8000 
+    max_seq_length: 32768
+  
+  - name: "OASST2"
+    type: "huggingface"
+    path: "OpenAssistant/oasst2"
+    stage: "sft"
+    split: "train"
+    num_training_steps: 8000
+    max_seq_length: 65536 
+  
+  - name: "alpaca"
+    type: "huggingface"
+    path: "yahma/alpaca-cleaned"
+    stage: "sft"
+    split: "train"
+    num_training_steps: 12000
+    max_seq_length: 8192
+  
+  - name: "swe-bench-train"
+    type: "huggingface"
+    path: "princeton-nlp/swe-bench"
+    stage: "sft"
+    split: "train"
+    num_training_steps: 30000
+    max_seq_length: 16384
+
 
   # -----------------------------------------------------------------------------
   # RLHF / PREFERENCE STAGE
@@ -162,8 +283,8 @@ datasets:
     path: "Capx/Agentic-DPO-V0.1"
     stage: "rlhf"
     split: "train_prefs"
-    max_seq_length: 8096
-    num_training_steps: 5000
+    max_seq_length: 8192
+    num_training_steps: 50000
 
   - name: "ultrafeedback-binarized"
     type: "huggingface"
@@ -171,7 +292,7 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 12288
-    num_training_steps: 7500
+    num_training_steps: 9500
 
   - name: "helpsteer-code"
     type: "huggingface"
@@ -179,7 +300,7 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 32768
-    num_training_steps: 4000
+    num_training_steps: 16000
 
   - name: "stackoverflow-preferences"
     type: "huggingface"
@@ -187,14 +308,14 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 65536
-    num_training_steps: 10000
+    num_training_steps: 20000
   
   - name: "thumbs-up"
     type: "huggingface"
     path: "recmeapp/thumbs-up"
     stage: "rlhf"
     split: "train_prefs"
-    max_seq_length: 4096
+    max_seq_length: 8192
     num_training_steps: 750
 
   - name: "github-issues-rlhf"
@@ -203,7 +324,7 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 131072
-    num_training_steps: 50000
+    num_training_steps: 81000
 
   - name: "ultrafeedback-curated"
     type: "huggingface"
@@ -211,7 +332,33 @@ datasets:
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 262144
-    num_training_steps: 100000
+    num_training_steps: 50000
+
+  - name: "ultrafeedback-curated-short"
+    type: "huggingface"
+    path: "argilla/ultrafeedback-curated"
+    stage: "rlhf"
+    split: "train_prefs"
+    max_seq_length: 65536
+    num_training_steps: 50000
+
+  - name: "Reddit-ELI5"
+    type: "huggingface"
+    path: "defunct-datasets/eli5"
+    stage: "pretraining"
+    split: "train"
+    max_seq_length: 131072
+    num_training_steps: 20000
+  
+  - name: "HelpSteer2"
+    type: "huggingface"
+    path: "nvidia/HelpSteer2"
+    stage: "rlhf"
+    split: "train"
+    max_seq_length: 131072
+    num_training_steps: 22000
+
+
 
   # Evaluation Datasets (kept from original config)
   - name: "swe-bench"
@@ -219,15 +366,15 @@ datasets:
     path: "princeton-nlp/swe-bench"
     stage: "eval"
     split: "test"
-    max_seq_length: 8096
-    num_training_steps: 0
+    max_seq_length: 16384
+
   - name: "humaneval"
     type: "huggingface"
     path: "openai/humaneval"
     stage: "eval"
     split: "test"
-    max_seq_length: 131072
-
+    max_seq_length: 524288
+  
   # -----------------------------------------------------------------------------
   # SECURITY DPO STAGE
   # Final alignment phase focused on CVE remediation, memory safety, and
@@ -239,8 +386,8 @@ datasets:
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"
-    max_seq_length: 8192
-    num_training_steps: 15000
+    max_seq_length: 131072
+    num_training_steps: 35000
 
   - name: "code-vulnerability-security-dpo"
     type: "huggingface"
@@ -248,8 +395,8 @@ datasets:
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"
-    max_seq_length: 8192
-    num_training_steps: 20000
+    max_seq_length: 262144
+    num_training_steps: 27000
 
   - name: "secure-code-repair-dpo"
     type: "huggingface"
@@ -257,8 +404,8 @@ datasets:
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"
-    max_seq_length: 8192
-    num_training_steps: 15000
+    max_seq_length: 524288
+    num_training_steps: 19000
 
   - name: "pku-safe-rlhf-security"
     type: "huggingface"
@@ -266,6 +413,296 @@ datasets:
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"
-    max_seq_length: 8192
-    num_training_steps: 7000
+    max_seq_length: 524288
+    num_training_steps: 18000
   
+  - name: "NIST cybersecurity dpo"
+    type: "huggingface"
+    path: "ethanolivertroy/nist-cybersecurity-training"
+    stage: "security_dpo"
+    split: "train"
+    data_format: "rlhf"
+    max_seq_length: 131072
+    num_training_steps: 30000
+
+# =============================================================================
+# EXTENDED CURRICULUM CONFIGURATION
+# Configuration-driven sequence length, difficulty, and domain mixing
+# Optimized for GROKKING: ~40% fast learning, ~60% generalization tail
+# All values configurable - nothing hardcoded
+# =============================================================================
+curriculum:
+  # Global curriculum settings
+  global:
+    save_frequency: 500
+    enable_checkpointing: true
+    # Grokking optimization: slower progression, longer plateau
+    grokking_mode: true
+    fast_learning_ratio: 0.4  # First 40% for memorization
+    generalization_tail: 0.6   # Last 60% for generalization
+  
+  # Stage-specific curriculum configurations
+  stages:
+    pretraining:
+      total_steps: 600000
+      enable_sequence_curriculum: true
+      enable_difficulty_curriculum: true
+      enable_domain_mixing: true
+      
+      # Grokking: start fast, plateau, then slow progression
+      sequence_length:
+        min_length: 4096
+        warmup_steps: 8000  # Longer warmup for grokking
+        schedule: "grokking_cosine"  # New grokking-optimized schedule
+        grokking_fast_ratio: 0.4     # Fast progression for first 40%
+        plateau_steps: 10000         # Hold at mid-length before final push
+        # Per-dataset min lengths (override global min)
+        dataset_min_lengths: {}
+        # Progression rates per dataset (1.0 = standard, >1 = faster, <1 = slower)
+        dataset_progression_rates: {}
+      
+      # Difficulty: hold easier samples longer, gradual ramp-up
+      difficulty:
+        difficulty_field: "difficulty"
+        alternative_fields: ["complexity", "difficulty_score", "hardness"]
+        min_difficulty: 0.0
+        max_difficulty: 1.0
+        default_difficulty: 0.5
+        warmup_steps: 3000  # Longer warmup
+        schedule: "grokking_sigmoid"  # Slow start, rapid middle, very slow end
+        enable_adaptive: true
+        performance_window: 50
+        adjustment_rate: 0.05  # Slower adjustments for stability
+        use_length_proxy: true
+        length_difficulty_factor: 0.3
+        # Grokking-specific: minimum epochs per difficulty tier
+        min_samples_per_difficulty: 1000
+      
+      # Domain mixing: stabilize early, small adjustments in tail
+      domain_mixing:
+        domains:
+          code: ["the-stack-v2-dedup", "codesearchnet", "github-code"]
+          math: ["math-reasoning", "pretraining-math"]
+          algorithms: ["taco-algorithms"]
+          general: ["wikitext", "FineWeb-Edu"]
+          rust: ["learn-rust"]
+          vault: ["the-vault"]
+        initial_weights:
+          code: 0.35
+          math: 0.20
+          algorithms: 0.15
+          general: 0.15
+          rust: 0.10
+          vault: 0.05
+        # Grokking: faster initial convergence, slow adjustments
+        update_frequency: 150
+        enable_adaptive_frequency: true
+        min_update_frequency: 100
+        max_update_frequency: 800  # Larger max for slower tail
+        adjustment_rate: 0.02  # Smaller adjustments for stability
+        min_weight: 0.03
+        max_weight: 0.50
+        smoothing_factor: 0.92  # High smoothing for stability
+        # Grokking: converge fast in first 40%, minimal changes after
+        convergence_step: 0.4  # Weights stabilize at this step ratio
+        tracked_metrics: ["loss", "perplexity", "accuracy"]
+        metric_weights:
+          loss: 0.5
+          perplexity: 0.3
+          accuracy: 0.2
+        blend_strategy: "weighted_sum"
+        variance_threshold: 0.03
+
+    sft:
+      total_steps: 600000
+      enable_sequence_curriculum: true
+      enable_difficulty_curriculum: true
+      enable_domain_mixing: true
+      
+      # Grokking sequence length
+      sequence_length:
+        min_length: 8192
+        warmup_steps: 5000
+        schedule: "grokking_cosine"
+        grokking_fast_ratio: 0.4
+        plateau_steps: 8000
+      
+      # Grokking difficulty
+      difficulty:
+        difficulty_field: "difficulty"
+        alternative_fields: ["complexity", "difficulty_score", "hardness"]
+        min_difficulty: 0.1
+        max_difficulty: 1.0
+        default_difficulty: 0.5
+        warmup_steps: 2000
+        schedule: "grokking_sigmoid"
+        enable_adaptive: true
+        performance_window: 50
+        adjustment_rate: 0.04
+        use_length_proxy: true
+        length_difficulty_factor: 0.25
+        min_samples_per_difficulty: 800
+      
+      # Grokking domain mixing
+      domain_mixing:
+        domains:
+          math_reasoning: ["OpenMathInstruct", "reasoning-gym"]
+          code_instruction: ["opencodeinstruct", "bigcodebench"]
+          agent_tasks: ["jupyter-agent-dataset", "agent-tool-use"]
+          secure_coding: ["secure-code-v2"]
+          repo_understanding: ["RepoBench-1", "RepoBench-2"]
+          conversation: ["OASST1", "OASST2", "alpaca"]
+          apps: ["apps-filtered"]
+          swebench: ["swe-bench-train"]
+        initial_weights:
+          math_reasoning: 0.25
+          code_instruction: 0.25
+          agent_tasks: 0.15
+          secure_coding: 0.10
+          repo_understanding: 0.10
+          conversation: 0.08
+          apps: 0.04
+          swebench: 0.03
+        update_frequency: 120
+        enable_adaptive_frequency: true
+        min_update_frequency: 80
+        max_update_frequency: 600
+        adjustment_rate: 0.03
+        min_weight: 0.02
+        max_weight: 0.45
+        smoothing_factor: 0.90
+        convergence_step: 0.4
+        tracked_metrics: ["loss", "accuracy", "perplexity"]
+        metric_weights:
+          loss: 0.4
+          accuracy: 0.4
+          perplexity: 0.2
+        blend_strategy: "weighted_sum"
+        variance_threshold: 0.06
+
+    rlhf:
+      total_steps: 200000
+      enable_sequence_curriculum: true
+      enable_difficulty_curriculum: true
+      enable_domain_mixing: true
+      
+      # Grokking sequence length
+      sequence_length:
+        min_length: 8192
+        warmup_steps: 3000
+        schedule: "grokking_cosine"
+        grokking_fast_ratio: 0.4
+        plateau_steps: 5000
+      
+      # Grokking difficulty - RLHF needs careful difficulty ramp
+      difficulty:
+        difficulty_field: "difficulty"
+        alternative_fields: ["complexity", "difficulty_score", "hardness"]
+        min_difficulty: 0.2
+        max_difficulty: 1.0
+        default_difficulty: 0.5
+        warmup_steps: 1000
+        schedule: "grokking_sigmoid"
+        enable_adaptive: true
+        performance_window: 30
+        adjustment_rate: 0.03
+        use_length_proxy: true
+        length_difficulty_factor: 0.2
+        min_samples_per_difficulty: 500
+      
+      # Grokking domain mixing for RLHF
+      domain_mixing:
+        domains:
+          agentic: ["agentic-dpo"]
+          feedback: ["ultrafeedback-binarized", "ultrafeedback-curated", "ultrafeedback-curated-short"]
+          code_help: ["helpsteer-code", "HelpSteer2"]
+          qa: ["stackoverflow-preferences"]
+          github: ["github-issues-rlhf"]
+          thumbs: ["thumbs-up"]
+        initial_weights:
+          agentic: 0.25
+          feedback: 0.30
+          code_help: 0.20
+          qa: 0.12
+          github: 0.08
+          thumbs: 0.05
+        update_frequency: 80
+        enable_adaptive_frequency: true
+        min_update_frequency: 50
+        max_update_frequency: 400
+        adjustment_rate: 0.03
+        min_weight: 0.05
+        max_weight: 0.45
+        smoothing_factor: 0.88
+        convergence_step: 0.4
+        tracked_metrics: ["loss", "reward", "kl_divergence", "accuracy"]
+        metric_weights:
+          loss: 0.30
+          reward: 0.35
+          kl_divergence: 0.20
+          accuracy: 0.15
+        blend_strategy: "weighted_sum"
+        variance_threshold: 0.08
+
+    security_dpo:
+      total_steps: 150000
+      enable_sequence_curriculum: true
+      enable_difficulty_curriculum: true
+      enable_domain_mixing: true
+      
+      # Grokking sequence length for security
+      sequence_length:
+        min_length: 131072
+        warmup_steps: 2000
+        schedule: "grokking_step"  # Step schedule for security
+        grokking_fast_ratio: 0.4
+        plateau_steps: 3000
+        # More gradual steps for grokking
+        step_thresholds: [0.2, 0.4, 0.6, 0.8, 1.0]
+      
+      # Grokking difficulty for security
+      difficulty:
+        difficulty_field: "difficulty"
+        alternative_fields: ["complexity", "difficulty_score", "hardness", "severity"]
+        min_difficulty: 0.3
+        max_difficulty: 1.0
+        default_difficulty: 0.6
+        warmup_steps: 500
+        schedule: "grokking_sigmoid"
+        enable_adaptive: true
+        performance_window: 25
+        adjustment_rate: 0.02
+        use_length_proxy: true
+        length_difficulty_factor: 0.15
+        min_samples_per_difficulty: 300
+      
+      # Grokking domain mixing for security
+      domain_mixing:
+        domains:
+          cve_repair: ["cve-dpo-4b"]
+          vulnerability: ["code-vulnerability-security-dpo"]
+          secure_repair: ["secure-code-repair-dpo"]
+          safety_alignment: ["pku-safe-rlhf-security"]
+          cybersecurity_training: ["NIST cybersecurity dpo"]
+        initial_weights:
+          cve_repair: 0.30
+          vulnerability: 0.25
+          secure_repair: 0.20
+          safety_alignment: 0.15
+          cybersecurity_training: 0.10
+        update_frequency: 60
+        enable_adaptive_frequency: true
+        min_update_frequency: 40
+        max_update_frequency: 300
+        adjustment_rate: 0.02
+        min_weight: 0.05
+        max_weight: 0.45
+        smoothing_factor: 0.92
+        convergence_step: 0.4
+        tracked_metrics: ["loss", "reward", "kl_divergence"]
+        metric_weights:
+          loss: 0.35
+          reward: 0.45
+          kl_divergence: 0.20
+        blend_strategy: "weighted_sum"
+        variance_threshold: 0.05

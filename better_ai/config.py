@@ -14,22 +14,20 @@ from .utils.exceptions import ConfigError
 @dataclass
 class ModelConfig:
     """Configuration for the transformer model"""
-    
-    # Architecture parameters - Defaults kept reasonable for CI/Testing
-    # Use get_production_config() for full-scale training
+
     vocab_size: int = 64000
-    hidden_dim: int = 1536
-    num_layers: int = 16
+    hidden_dim: int = 3072
+    num_layers: int = 12
     num_attention_heads: int = 24
-    num_key_value_heads: Optional[int] = 12 # Default: num_attention_heads // 2
+    num_key_value_heads: Optional[int] = 4 # Default: num_attention_heads // 2
     intermediate_dim: int = 16384
     max_seq_length: int = 524288
     
     # MoE parameters
-    num_experts: int = 8
-    num_experts_per_token: int = 2
-    expert_capacity_factor: float = 1.25
-    shared_experts: int = 1
+    num_experts: int = 16
+    num_experts_per_token: int = 4
+    expert_capacity_factor: float = 1.1
+    shared_experts: int = 2
     moe_load_balance_weight: float = 0.01
     
     # Attention parameters
@@ -51,22 +49,22 @@ class ModelConfig:
     init_method: str = "normal"
     
     # Quantization
-    use_fp8: bool = False
+    use_fp8: bool = True
     fp8_e4m3: bool = True  # E4M3 for forward, E5M2 for gradients
     
     # Sparse attention
     use_sparse_attention: bool = False
-    local_window_size: int = 8192
-    global_stride: int = 1024
+    local_window_size: int = 4096
+    global_stride: int = 512
     
     # Memory optimization
     use_gradient_checkpointing: bool = True
     use_flash_attention: bool = True
-    use_paged_attention: bool = True
+    use_paged_attention: bool = False
     
     # Ring Attention parameters
     use_ring_attention: bool = False
-    use_striped_attention: bool = False
+    use_striped_attention: bool = True
     ring_block_size: int = 1024
     ring_num_devices: Optional[int] = None  # Auto-detect
     
@@ -76,64 +74,64 @@ class ModelConfig:
     # CoT Specialization parameters
     use_cot_specialization: bool = False
     cot_num_heads: int = 5
-    cot_hidden_dim: int = 32
+    cot_hidden_dim: int = 3072
     
     # Inner Monologue parameters
-    use_inner_monologue: bool = False
+    use_inner_monologue: bool = True
     thought_token_id: Optional[int] = 100  # Default for testing
     thought_end_token_id: Optional[int] = 101  # Default for testing
-    private_subspace_dim: int = 4096
+    private_subspace_dim: int = 3072
     
     # STaR parameters
-    use_star: bool = False
+    use_star: bool = True
     star_bootstrap_rounds: int = 3
-    star_consistency_samples: int = 10
+    star_consistency_samples: int = 8
     
     # Tool-Use parameters
-    use_tool_heads: bool = False
-    tool_vocab_size: int = 32  # Number of tool tokens
-    tool_hidden_dim: int = 32
+    use_tool_heads: bool = True
+    tool_vocab_size: int = 6144  # Number of tool tokens
+    tool_hidden_dim: int = 2048
 
     # JSON+DBOps Head parameters
-    use_json_db_ops_head: bool = False
-    json_db_ops_ratio: float = 0.1
-    json_db_ops_internal_dim: int = 256
+    use_json_db_ops_head: bool = True
+    json_db_ops_ratio: float = 0.125
+    json_db_ops_internal_dim: int = 1536
 
     # Math Reasoning Head parameters
-    use_math_reasoning_head: bool = False
-    math_reasoning_ratio: float = 0.1
-    math_reasoning_internal_dim: int = 256
+    use_math_reasoning_head: bool = True
+    math_reasoning_ratio: float = 0.11
+    math_reasoning_internal_dim: int = 2048
 
     # Algorithm Head parameters
-    use_algorithm_head: bool = False
-    algorithm_ratio: float = 0.1
-    algorithm_internal_dim: int = 256
+    use_algorithm_head: bool = True
+    algorithm_ratio: float = 0.125
+    algorithm_internal_dim: int = 1536
     
     # Grammar Constraint parameters
-    use_grammar_constraints: bool = False
+    use_grammar_constraints: bool = True
     grammar_type: str = "gbnf"  # "gbnf" or "none"
     enforce_json_output: bool = False
     
     # Entropic Steering parameters
-    use_entropic_steering: bool = False
+    use_entropic_steering: bool = True
     entropy_threshold: float = 2.5
     clarify_token_id: Optional[int] = None  # Will be set during tokenization
     
     # Recursive Scratchpad parameters
-    use_recursive_scratchpad: bool = False
+    use_recursive_scratchpad: bool = True
     scratchpad_max_iterations: int = 8
-    scratchpad_hidden_dim: int = 32
+    scratchpad_hidden_dim: int = 4096
 
     # TiDAR parameters
-    use_tidar: bool = False
-    tidar_num_steps: int = 5
-    tidar_diffusion_dim: int = 128
+    use_tidar: bool = True
+    tidar_num_steps: int = 3
+    tidar_diffusion_dim: int = 2048
     tidar_num_layers: int = 2
 
     # Feature Toggles for Memory management
-    use_reward_models: bool = False
-    use_reasoning_rewards: bool = False
-    use_value_head: bool = False
+    use_reward_models: bool = True
+    use_reasoning_rewards: bool = True
+    use_value_head: bool =True
 
     def __post_init__(self):
         self.validate()
@@ -182,25 +180,7 @@ class ModelConfig:
     @classmethod
     def get_production_config(cls):
         """Returns a production-ready configuration with larger dimensions"""
-        return cls(
-            vocab_size=64000,
-            hidden_dim=1536,
-            num_layers=12,
-            num_attention_heads=24,
-            num_key_value_heads=12,
-            intermediate_dim=6144,
-            max_seq_length=8192,
-            num_experts=8,
-            use_ring_attention=True,
-            use_striped_attention=True,
-            use_tidar=True,
-            use_star=True,
-            use_recursive_scratchpad=True,
-            use_grammar_constraints=True,
-            use_cot_specialization=True,
-            use_tool_heads=True,
-            use_inner_monologue=True
-        )
+        return cls()
 
     @classmethod
     def get_small_model_config(cls):
@@ -260,16 +240,16 @@ class TrainingConfig:
     batch_size: int = 1
     gradient_accumulation_steps: int = 4
     learning_rate: float = 1e-4
-    warmup_steps: int = 1
+    warmup_steps: int = 100
     max_steps: int = 100
-    save_steps: int = 1
-    eval_steps: int = 1
+    save_steps: int = 10
+    eval_steps: int = 10
     
     # Optimizer
     optimizer: str = "adamw"  # "adamw", "lion", "adafactor"
     beta1: float = 0.9
     beta2: float = 0.95
-    weight_decay: float = 0.1
+    weight_decay: float = 0.075
     eps: float = 1e-8
     use_8bit_optimizer: bool = True
     
@@ -314,7 +294,7 @@ class TrainingConfig:
     profile_time: bool = True
 
     # RLHF
-    rl_stage: int = 1  # 1 for standard reward, 2 for multi-attribute
+    rl_stage: int = 2  # 1 for standard reward, 2 for multi-attribute
 
     # Testing
     use_mock_data: bool = False
@@ -328,8 +308,8 @@ class TrainingConfig:
 
     # Enhanced MoE Training Features
     # Expert specialization and monitoring
-    num_experts: int = 8
-    num_languages: int = 3
+    num_experts: int = 16
+    num_languages: int = 8
     expert_monitor_log_frequency: int = 50
     expert_monitor_save_frequency: int = 500
     

@@ -3,4 +3,4 @@
 *.pyc
 *.log
 .ruff_cache
-.vscode/
+.vscode/.estimate_cache

@@ -31,7 +31,41 @@ from .cosine_curriculum import (
     CosineCurriculumScheduler,
     CurriculumConfig,
     create_cosine_curriculum,
+    # Extended curriculum (try import for backward compatibility)
 )
+
+try:
+    from .extended_curriculum import (
+        ExtendedCurriculumScheduler,
+        ExtendedCurriculumConfig,
+        SequenceLengthConfig,
+        DifficultyConfig,
+        DomainMixingConfig,
+        SequenceLengthScheduler,
+        DifficultyScheduler,
+        AdaptiveDomainMixer,
+        create_extended_curriculum_from_config,
+    )
+
+    EXTENDED_CURRICULUM_AVAILABLE = True
+except ImportError:
+    ExtendedCurriculumScheduler = None
+    ExtendedCurriculumConfig = None
+    SequenceLengthConfig = None
+    DifficultyConfig = None
+    DomainMixingConfig = None
+    SequenceLengthScheduler = None
+    DifficultyScheduler = None
+    AdaptiveDomainMixer = None
+    create_extended_curriculum_from_config = None
+    EXTENDED_CURRICULUM_AVAILABLE = False
+
+# Try to import create_extended_curriculum from cosine_curriculum
+# This may fail if extended_curriculum is not available
+try:
+    from .cosine_curriculum import create_extended_curriculum
+except (ImportError, NameError):
+    create_extended_curriculum = None
 from .mcts_cot import (
     MCTSCoTSearcher,
     MCTSNode,
@@ -77,4 +111,15 @@ __all__ = [
     "CurriculumMCTSTrainer",
     "CurriculumMCTSConfig",
     "create_curriculum_mcts_trainer",
+    # Extended curriculum components
+    "ExtendedCurriculumScheduler",
+    "ExtendedCurriculumConfig",
+    "SequenceLengthConfig",
+    "DifficultyConfig",
+    "DomainMixingConfig",
+    "SequenceLengthScheduler",
+    "DifficultyScheduler",
+    "AdaptiveDomainMixer",
+    "create_extended_curriculum_from_config",
+    "EXTENDED_CURRICULUM_AVAILABLE",
 ]

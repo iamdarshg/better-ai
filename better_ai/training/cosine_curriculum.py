@@ -12,6 +12,12 @@ from dataclasses import dataclass, field
 
 from ..config import TrainingConfig
 
+EXTENDED_CURRICULUM_AVAILABLE = False
+
+
+# Forward declarations for type hints
+ExtendedCurriculumScheduler = None
+
 
 @dataclass
 class CurriculumConfig:
@@ -324,3 +330,97 @@ def create_cosine_curriculum(config: TrainingConfig) -> CosineCurriculumSchedule
     )
 
     return CosineCurriculumScheduler(curriculum_config)
+
+
+def create_extended_curriculum(
+    config: TrainingConfig,
+    stage: str,
+    dataset_configs: Optional[List[Dict[str, Any]]] = None,
+) -> "ExtendedCurriculumScheduler":
+    """
+    Create extended curriculum scheduler with sequence, difficulty, and domain mixing.
+
+    Args:
+        config: TrainingConfig
+        stage: Current training stage (pretraining, sft, rlhf, security_dpo)
+        dataset_configs: List of dataset configurations from datasets.yml
+
+    Returns:
+        ExtendedCurriculumScheduler instance
+    """
+    if not EXTENDED_CURRICULUM_AVAILABLE:
+        raise ImportError("Extended curriculum is not available. Check imports.")
+
+    # Build curriculum config from training config and stage
+    from .extended_curriculum import (
+        ExtendedCurriculumConfig,
+        SequenceLengthConfig,
+        DifficultyConfig,
+        DomainMixingConfig,
+    )
+
+    # Extract dataset max lengths
+    dataset_max_lengths = {}
+    if dataset_configs:
+        for d in dataset_configs:
+            if d.get("stage") == stage:
+                dataset_max_lengths[d["name"]] = d.get("max_seq_length", 8192)
+
+    # Create sub-configurations with defaults from training config
+    sequence_config = SequenceLengthConfig(
+        stage=stage,
+        min_length=config.max_seq_length // 4,  # Start at 1/4 of max
+        warmup_steps=config.warmup_steps,
+        schedule="cosine",
+    )
+
+    difficulty_config = DifficultyConfig(
+        stage=stage,
+        min_difficulty=0.0,
+        max_difficulty=1.0,
+        default_difficulty=0.5,
+        warmup_steps=config.warmup_steps // 2,
+        schedule="cosine",
+        enable_adaptive=True,
+    )
+
+    # Domain config with defaults - will be overridden if curriculum section exists
+    domain_config = DomainMixingConfig(
+        stage=stage,
+        domains={},
+        initial_weights={},
+    )
+
+    extended_config = ExtendedCurriculumConfig(
+        stage=stage,
+        total_steps=config.max_steps,
+        sequence_config=sequence_config,
+        difficulty_config=difficulty_config,
+        domain_config=domain_config,
+        enable_sequence_curriculum=True,
+        enable_difficulty_curriculum=True,
+        enable_domain_mixing=False,  # Enable only if domains specified
+        save_frequency=config.save_steps,
+    )
+
+    return ExtendedCurriculumScheduler(extended_config, dataset_max_lengths)
+
+
+# Import for backward compatibility in __init__.py
+# This ensures create_extended_curriculum is available for import
+try:
+    from .extended_curriculum import (
+        ExtendedCurriculumScheduler,
+        ExtendedCurriculumConfig,
+        SequenceLengthConfig,
+        DifficultyConfig,
+        DomainMixingConfig,
+        SequenceLengthScheduler,
+        DifficultyScheduler,
+        AdaptiveDomainMixer,
+        create_extended_curriculum_from_config,
+    )
+
+    EXTENDED_CURRICULUM_AVAILABLE = True
+except ImportError:
+    EXTENDED_CURRICULUM_AVAILABLE = False
