@@ -193,12 +193,17 @@ class SequenceLengthScheduler:
 
     def _calculate_progress(self) -> float:
         """Calculate normalized progress through curriculum"""
+        # For grokking schedules, we use a different progress calculation
+        # Progress ranges from 0 to 1 over the course of training
         if self.current_step <= self.config.warmup_steps:
             return 0.0
 
         effective_steps = self.current_step - self.config.warmup_steps
-        # Assume we reach max length by total_steps
-        return min(1.0, effective_steps / max(1, self.config.warmup_steps))
+        # Use a fixed denominator for progress calculation
+        # This should be the expected total training steps
+        # For now, use warmup_steps * 10 as a reasonable default
+        progress_denominator = max(1, self.config.warmup_steps * 10)
+        return min(1.0, effective_steps / progress_denominator)
 
     def _calculate_length(self, min_len: int, max_len: int, progress: float) -> int:
         """Calculate sequence length based on schedule type"""

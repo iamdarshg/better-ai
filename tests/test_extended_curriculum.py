@@ -31,7 +31,6 @@ class TestSequenceLengthScheduler:
         config = SequenceLengthConfig(
             stage="test",
             min_length=4096,
-            max_length=8192,
             warmup_steps=100,
             schedule="cosine",
         )
@@ -58,7 +57,6 @@ class TestSequenceLengthScheduler:
         config = SequenceLengthConfig(
             stage="test",
             min_length=1000,
-            max_length=5000,
             warmup_steps=50,
             schedule="linear",
         )
@@ -71,12 +69,46 @@ class TestSequenceLengthScheduler:
         lengths = scheduler.step()
         assert 1000 <= lengths["ds"] <= 5000
 
+    def test_step_schedule(self):
+        """Test step schedule"""
+        config = SequenceLengthConfig(
+            stage="test",
+            min_length=1000,
+            warmup_steps=10,
+            schedule="step",
+            step_thresholds=[0.25, 0.5, 0.75, 1.0],
+        )
+        scheduler = SequenceLengthScheduler(config, {"ds": 4000})
+
+        # Initially at min
+        scheduler.step()
+        lengths = scheduler.step()
+        assert lengths["ds"] == 1000
+
+    def test_dataset_specific_min_lengths(self):
+        """Test per-dataset minimum lengths"""
+        config = SequenceLengthConfig(
+            stage="test",
+            min_length=4096,
+            warmup_steps=0,
+            schedule="cosine",
+            dataset_min_lengths={"short_ds": 1024, "long_ds": 8192},
+        )
+        scheduler = SequenceLengthScheduler(
+            config, {"short_ds": 8192, "long_ds": 16384}
+        )
+
+        scheduler.step()
+        lengths = scheduler.get_current_lengths()
+
+        assert lengths["short_ds"] == 1024
+        assert lengths["long_ds"] == 8192
+
     def test_grokking_cosine_schedule(self):
         """Test grokking cosine schedule: fast first 40%, plateau, slow tail"""
         config = SequenceLengthConfig(
             stage="test",
             min_length=4096,
-            max_length=16384,
             warmup_steps=100,
             schedule="grokking_cosine",
             grokking_fast_ratio=0.4,
@@ -108,7 +140,6 @@ class TestSequenceLengthScheduler:
         config = SequenceLengthConfig(
             stage="test",
             min_length=4096,
-            max_length=16384,
             warmup_steps=10,
             schedule="grokking_step",
             grokking_fast_ratio=0.4,
@@ -119,25 +150,6 @@ class TestSequenceLengthScheduler:
         # Initially at min
         scheduler.step()
         assert scheduler.get_dataset_length("ds") == 4096
-
-    def test_dataset_specific_min_lengths(self):
-        """Test per-dataset minimum lengths"""
-        config = SequenceLengthConfig(
-            stage="test",
-            min_length=4096,
-            warmup_steps=0,
-            schedule="cosine",
-            dataset_min_lengths={"short_ds": 1024, "long_ds": 8192},
-        )
-        scheduler = SequenceLengthScheduler(
-            config, {"short_ds": 8192, "long_ds": 16384}
-        )
-
-        scheduler.step()
-        lengths = scheduler.get_current_lengths()
-
-        assert lengths["short_ds"] == 1024
-        assert lengths["long_ds"] == 8192
 
 
 class TestDifficultyScheduler:
@@ -262,7 +274,7 @@ class TestAdaptiveDomainMixer:
             domains={"domain1": ["ds1"]},
             update_frequency=10,
         )
-        mixer = AdaptiveDomainMixer(config)
+        mixer = AdaptiveDomainMixer(config, total_steps=1000)
 
         # Update performance for domain
         mixer.update_domain_performance("domain1", {"loss": 0.5, "accuracy": 0.9})
@@ -282,7 +294,7 @@ class TestAdaptiveDomainMixer:
             initial_weights={"strong": 0.5, "weak": 0.5},
             adjustment_rate=0.5,  # High rate for testing
         )
-        mixer = AdaptiveDomainMixer(config)
+        mixer = AdaptiveDomainMixer(config, total_steps=1000)
 
         initial_weights = mixer.get_sampling_weights()
 
@@ -308,7 +320,6 @@ class TestExtendedCurriculumScheduler:
         seq_config = SequenceLengthConfig(
             stage="test",
             min_length=1024,
-            max_length=4096,
             warmup_steps=10,
         )
         diff_config = DifficultyConfig(stage="test")
@@ -354,7 +365,7 @@ class TestExtendedCurriculumScheduler:
 
     def test_get_state_methods(self):
         """Test various getter methods"""
-        seq_config = SequenceLengthConfig(stage="test")
+        seq_config = SequenceLengthConfig(stage="test", min_length=1024)
         config = ExtendedCurriculumConfig(
             stage="test",
             sequence_config=seq_config,
@@ -365,6 +376,7 @@ class TestExtendedCurriculumScheduler:
         scheduler.step()
 
         lengths = scheduler.get_current_sequence_lengths()
+        assert lengths is not None
         assert "ds1" in lengths
         assert "ds2" in lengths
 
