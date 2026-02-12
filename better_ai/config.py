@@ -178,52 +178,6 @@ class ModelConfig:
     def from_dict(cls, data: Dict[str, Any]):
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
-
-@dataclass
-class HTSRConfig:
-    """Configuration for HTSR (Hurst Temperature Spectral Rigidity) monitoring.
-
-    This config enables grokking detection during training by monitoring
-    the spectral properties of weight matrices.
-
-    Key thresholds:
-    - α > 4.5: Over-grokking / excessive memorization (SEVERE)
-    - α variance > 0.5: Unstable training (SEVERE)
-    """
-
-    # Enable/disable HTSR monitoring
-    enable_htsr_monitoring: bool = False
-
-    # Monitoring frequency (check every N steps)
-    htsr_monitor_interval: int = 75
-
-    # α thresholds for grokking detection
-    htsr_alpha_upper_threshold: float = 4.5  # Over-grokking threshold
-    htsr_variance_threshold: float = 0.5  # High variance threshold
-
-    # Intervention settings
-    htsr_lr_reduction_factor: float = 0.5  # Reduce LR by 50%
-    htsr_wd_increase_factor: float = 2.0  # Double weight decay
-    htsr_apply_intervention: bool = True  # Auto-apply interventions
-
-    # Dashboard settings
-    htsr_dashboard_port: int = 8050
-    htsr_dashboard_host: str = "0.0.0.0"  # Local network access
-    htsr_dashboard_auth: bool = True
-    htsr_dashboard_auto_refresh: int = 120  # seconds
-
-    # Communication channels (for severe alerts)
-    htsr_comm_email_enabled: bool = False
-    htsr_comm_slack_enabled: bool = False
-    htsr_comm_discord_enabled: bool = False
-    htsr_comm_pagerduty_enabled: bool = False
-
-    # Loss thresholds for alerts
-    htsr_train_loss_warning: float = 1.0
-    htsr_train_loss_critical: float = 0.1
-    htsr_val_loss_warning: float = 1.5
-    htsr_val_loss_critical: float = 0.2
-
     def __post_init__(self):
         self.validate()
 
@@ -308,6 +262,52 @@ class HTSRConfig:
             raise ValueError(f"Unsupported file extension: {ext}")
 
         return cls.from_dict(data)
+
+@dataclass
+class HTSRConfig:
+    """Configuration for HTSR (Hurst Temperature Spectral Rigidity) monitoring.
+
+    This config enables grokking detection during training by monitoring
+    the spectral properties of weight matrices.
+
+    Key thresholds:
+    - α > 4.5: Over-grokking / excessive memorization (SEVERE)
+    - α variance > 0.5: Unstable training (SEVERE)
+    """
+
+    # Enable/disable HTSR monitoring
+    enable_htsr_monitoring: bool = False
+
+    # Monitoring frequency (check every N steps)
+    htsr_monitor_interval: int = 75
+
+    # α thresholds for grokking detection
+    htsr_alpha_upper_threshold: float = 4.5  # Over-grokking threshold
+    htsr_variance_threshold: float = 0.5  # High variance threshold
+
+    # Intervention settings
+    htsr_lr_reduction_factor: float = 0.5  # Reduce LR by 50%
+    htsr_wd_increase_factor: float = 2.0  # Double weight decay
+    htsr_apply_intervention: bool = True  # Auto-apply interventions
+
+    # Dashboard settings
+    htsr_dashboard_port: int = 8050
+    htsr_dashboard_host: str = "0.0.0.0"  # Local network access
+    htsr_dashboard_auth: bool = True
+    htsr_dashboard_auto_refresh: int = 120  # seconds
+
+    # Communication channels (for severe alerts)
+    htsr_comm_email_enabled: bool = False
+    htsr_comm_slack_enabled: bool = False
+    htsr_comm_discord_enabled: bool = False
+    htsr_comm_pagerduty_enabled: bool = False
+
+    # Loss thresholds for alerts
+    htsr_train_loss_warning: float = 1.0
+    htsr_train_loss_critical: float = 0.1
+    htsr_val_loss_warning: float = 1.5
+    htsr_val_loss_critical: float = 0.2
+
 
 
 @dataclass
