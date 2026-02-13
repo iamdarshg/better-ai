@@ -16,19 +16,20 @@ class ModelConfig:
     """Configuration for the transformer model"""
 
     vocab_size: int = 64000
-    hidden_dim: int = 3072
-    num_layers: int = 10
+    hidden_dim: int = 4096
+    num_layers: int = 8
     num_attention_heads: int = 24
     num_key_value_heads: Optional[int] = 4  # Default: num_attention_heads // 2
-    intermediate_dim: int = 16384
+    intermediate_dim: int = 11000
     max_seq_length: int = 524288
 
     # MoE parameters
-    num_experts: int = 16
-    num_experts_per_token: int = 4
+    num_experts: int = 8
+    num_experts_per_token: int = 2
     expert_capacity_factor: float = 1.1
-    shared_experts: int = 2
+    shared_experts: int = 1
     moe_load_balance_weight: float = 0.01
+    use_moe_every_n_layers: int = 2
 
     # Attention parameters
     rope_theta: float = 10000.0
@@ -73,11 +74,11 @@ class ModelConfig:
 
     # CoT Specialization parameters
     use_cot_specialization: bool = False
-    cot_num_heads: int = 5
+    cot_num_heads: int = 4
     cot_hidden_dim: int = 3072
 
     # Inner Monologue parameters
-    use_inner_monologue: bool = True
+    use_inner_monologue: bool = False
     thought_token_id: Optional[int] = 100  # Default for testing
     thought_end_token_id: Optional[int] = 101  # Default for testing
     private_subspace_dim: int = 3072
@@ -95,7 +96,7 @@ class ModelConfig:
     # JSON+DBOps Head parameters
     use_json_db_ops_head: bool = True
     json_db_ops_ratio: float = 0.125
-    json_db_ops_internal_dim: int = 1536
+    json_db_ops_internal_dim: int = 1024
 
     # Math Reasoning Head parameters
     use_math_reasoning_head: bool = True
@@ -104,8 +105,8 @@ class ModelConfig:
 
     # Algorithm Head parameters
     use_algorithm_head: bool = True
-    algorithm_ratio: float = 0.125
-    algorithm_internal_dim: int = 1536
+    algorithm_ratio: float = 0.1
+    algorithm_internal_dim: int = 2048
 
     # Grammar Constraint parameters
     use_grammar_constraints: bool = True
@@ -119,13 +120,13 @@ class ModelConfig:
 
     # Recursive Scratchpad parameters
     use_recursive_scratchpad: bool = True
-    scratchpad_max_iterations: int = 8
+    scratchpad_max_iterations: int = 6
     scratchpad_hidden_dim: int = 4096
 
     # TiDAR parameters
     use_tidar: bool = True
-    tidar_num_steps: int = 3
-    tidar_diffusion_dim: int = 2048
+    tidar_num_steps: int = 2
+    tidar_diffusion_dim: int = 1536
     tidar_num_layers: int = 2
 
     # Feature Toggles for Memory management
@@ -134,8 +135,8 @@ class ModelConfig:
     use_value_head: bool = True
 
     # Resource Estimation Ratios
-    training_fragmentation_ratio: float = 1.15
-    inference_fragmentation_ratio: float = 1.20
+    training_fragmentation_ratio: float = 1.10
+    inference_fragmentation_ratio: float = 1.15
 
     def __post_init__(self):
         self.validate()
@@ -375,7 +376,7 @@ class TrainingConfig:
     bf16: bool = True
 
     # Distributed training
-    distributed_backend: str = "ddp"  # "ddp", "fsdp"
+    distributed_backend: str = "fsdp"  # "ddp", "fsdp"
     fsdp_sharding_strategy: str = "FULL_SHARD"
     fsdp_cpu_offload: bool = True
 
@@ -398,8 +399,8 @@ class TrainingConfig:
 
     # Enhanced MoE Training Features
     # Expert specialization and monitoring
-    num_experts: int = 16
-    num_languages: int = 8
+    num_experts: int = 8
+    num_languages: int = 6
     expert_monitor_log_frequency: int = 50
     expert_monitor_save_frequency: int = 500
 
