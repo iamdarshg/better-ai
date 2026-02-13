@@ -133,6 +133,10 @@ class ModelConfig:
     use_reasoning_rewards: bool = True
     use_value_head: bool = True
 
+    # Resource Estimation Ratios
+    training_fragmentation_ratio: float = 1.15
+    inference_fragmentation_ratio: float = 1.20
+
     def __post_init__(self):
         self.validate()
 
@@ -216,21 +220,31 @@ class ModelConfig:
 
     @classmethod
     def get_small_model_config(cls):
-        """Returns a minimal configuration for CI/Testing safety"""
+        """Returns a minimal configuration for CI/Testing safety with all features initialized"""
         return cls(
-            vocab_size=10000,
-            hidden_dim=128,
+            vocab_size=1024,
+            hidden_dim=48,
             num_layers=2,
-            num_attention_heads=4,
+            num_attention_heads=6,
             num_key_value_heads=2,
-            intermediate_dim=512,
-            max_seq_length=512,
+            intermediate_dim=24,
+            max_seq_length=128,
+            num_experts=4,
+            num_experts_per_token=2,
+            shared_experts=1,
             use_ring_attention=False,
             use_striped_attention=False,
             use_tidar=False,
-            use_star=False,
-            use_recursive_scratchpad=False,
+            use_star=True,
+            use_recursive_scratchpad=True,
+            scratchpad_max_iterations=2,
             use_grammar_constraints=False,
+            use_cot_specialization=True,
+            cot_num_heads=2,
+            cot_hidden_dim=8,
+            use_tool_heads=True,
+            tool_vocab_size=10,
+            tool_hidden_dim=24,
         )
 
     def to_file(self, filepath: str):
@@ -446,6 +460,23 @@ class TrainingConfig:
     def from_dict(cls, data: Dict[str, Any]):
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
+    @classmethod
+    def get_small_training_config(cls):
+        """Returns a minimal training configuration for testing"""
+        return cls(
+            batch_size=1,
+            gradient_accumulation_steps=1,
+            max_steps=10,
+            save_steps=5,
+            eval_steps=5,
+            warmup_steps=1,
+            log_every_n_steps=1,
+            use_8bit_optimizer=False,
+            bf16=False,
+            profile_memory=False,
+            profile_time=False,
+        )
+
 
 @dataclass
 class InferenceConfig:
@@ -503,3 +534,15 @@ class InferenceConfig:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
+    @classmethod
+    def get_small_inference_config(cls):
+        """Returns a minimal inference configuration for testing"""
+        return cls(
+            max_new_tokens=64,
+            do_sample=False,
+            top_k=10,
+            use_kv_cache=False,
+            use_fp8_inference=False,
+            max_batch_size=2,
+        )

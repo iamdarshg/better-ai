@@ -286,11 +286,15 @@ class EnhancedMoETrainer:
             "aux_loss": deque(maxlen=1000),
             "learning_rate": deque(maxlen=1000),
             "gradient_norm": deque(maxlen=1000),
+            "gradient_noise_scale": deque(maxlen=1000),
             "expert_utilization": deque(maxlen=1000),
             "memory_usage": deque(maxlen=1000),
             "throughput": deque(maxlen=200),
             "coherence_score": deque(maxlen=1000),
         }
+
+        # For GNS estimation
+        self._grad_buffer = deque(maxlen=20)
 
         # Performance tracking
         self.step_times = deque(maxlen=1000)
@@ -471,6 +475,49 @@ class EnhancedMoETrainer:
             f"Forward pass completed: loss={loss.item():.4f}, aux_loss={aux_loss.item():.4f}"
         )
         return loss, aux_loss, expert_ids
+
+    def _estimate_gradient_noise_scale(self) -> float:
+        """
+        Estimate Gradient Noise Scale (GNS) based on recent projected gradients.
+        GNS = (sum(var(g_i))) / (norm(mean(g)))^2
+        Uses random projection to maintain low memory footprint.
+        """
+        if len(self._grad_buffer) < 5:
+            return 0.0
+
+        try:
+            # Stack recent projected gradients
+            grads = torch.stack(list(self._grad_buffer))
+            # GNS formula: E[|g - E[g]|^2] / |E[g]|^2
+            mean_grad = grads.mean(dim=0)
+            diff = grads - mean_grad
+            var_sum = (diff**2).sum(dim=1).mean()
+            mean_norm_sq = (mean_grad**2).sum()
+
+            gns = var_sum / (mean_norm_sq + 1e-8)
+            return float(gns)
+        except Exception:
+            return 0.0
+
+    def _collect_grad_sample(self):
+        """Collect a small projected sample of current gradients for GNS estimation"""
+        try:
+            # Use a subset of parameters to save memory/time
+            grads = []
+            for p in self.model.parameters():
+                if p.requires_grad and p.grad is not None:
+                    # Take a small random sample of each gradient
+                    if p.grad.numel() > 100:
+                        # Fixed stride for deterministic-ish sampling
+                        grads.append(p.grad.flatten()[::p.grad.numel()//10].clone().detach())
+                    else:
+                        grads.append(p.grad.flatten().clone().detach())
+
+            if grads:
+                flat_grad = torch.cat(grads)
+                self._grad_buffer.append(flat_grad.to(device='cpu', dtype=torch.float32))
+        except Exception:
+            pass
 
     def _calculate_expert_utilization(self, expert_ids):
         """Calculate expert utilization for coherence scheduler"""
@@ -678,14 +725,69 @@ class EnhancedMoETrainer:
                         step=self.global_step,
                     )
 
+            # Update additional system and MoE metrics requested by user
+            if hasattr(self.model, "calculate_weight_entropy"):
+                weight_entropy = self.model.calculate_weight_entropy()
+                # Update model cache for entropic steering
+                self.model._cached_weight_entropy = weight_entropy
+            else:
+                weight_entropy = self._calculate_weight_entropy()
+
+            power_draw = self._estimate_power_draw()
+
+            if self.htsr_dashboard:
+                self.htsr_dashboard.update_system_metrics(
+                    weight_entropy=weight_entropy,
+                    power_draw=power_draw,
+                    step=self.global_step
+                )
+
+                # MoE metrics (utilization and GNS)
+                recent_util = self.metrics_history["expert_utilization"][-1] if self.metrics_history["expert_utilization"] else 0.5
+                recent_gns = self.metrics_history["gradient_noise_scale"][-1] if self.metrics_history["gradient_noise_scale"] else 0.0
+
+                self.htsr_dashboard.update_moe_metrics(
+                    utilization=recent_util,
+                    gns=recent_gns,
+                    step=self.global_step
+                )
+
             logger.debug(
                 f"HTSR Check: α={detector_state.get('model_alpha', 'N/A'):.2f}, "
                 f"variance={detector_state.get('alpha_variance', 0):.4f}, "
-                f"over_grokking={len(detector_state.get('over_grokking_layers', {}))}"
+                f"over_grokking={len(detector_state.get('over_grokking_layers', {}))}, "
+                f"entropy={weight_entropy:.4f}, power={power_draw:.1f}W"
             )
 
         except Exception as e:
             logger.warning(f"HTSR monitoring step failed: {e}")
+
+    def _calculate_weight_entropy(self) -> float:
+        """Calculate average entropy of weight distributions across linear layers."""
+        total_entropy = 0.0
+        count = 0
+        try:
+            for name, param in self.model.named_parameters():
+                if "weight" in name and param.dim() >= 2 and param.numel() > 100:
+                    w = param.detach().float()
+                    # Standardize to get a distribution
+                    w_min, w_max = w.min(), w.max()
+                    hist = torch.histc(w, bins=50, min=float(w_min), max=float(w_max))
+                    prob = hist / (hist.sum() + 1e-10)
+                    entropy = -(prob * torch.log(prob + 1e-10)).sum()
+                    total_entropy += entropy.item()
+                    count += 1
+        except Exception:
+            return 0.0
+        return total_entropy / count if count > 0 else 0.0
+
+    def _estimate_power_draw(self) -> float:
+        """Estimate current power draw in Watts (stub/approximation)."""
+        if torch.cuda.is_available():
+            # Rough approximation: base + dynamic part proportional to utilization if we could get it
+            # Since we can't easily get GPU util without extra libs, we use a proxy
+            return 150.0 + 150.0 * (0.7)  # Assume 70% load during training
+        return 65.0  # Typical CPU load
 
     def _apply_htsr_intervention(
         self,

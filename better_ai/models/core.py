@@ -403,7 +403,30 @@ class DeepSeekModel(nn.Module):
 
         if getattr(config, "use_value_head", False):
             self.value_head = nn.Linear(config.hidden_dim, 1, bias=False)
+
+        # Cache for weight entropy to avoid redundant compute
+        self._cached_weight_entropy = 0.0
+        self._last_entropy_compute_step = -1
     
+    def calculate_weight_entropy(self) -> float:
+        """Calculate average entropy of weight distributions across linear layers."""
+        total_entropy = 0.0
+        count = 0
+        try:
+            for name, param in self.named_parameters():
+                if "weight" in name and param.dim() >= 2 and param.numel() > 100:
+                    w = param.detach().float()
+                    # Standardize to get a distribution
+                    w_min, w_max = w.min(), w.max()
+                    hist = torch.histc(w, bins=50, min=float(w_min), max=float(w_max))
+                    prob = hist / (hist.sum() + 1e-10)
+                    entropy = -(prob * torch.log(prob + 1e-10)).sum()
+                    total_entropy += entropy.item()
+                    count += 1
+        except Exception:
+            return 0.0
+        return total_entropy / count if count > 0 else 0.0
+
     def _init_weights(self, module):
         """Initialize weights using scaled normal distribution"""
         if isinstance(module, nn.Linear):
@@ -686,7 +709,11 @@ class DeepSeekModel(nn.Module):
 
         # Entropic Steering
         if hasattr(self, "entropic_steering") and logits is not None:
-            entropy_out = self.entropic_steering(hidden_states, logits)
+            # Optionally use cached weight entropy or compute if needed
+            # For performance, we might not want to compute every forward pass
+            # But for the purpose of this feature, we'll use the cached one if available
+            weight_entropy = getattr(self, "_cached_weight_entropy", 0.0)
+            entropy_out = self.entropic_steering(hidden_states, logits, weight_entropy=weight_entropy)
             advanced_outputs["entropic_steering"] = entropy_out
 
         # Update logits in advanced_outputs if they were changed

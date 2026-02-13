@@ -257,6 +257,10 @@ class HTMLDashboard:
             "alpha_variance_history": deque(maxlen=100),
             "entropic_steering_hits": deque(maxlen=100),
             "intervention_history": deque(maxlen=100),
+            "weight_entropy_history": deque(maxlen=500),
+            "power_draw_history": deque(maxlen=500),
+            "expert_utilization_history": deque(maxlen=500),
+            "gns_history": deque(maxlen=500),
             "layer_alphas": {},
             "logs": deque(maxlen=100),
             "alerts": deque(maxlen=50),
@@ -570,6 +574,44 @@ class HTMLDashboard:
         if self.on_entropic_steering:
             self.on_entropic_steering(layer_name, direction, step)
 
+    def update_system_metrics(self, weight_entropy: float, power_draw: float, step: int):
+        """Update weight entropy and power draw metrics."""
+        timestamp = time.time()
+
+        self.monitoring_data["current_metrics"]["system"] = {
+            "weight_entropy": weight_entropy,
+            "power_draw": power_draw,
+            "step": step,
+            "timestamp": timestamp,
+        }
+
+        self.monitoring_data["weight_entropy_history"].append(
+            {"step": step, "entropy": weight_entropy, "timestamp": timestamp}
+        )
+
+        self.monitoring_data["power_draw_history"].append(
+            {"step": step, "power": power_draw, "timestamp": timestamp}
+        )
+
+    def update_moe_metrics(self, utilization: float, gns: float, step: int):
+        """Update MoE specific metrics: utilization and Gradient Noise Scale."""
+        timestamp = time.time()
+
+        self.monitoring_data["current_metrics"]["moe"] = {
+            "utilization": utilization,
+            "gns": gns,
+            "step": step,
+            "timestamp": timestamp,
+        }
+
+        self.monitoring_data["expert_utilization_history"].append(
+            {"step": step, "utilization": utilization, "timestamp": timestamp}
+        )
+
+        self.monitoring_data["gns_history"].append(
+            {"step": step, "gns": gns, "timestamp": timestamp}
+        )
+
     def log_intervention(
         self, intervention_type: str, details: Dict[str, Any], step: int
     ):
@@ -636,6 +678,10 @@ class HTMLDashboard:
             "lr_history": list(self.monitoring_data["lr_history"]),
             "train_loss_history": list(self.monitoring_data["train_loss_history"]),
             "val_loss_history": list(self.monitoring_data["val_loss_history"]),
+            "weight_entropy_history": list(self.monitoring_data["weight_entropy_history"]),
+            "power_draw_history": list(self.monitoring_data["power_draw_history"]),
+            "expert_utilization_history": list(self.monitoring_data["expert_utilization_history"]),
+            "gns_history": list(self.monitoring_data["gns_history"]),
             "entropic_steering_hits": list(
                 self.monitoring_data["entropic_steering_hits"]
             ),
@@ -715,8 +761,8 @@ class HTMLDashboard:
             <div class="metrics">
                 <div class="metric-card">
                     <h2>α Metrics</h2>
-                    <p>Model α: {data["alpha"].get("model_alpha", "N/A"):.2f}</p>
-                    <p>Variance: {data["alpha"].get("alpha_variance", "N/A"):.4f}</p>
+                    <p>Model α: {data["alpha"].get("model_alpha", 0.0):.2f}</p>
+                    <p>Variance: {data["alpha"].get("alpha_variance", 0.0):.4f}</p>
                     <p>Over-Grokking Layers: {data["alpha"].get("over_grokking_count", 0)}</p>
                 </div>
                 <div class="metric-card">
@@ -725,8 +771,18 @@ class HTMLDashboard:
                 </div>
                 <div class="metric-card">
                     <h2>Loss</h2>
-                    <p>Train Loss: {data["loss"].get("train", "N/A"):.4f}</p>
-                    <p>Val Loss: {data["loss"].get("val", "N/A"):.4f}</p>
+                    <p>Train Loss: {data["loss"].get("train", 0.0):.4f}</p>
+                    <p>Val Loss: {data["loss"].get("val", 0.0):.4f}</p>
+                </div>
+                <div class="metric-card">
+                    <h2>Grokking & Noise</h2>
+                    <p>GNS: {data.get("gns_history", [{"gns": 0}])[-1].get("gns", 0):.6f}</p>
+                    <p>Weight Entropy: {data.get("weight_entropy_history", [{"entropy": 0}])[-1].get("entropy", 0):.4f}</p>
+                </div>
+                <div class="metric-card">
+                    <h2>MoE & System</h2>
+                    <p>Expert Utilization: {data.get("expert_utilization_history", [{"utilization": 0}])[-1].get("utilization", 0)*100:.1f}%</p>
+                    <p>Power Draw: {data.get("power_draw_history", [{"power": 0}])[-1].get("power", 0):.1f}W</p>
                 </div>
             </div>
             

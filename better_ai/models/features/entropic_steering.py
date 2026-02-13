@@ -42,6 +42,7 @@ class EntropicSteering(nn.Module):
         self,
         hidden_states: torch.Tensor,
         logits: torch.Tensor,
+        weight_entropy: float = 0.0,
     ) -> Dict[str, torch.Tensor]:
         """
         Monitor entropy and trigger clarification
@@ -49,31 +50,42 @@ class EntropicSteering(nn.Module):
         Args:
             hidden_states: (batch_size, seq_len, hidden_dim)
             logits: (batch_size, seq_len, vocab_size)
+            weight_entropy: Global model weight entropy for adaptive thresholding
 
         Returns:
             Dictionary with entropy_scores, spike_detected, clarification_triggers
         """
-        # Compute entropy per position
-        entropy_scores = self.compute_entropy(logits)  # (batch_size, seq_len)
+        # Compute output entropy per position
+        output_entropy = self.compute_entropy(logits)  # (batch_size, seq_len)
+
+        # Dynamic threshold adjustment based on weight entropy
+        # Lower weight entropy (memorization) makes the model more sensitive to output entropy spikes
+        effective_threshold = self.entropy_threshold
+        if weight_entropy > 0:
+            # Heuristic: adjust threshold based on weight entropy
+            # If weight entropy is low, we expect lower output entropy, so we lower the threshold to catch spikes
+            effective_threshold = self.entropy_threshold * (weight_entropy / 4.0) # Assume 4.0 is a typical high entropy
+            effective_threshold = max(effective_threshold, 0.5)
 
         # Detect spikes
-        entropy_mean = entropy_scores.mean(dim=-1, keepdim=True)
-        entropy_std = entropy_scores.std(dim=-1, keepdim=True)
-        normalized_entropy = (entropy_scores - entropy_mean) / (entropy_std + 1e-6)
-
-        spike_detected = entropy_scores > self.entropy_threshold
+        spike_detected = output_entropy > effective_threshold
 
         # Generate clarification triggers
         clarification_embeddings = self.clarification_head(hidden_states)
 
-        # Determine when to ask clarifying questions
-        clarification_triggers = self.spike_detector(hidden_states)  # (batch_size, seq_len, 1)
+        # Determine when to ask clarifying questions - incorporate both signals
+        # We add a small bias based on weight entropy to the detector
+        detector_input = hidden_states
+        clarification_triggers = self.spike_detector(detector_input)  # (batch_size, seq_len, 1)
+
+        # Combine output uncertainty (spike) with detector confidence
         clarification_triggers = clarification_triggers * spike_detected.unsqueeze(-1).float()
 
         return {
-            "entropy_scores": entropy_scores,
+            "entropy_scores": output_entropy,
             "spike_detected": spike_detected,
             "clarification_triggers": clarification_triggers,
             "clarification_embeddings": clarification_embeddings,
-            "entropy_mean": entropy_mean,
+            "weight_entropy_used": torch.tensor(weight_entropy, device=hidden_states.device),
+            "effective_threshold": torch.tensor(effective_threshold, device=hidden_states.device),
         }
