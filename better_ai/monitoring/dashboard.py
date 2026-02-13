@@ -761,8 +761,8 @@ class HTMLDashboard:
             <div class="metrics">
                 <div class="metric-card">
                     <h2>α Metrics</h2>
-                    <p>Model α: {data["alpha"].get("model_alpha", "N/A"):.2f}</p>
-                    <p>Variance: {data["alpha"].get("alpha_variance", "N/A"):.4f}</p>
+                    <p>Model α: {data["alpha"].get("model_alpha", 0.0):.2f}</p>
+                    <p>Variance: {data["alpha"].get("alpha_variance", 0.0):.4f}</p>
                     <p>Over-Grokking Layers: {data["alpha"].get("over_grokking_count", 0)}</p>
                 </div>
                 <div class="metric-card">
@@ -771,12 +771,12 @@ class HTMLDashboard:
                 </div>
                 <div class="metric-card">
                     <h2>Loss</h2>
-                    <p>Train Loss: {data["loss"].get("train", "N/A"):.4f}</p>
-                    <p>Val Loss: {data["loss"].get("val", "N/A"):.4f}</p>
+                    <p>Train Loss: {data["loss"].get("train", 0.0):.4f}</p>
+                    <p>Val Loss: {data["loss"].get("val", 0.0):.4f}</p>
                 </div>
                 <div class="metric-card">
                     <h2>Grokking & Noise</h2>
-                    <p>GNS: {data["alpha"].get("gns", data.get("gns_history", [{"gns": 0}])[-1].get("gns", 0)):.6f}</p>
+                    <p>GNS: {data.get("gns_history", [{"gns": 0}])[-1].get("gns", 0):.6f}</p>
                     <p>Weight Entropy: {data.get("weight_entropy_history", [{"entropy": 0}])[-1].get("entropy", 0):.4f}</p>
                 </div>
                 <div class="metric-card">

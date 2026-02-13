@@ -726,7 +726,13 @@ class EnhancedMoETrainer:
                     )
 
             # Update additional system and MoE metrics requested by user
-            weight_entropy = self._calculate_weight_entropy()
+            if hasattr(self.model, "calculate_weight_entropy"):
+                weight_entropy = self.model.calculate_weight_entropy()
+                # Update model cache for entropic steering
+                self.model._cached_weight_entropy = weight_entropy
+            else:
+                weight_entropy = self._calculate_weight_entropy()
+
             power_draw = self._estimate_power_draw()
 
             if self.htsr_dashboard:
