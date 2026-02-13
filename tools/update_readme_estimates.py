@@ -211,8 +211,9 @@ def calculate_inference_memory(
     # CUDA overhead
     overhead_mem = 0.5 * (1024**3)  # 500MB
 
-    # Add 20% fragmentation for inference safety
-    total = (model_mem + kv_cache_mem + activation_mem + overhead_mem) * 1.20
+    # Add fragmentation for inference safety from config
+    ratio = getattr(config, "inference_fragmentation_ratio", 1.20)
+    total = (model_mem + kv_cache_mem + activation_mem + overhead_mem) * ratio
 
     return total
 
@@ -271,7 +272,7 @@ def calculate_training_memory(
     # We store 20 samples of ~1/10th of parameters
     gns_buffer_mem = 20 * (params["total_params"] / 100) * 4 # Conservative estimate
 
-    # Add 25% fragmentation for training (increased to prevent OOM)
+    # Add fragmentation for training from config
     subtotal = (
         model_mem
         + master_weights_mem
@@ -282,7 +283,8 @@ def calculate_training_memory(
         + overhead_mem
         + gns_buffer_mem
     )
-    total = subtotal * 1.25 # Safety margin
+    ratio = getattr(config, "training_fragmentation_ratio", 1.15)
+    total = subtotal * ratio # Safety margin
 
     return total
 

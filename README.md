@@ -339,7 +339,7 @@ MIT — see [LICENSE](LICENSE)
 ## Resource Estimates
 
 *Auto-generated from config using production settings*
-*Last updated: 2026-02-13 09:33:25*
+*Last updated: 2026-02-13 11:16:47*
 
 ### Model Architecture
 - **Total Parameters**: 12.62B
@@ -384,10 +384,10 @@ MIT — see [LICENSE](LICENSE)
 **Training VRAM per GPU (with 8-bit optimizer, avg seq length):**
 | GPU | Available | BF16 Required | FP8 Required | BF16 Batch | FP8 Batch |
 |-----|-----------|---------------|--------------|------------|-----------|
-| RTX 2070 | 8 GB | 224 GB | 209 GB | 0 (need 224GB) | 0 (need 209GB) |
-| RTX 5090 | 32 GB | 224 GB | 209 GB | 0 (need 224GB) | 0 (need 209GB) |
-| H300e | 80 GB | 224 GB | 209 GB | 0 (need 224GB) | 0 (need 209GB) |
-| H200 | 141 GB | 224 GB | 209 GB | 0 (need 224GB) | 0 (need 209GB) |
+| RTX 2070 | 8 GB | 206 GB | 192 GB | 0 (need 206GB) | 0 (need 192GB) |
+| RTX 5090 | 32 GB | 206 GB | 192 GB | 0 (need 206GB) | 0 (need 192GB) |
+| H300e | 80 GB | 206 GB | 192 GB | 0 (need 206GB) | 0 (need 192GB) |
+| H200 | 141 GB | 206 GB | 192 GB | 0 (need 206GB) | 0 (need 192GB) |
 
 ### Training Pipeline
 

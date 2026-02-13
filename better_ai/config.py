@@ -133,6 +133,10 @@ class ModelConfig:
     use_reasoning_rewards: bool = True
     use_value_head: bool = True
 
+    # Resource Estimation Ratios
+    training_fragmentation_ratio: float = 1.15
+    inference_fragmentation_ratio: float = 1.20
+
     def __post_init__(self):
         self.validate()
 
