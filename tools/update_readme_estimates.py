@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from better_ai.config import ModelConfig, TrainingConfig, InferenceConfig
 
-
 @dataclass
 class GPUConfig:
     """GPU specifications"""
@@ -37,7 +36,6 @@ GPU_SPECS = {
     "H300e": GPUConfig("H300e", 80.0, 2000.0, 4000.0),
     "H200": GPUConfig("H200", 141.0, 1000.0, 2000.0),
 }
-
 
 def calculate_parameters(config: ModelConfig) -> Dict:
     """Calculate total and active parameters for the model."""
@@ -180,7 +178,6 @@ def calculate_parameters(config: ModelConfig) -> Dict:
         "num_moe_layers": num_moe_layers,
     }
 
-
 def calculate_inference_memory(
     config: ModelConfig, batch_size: int, seq_len: int, precision: str
 ) -> float:
@@ -216,7 +213,6 @@ def calculate_inference_memory(
     total = (model_mem + kv_cache_mem + activation_mem + overhead_mem) * ratio
 
     return total
-
 
 def calculate_training_memory(
     config: ModelConfig,
@@ -288,7 +284,6 @@ def calculate_training_memory(
 
     return total
 
-
 def find_max_inference_batch(config: ModelConfig, gpu_name: str, precision: str) -> int:
     """Find max inference batch size for GPU."""
     gpu = GPU_SPECS[gpu_name]
@@ -312,7 +307,6 @@ def find_max_inference_batch(config: ModelConfig, gpu_name: str, precision: str)
             high = mid - 1
 
     return max_batch
-
 
 def find_max_training_batch(
     config: ModelConfig,
@@ -347,7 +341,6 @@ def find_max_training_batch(
 
     return max_batch
 
-
 def format_params(num: int) -> str:
     """Format parameter count."""
     if num >= 1e9:
@@ -355,7 +348,6 @@ def format_params(num: int) -> str:
     elif num >= 1e6:
         return f"{num / 1e6:.2f}M"
     return str(num)
-
 
 def calculate_training_steps() -> Tuple[int, Dict, float]:
     """Read datasets.yml and sum training steps, plus calculate weighted avg seq length."""
@@ -388,7 +380,6 @@ def calculate_training_steps() -> Tuple[int, Dict, float]:
     avg_seq_length = weighted_seq_sum / total_steps if total_steps > 0 else 8192
 
     return total_steps, stage_steps, avg_seq_length
-
 
 def generate_estimate_section() -> str:
     """Generate markdown section for README."""
@@ -542,7 +533,6 @@ def generate_estimate_section() -> str:
 
     return section
 
-
 def update_readme(force: bool = False) -> bool:
     """Update README.md with resource estimates."""
     readme_path = Path(__file__).parent.parent / "README.md"
@@ -594,7 +584,6 @@ def update_readme(force: bool = False) -> bool:
 
     print("[OK] Updated README.md with resource estimates")
     return True
-
 
 if __name__ == "__main__":
     import argparse
