@@ -76,8 +76,12 @@ def calculate_parameters(config: ModelConfig) -> Dict:
     all_experts_params = num_experts * expert_params
     active_experts_params = num_experts_per_token * expert_params + shared_expert_params
 
-    # Layer distribution (MoE every 2nd layer)
-    num_moe_layers = num_layers // 2
+    # Layer distribution (MoE every N layers, starting from layer 2)
+    use_moe_every = getattr(config, "use_moe_every_n_layers", 2)
+    num_moe_layers = 0
+    for i in range(num_layers):
+        if (i % use_moe_every == 0) and i > 0:
+            num_moe_layers += 1
     num_standard_layers = num_layers - num_moe_layers
 
     standard_layer = attention_per_layer + norms_per_layer + ffn_per_layer
@@ -207,8 +211,8 @@ def calculate_inference_memory(
     # CUDA overhead
     overhead_mem = 0.5 * (1024**3)  # 500MB
 
-    # Add 10% fragmentation
-    total = (model_mem + kv_cache_mem + activation_mem + overhead_mem) * 1.10
+    # Add 20% fragmentation for inference safety
+    total = (model_mem + kv_cache_mem + activation_mem + overhead_mem) * 1.20
 
     return total
 
@@ -263,7 +267,11 @@ def calculate_training_memory(
     # CUDA overhead
     overhead_mem = 1.0 * (1024**3)  # 1GB
 
-    # Add 15% fragmentation for training
+    # GNS Gradient buffer (randomly projected sample)
+    # We store 20 samples of ~1/10th of parameters
+    gns_buffer_mem = 20 * (params["total_params"] / 100) * 4 # Conservative estimate
+
+    # Add 25% fragmentation for training (increased to prevent OOM)
     subtotal = (
         model_mem
         + master_weights_mem
@@ -272,8 +280,9 @@ def calculate_training_memory(
         + activation_mem
         + comm_buffer_mem
         + overhead_mem
+        + gns_buffer_mem
     )
-    total = subtotal * 1.15
+    total = subtotal * 1.25 # Safety margin
 
     return total
 

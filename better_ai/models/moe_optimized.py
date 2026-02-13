@@ -11,26 +11,40 @@ from .moe import LossFreeBalancing, router_z_loss
 
 
 class Expert(nn.Module):
-    """Single expert layer with SwiGLU activation"""
+    """
+    Optimized Single expert layer with Fused SwiGLU and FP8 support.
+
+    Memory Optimizations:
+    1. Fused Gate/Up Projections: Reduces kernel launches and overhead.
+    2. FP8 Support: Directly supports FP8 linear layers if requested.
+    """
     
     def __init__(
         self,
         hidden_size: int,
         intermediate_size: int,
         dropout: float = 0.0,
-        bias: bool = False
+        bias: bool = False,
+        use_fp8: bool = False
     ):
         super().__init__()
         
-        self.gate_proj = nn.Linear(hidden_size, intermediate_size, bias=bias)
-        self.up_proj = nn.Linear(hidden_size, intermediate_size, bias=bias)
-        self.down_proj = nn.Linear(intermediate_size, hidden_size, bias=bias)
-        
+        # Fused gate and up projections to save memory overhead and improve speed
+        if use_fp8:
+            from ..optimizers.fp8 import FP8Linear
+            self.gate_up_proj = FP8Linear(hidden_size, 2 * intermediate_size, bias=bias)
+            self.down_proj = FP8Linear(intermediate_size, hidden_size, bias=bias)
+        else:
+            self.gate_up_proj = nn.Linear(hidden_size, 2 * intermediate_size, bias=bias)
+            self.down_proj = nn.Linear(intermediate_size, hidden_size, bias=bias)
+
+        self.intermediate_size = intermediate_size
         self.dropout = nn.Dropout(dropout)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        gate = self.gate_proj(x)
-        up = self.up_proj(x)
+        # Fused forward: gate and up are computed in one GEMM
+        gate_up = self.gate_up_proj(x)
+        gate, up = gate_up.chunk(2, dim=-1)
         return self.dropout(self.down_proj(F.silu(gate) * up))
 
 
@@ -155,11 +169,14 @@ class OptimizedMoELayer(nn.Module):
             self.balancer = None
         
         # Experts
+        use_fp8_experts = router_dtype == torch.float8_e4m3fn or router_dtype == torch.float8_e5m2
+
         self.experts = nn.ModuleList([
             Expert(
                 hidden_size=hidden_size,
                 intermediate_size=expert_intermediate_size,
-                dropout=dropout
+                dropout=dropout,
+                use_fp8=use_fp8_experts
             ) for _ in range(num_experts)
         ])
         
@@ -169,7 +186,8 @@ class OptimizedMoELayer(nn.Module):
                 Expert(
                     hidden_size=hidden_size,
                     intermediate_size=expert_intermediate_size,
-                    dropout=dropout
+                    dropout=dropout,
+                    use_fp8=use_fp8_experts
                 ) for _ in range(shared_experts)
             ])
     
@@ -193,14 +211,20 @@ class OptimizedMoELayer(nn.Module):
                 continue
             
             token_indices, k_indices = torch.where(mask)
-            
-            # Use index_add_ for better performance and memory locality
             expert_input = hidden_states_flat[token_indices]
             weights = routing_weights_flat[token_indices, k_indices].unsqueeze(-1)
 
-            expert_output = self.experts[expert_idx](expert_input)
+            # Use checkpointing for memory-critical training
+            if self.training and getattr(self, "expert_checkpointing", True):
+                expert_output = torch.utils.checkpoint.checkpoint(
+                    self.experts[expert_idx],
+                    expert_input,
+                    use_reentrant=False
+                )
+            else:
+                expert_output = self.experts[expert_idx](expert_input)
+
             expert_outputs.index_add_(0, token_indices, expert_output * weights)
-            
             expert_loads[expert_idx] = token_indices.size(0)
         
         return expert_outputs, expert_loads
