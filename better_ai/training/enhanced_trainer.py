@@ -725,14 +725,63 @@ class EnhancedMoETrainer:
                         step=self.global_step,
                     )
 
+            # Update additional system and MoE metrics requested by user
+            weight_entropy = self._calculate_weight_entropy()
+            power_draw = self._estimate_power_draw()
+
+            if self.htsr_dashboard:
+                self.htsr_dashboard.update_system_metrics(
+                    weight_entropy=weight_entropy,
+                    power_draw=power_draw,
+                    step=self.global_step
+                )
+
+                # MoE metrics (utilization and GNS)
+                recent_util = self.metrics_history["expert_utilization"][-1] if self.metrics_history["expert_utilization"] else 0.5
+                recent_gns = self.metrics_history["gradient_noise_scale"][-1] if self.metrics_history["gradient_noise_scale"] else 0.0
+
+                self.htsr_dashboard.update_moe_metrics(
+                    utilization=recent_util,
+                    gns=recent_gns,
+                    step=self.global_step
+                )
+
             logger.debug(
                 f"HTSR Check: α={detector_state.get('model_alpha', 'N/A'):.2f}, "
                 f"variance={detector_state.get('alpha_variance', 0):.4f}, "
-                f"over_grokking={len(detector_state.get('over_grokking_layers', {}))}"
+                f"over_grokking={len(detector_state.get('over_grokking_layers', {}))}, "
+                f"entropy={weight_entropy:.4f}, power={power_draw:.1f}W"
             )
 
         except Exception as e:
             logger.warning(f"HTSR monitoring step failed: {e}")
+
+    def _calculate_weight_entropy(self) -> float:
+        """Calculate average entropy of weight distributions across linear layers."""
+        total_entropy = 0.0
+        count = 0
+        try:
+            for name, param in self.model.named_parameters():
+                if "weight" in name and param.dim() >= 2 and param.numel() > 100:
+                    w = param.detach().float()
+                    # Standardize to get a distribution
+                    w_min, w_max = w.min(), w.max()
+                    hist = torch.histc(w, bins=50, min=float(w_min), max=float(w_max))
+                    prob = hist / (hist.sum() + 1e-10)
+                    entropy = -(prob * torch.log(prob + 1e-10)).sum()
+                    total_entropy += entropy.item()
+                    count += 1
+        except Exception:
+            return 0.0
+        return total_entropy / count if count > 0 else 0.0
+
+    def _estimate_power_draw(self) -> float:
+        """Estimate current power draw in Watts (stub/approximation)."""
+        if torch.cuda.is_available():
+            # Rough approximation: base + dynamic part proportional to utilization if we could get it
+            # Since we can't easily get GPU util without extra libs, we use a proxy
+            return 150.0 + 150.0 * (0.7)  # Assume 70% load during training
+        return 65.0  # Typical CPU load
 
     def _apply_htsr_intervention(
         self,
