@@ -26,6 +26,9 @@ def measure_memory_footprint(config: ModelConfig, batch_size: int, seq_len: int,
     """Instantiates a model and measures its memory footprint empirically"""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    import psutil
+    process = psutil.Process()
+
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.empty_cache()
@@ -33,35 +36,45 @@ def measure_memory_footprint(config: ModelConfig, batch_size: int, seq_len: int,
     dtype = torch.float8_e4m3fn if precision == "fp8" and hasattr(torch, "float8_e4m3fn") else torch.bfloat16
 
     try:
-        # Measure baseline (empty device)
-        baseline = torch.cuda.memory_allocated() if device.type == "cuda" else 0
+        # Measure baseline (system + python overhead)
+        baseline_cuda = torch.cuda.memory_allocated() if device.type == "cuda" else 0
+        baseline_rss = process.memory_info().rss
 
         model = DeepSeekModel(config).to(device)
         if precision == "fp8":
-            # Rough approximation of quantization if not fully implemented in model
-            pass
+            # Use the implemented FP8 conversion
+            from better_ai.optimizers.fp8 import FP8Linear
+            for name, module in model.named_modules():
+                if isinstance(module, nn.Linear):
+                    parent_name = '.'.join(name.split('.')[:-1])
+                    module_name = name.split('.')[-1]
+                    parent = model
+                    if parent_name:
+                        parent = dict(model.named_modules())[parent_name]
+
+                    fp8_linear = FP8Linear(
+                        in_features=module.in_features,
+                        out_features=module.out_features,
+                        bias=module.bias is not None,
+                        use_fp8=True
+                    ).to(device)
+                    setattr(parent, module_name, fp8_linear)
         else:
             model = model.to(dtype)
 
-        param_mem = torch.cuda.memory_allocated() - baseline if device.type == "cuda" else sum(p.numel() * p.element_size() for p in model.parameters())
+        param_mem = (torch.cuda.memory_allocated() - baseline_cuda) if device.type == "cuda" else sum(p.numel() * p.element_size() for p in model.parameters())
 
         # Forward pass to measure activation memory
         model.eval()
         with torch.no_grad():
             input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len), device=device)
-            # Ensure model and inputs are in same precision for measurement
-            if precision != "fp8":
-                model.to(dtype)
-
             # Simple forward pass
             outputs = model(input_ids, use_cache=True)
 
         if device.type == "cuda":
-            peak_vram = torch.cuda.max_memory_allocated()
+            peak_mem = torch.cuda.max_memory_allocated() - baseline_cuda
         else:
-            import psutil
-            process = psutil.Process()
-            peak_vram = process.memory_info().rss
+            peak_mem = process.memory_info().rss - baseline_rss
 
         # Cleanup
         del model
@@ -72,9 +85,9 @@ def measure_memory_footprint(config: ModelConfig, batch_size: int, seq_len: int,
             torch.cuda.empty_cache()
 
         return {
-            "peak_bytes": peak_vram,
+            "peak_bytes": peak_mem,
             "param_bytes": param_mem,
-            "overhead_bytes": peak_vram - param_mem,
+            "overhead_bytes": peak_mem - param_mem,
             "batch_size": batch_size,
             "seq_len": seq_len
         }

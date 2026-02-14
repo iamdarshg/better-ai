@@ -71,10 +71,10 @@
 - [x] **Difficulty Estimation:** AST-based complexity scanning in `better_ai/data/curation.py`.
 - [ ] **Recursive Scratchpad Iteration:** Refine MCTS CoT integration.
 - [ ] **Curriculum Fine-tuning:**
-   - [ ] Fine-tune curriculum progression rates (grokking ratios) using real datasets
-   - [ ] Test different `grokking_fast_ratio` values (currently 0.4) on domain-specific real datasets
-   - [ ] Validate plateau_steps effectiveness using real-world reasoning tasks
-   - [ ] Add scripts for automated curriculum tuning (for both RAM and grokking ratio analysis)
+    - [ ] Fine-tune curriculum progression rates (grokking ratios) using real datasets for training stability
+    - [ ] Test different `grokking_fast_ratio` values (currently 0.4) on domain-specific real datasets to find optimal convergence
+    - [ ] Validate plateau_steps effectiveness using real-world reasoning tasks and datasets
+    - [ ] Add scripts for automated curriculum tuning (for both RAM and grokking ratio analysis using real data samples)
 
 ### Phase 5: Evaluation & Benchmarking
 - [x] **Evaluation Suite:** SWE-bench integration, HumanEval/MBPP trackers.
