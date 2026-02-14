@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Tuple
+from typing import Tuple, Optional
 
 class RoPECache(nn.Module):
     def __init__(self, dim: int, max_seq_len: int, base: int = 10000, device: torch.device = None):
@@ -42,12 +42,30 @@ class RoPECache(nn.Module):
         x2 = x[..., self.dim // 2 :]
         return torch.cat((-x2, x1), dim=-1)
 
-    def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        seq_len = q.shape[2]
-        if seq_len > self.max_seq_len:
-            self._cache = self._build_cache(seq_len)
+    def forward(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        offset: int = 0,
+        seq_len: Optional[int] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        if seq_len is None:
+            seq_len = q.shape[-2] # Assuming [B, H, S, D] or [B, S, H, D]
 
-        cache = self._cache[:, :, :seq_len, :].to(q.device)
+        # Determine dimension and shape
+        # Handle both [B, H, S, D] and [B, S, D]
+        if q.dim() == 4:
+            s_idx = 2
+        else:
+            s_idx = 1
+
+        needed_len = offset + seq_len
+        if needed_len > self.max_seq_len:
+            self._cache = self._build_cache(needed_len)
+            self.max_seq_len = needed_len
+
+        # Extract relevant part of cache
+        cache = self._cache[:, :, offset:offset+seq_len, :].to(q.device)
         cos = cache.cos()
         sin = cache.sin()
 

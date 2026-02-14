@@ -7,60 +7,9 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Any
 import torch.distributed as dist
-
-
-class RotaryEmbedding(nn.Module):
-    """Rotary Position Embedding"""
-
-    def __init__(self, head_dim: int, rope_theta: float = 10000.0, max_seq_len: int = 8192):
-        super().__init__()
-
-        self.head_dim = head_dim
-        self.rope_theta = rope_theta
-
-        # Create rotary embeddings
-        inv_freq = 1.0 / (rope_theta ** (torch.arange(0, head_dim, 2).float() / head_dim))
-        self.register_buffer('inv_freq', inv_freq)
-
-        # Precompute cos and sin for max sequence length
-        t = torch.arange(max_seq_len, dtype=torch.float32)
-        freqs = torch.einsum('i,j->ij', t, self.inv_freq)
-        emb = torch.cat((freqs.cos(), freqs.sin()), dim=-1)
-        self.register_buffer('cos_cached', emb[:, :head_dim // 2])
-        self.register_buffer('sin_cached', emb[:, head_dim // 2:])
-
-    def forward(
-        self,
-        query_states: torch.Tensor,
-        key_states: torch.Tensor,
-        seq_len: Optional[int] = None,
-        offset: int = 0
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-
-        if seq_len is None:
-            seq_len = query_states.size(-2)
-
-        cos = self.cos_cached[offset:offset+seq_len].unsqueeze(0).unsqueeze(0)
-        sin = self.sin_cached[offset:offset+seq_len].unsqueeze(0).unsqueeze(0)
-
-        query_states = self.apply_rotary_pos_emb(query_states, cos, sin)
-        key_states = self.apply_rotary_pos_emb(key_states, cos, sin)
-
-        return query_states, key_states
-
-    def apply_rotary_pos_emb(
-        self,
-        x: torch.Tensor,
-        cos: torch.Tensor,
-        sin: torch.Tensor
-    ) -> torch.Tensor:
-        x_real = x[..., :self.head_dim // 2]
-        x_imag = x[..., self.head_dim // 2:]
-        x_rot_real = x_real * cos - x_imag * sin
-        x_rot_imag = x_real * sin + x_imag * cos
-        return torch.cat([x_rot_real, x_rot_imag], dim=-1)
+from .rope import RoPECache
 
 
 class StripedAttention(nn.Module):
@@ -102,7 +51,7 @@ class StripedAttention(nn.Module):
         self.attention_dropout = nn.Dropout(dropout)
         self.output_dropout = nn.Dropout(dropout)
 
-        self.rotary_emb = RotaryEmbedding(self.head_dim, rope_theta=rope_theta, max_seq_len=max_seq_len)
+        self.rotary_emb = RoPECache(self.head_dim, max_seq_len=max_seq_len, base=int(rope_theta))
 
         self.rank = 0
         self.world_size = 1
@@ -187,10 +136,12 @@ class StripedAttention(nn.Module):
         v = self.v_proj(striped_hidden).view(batch_size, -1, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         # Apply RoPE with CORRECT global offsets
-        cos = self.rotary_emb.cos_cached[my_indices].unsqueeze(0).unsqueeze(0)
-        sin = self.rotary_emb.sin_cached[my_indices].unsqueeze(0).unsqueeze(0)
-        q = self.rotary_emb.apply_rotary_pos_emb(q, cos, sin)
-        k = self.rotary_emb.apply_rotary_pos_emb(k, cos, sin)
+        # Use a slice of the cache based on my_indices
+        cache = self.rotary_emb._cache[:, :, my_indices, :].to(q.device)
+        cos = cache.cos()
+        sin = cache.sin()
+        q = self.rotary_emb._apply_rotary_emb(q, cos, sin)
+        k = self.rotary_emb._apply_rotary_emb(k, cos, sin)
 
         # For simplicity in this toy environment, we'll just gather and compute locally if distributed is mocked
         # In real distributed, this would use ring communication

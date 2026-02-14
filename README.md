@@ -179,7 +179,7 @@ better-ai/
 │   │   ├── optimized_model.py     # OptimizedDeepSeekMoEModel
 │   │   ├── attention.py           # FlashMultiHeadAttention
 │   │   ├── attention_optimized.py # Optimized attention variants
-│   │   ├── ring_attention.py      # RingAttention for long contexts
+│   │   ├── striped_attention.py   # Striped Attention for long contexts
 │   │   ├── dsa.py                 # Distributed attention
 │   │   ├── rope.py                # RoPE positional embeddings
 │   │   ├── reward_model.py        # BranchRewardModel, HierarchicalRewardModel

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import Dict, Optional
+from ..attention import FlashMultiHeadAttention
 
 class VisualAlignmentLayer(nn.Module):
     """
@@ -23,6 +24,14 @@ class VisualAlignmentLayer(nn.Module):
         # Learnable queries (like Q-Former or Flamingo)
         self.query_tokens = nn.Parameter(torch.randn(1, num_query_tokens, llm_hidden_dim))
 
+        # Cross-attention module
+        self.cross_attn = FlashMultiHeadAttention(
+            hidden_size=llm_hidden_dim,
+            num_heads=llm_hidden_dim // 128,
+            num_key_value_heads=llm_hidden_dim // 128,
+            head_dim=128
+        )
+
     def forward(self, vision_outputs: torch.Tensor) -> torch.Tensor:
         """
         Projects visual features into the LLM's embedding space.
@@ -35,9 +44,14 @@ class VisualAlignmentLayer(nn.Module):
         """
         projected = self.visual_projector(vision_outputs)
 
-        # Combine with query tokens via cross-attention (simplified here as addition/mlp)
+        # Combine with query tokens via cross-attention
         batch_size = projected.size(0)
         queries = self.query_tokens.expand(batch_size, -1, -1)
 
-        # In real use, we'd use a Transformer layer for cross-attention
-        return projected[:, :self.num_query_tokens, :] + queries
+        # Use cross-attention where queries attend to visual projections
+        attn_output, _, _ = self.cross_attn(
+            hidden_states=queries,
+            encoder_hidden_states=projected
+        )
+
+        return attn_output

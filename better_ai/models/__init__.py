@@ -11,7 +11,7 @@ from .attention import (
     OptimizedTransformerBlock,
     get_optimized_attention_config
 )
-from .striped_attention import StripedAttention, RotaryEmbedding
+from .striped_attention import StripedAttention
 from .reward_model import BranchRewardModel, MultiAttributeRewardModel, HierarchicalRewardModel
 from .advanced_features import (
     RecursiveScratchpad,
@@ -42,7 +42,6 @@ __all__ = [
     "OptimizedTransformerBlock",
     "get_optimized_attention_config",
     "StripedAttention",
-    "RotaryEmbedding",
     "BranchRewardModel",
     "MultiAttributeRewardModel",
     "HierarchicalRewardModel",

@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Union, List
 import warnings
 from .core import RMSNorm, SwiGLU
-from .striped_attention import StripedAttention, RotaryEmbedding
+from .striped_attention import StripedAttention
 
 
 def flash_attention_forward(query, key, value, dropout_p=0.0, softmax_scale=None, causal=True):
@@ -115,19 +115,29 @@ class FlashMultiHeadAttention(nn.Module):
         past_key_value: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
+        encoder_hidden_states: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         
         bsz, q_len, _ = hidden_states.size()
         
         # Projections
         query_states = self.q_proj(hidden_states)
-        key_states = self.k_proj(hidden_states)
-        value_states = self.v_proj(hidden_states)
+
+        if encoder_hidden_states is not None:
+            # Cross-attention
+            key_states = self.k_proj(encoder_hidden_states)
+            value_states = self.v_proj(encoder_hidden_states)
+            kv_len = encoder_hidden_states.size(1)
+        else:
+            # Self-attention
+            key_states = self.k_proj(hidden_states)
+            value_states = self.v_proj(hidden_states)
+            kv_len = q_len
         
         # Reshape for attention
         query_states = self._shape(query_states, q_len, bsz)  # (bsz, num_heads, q_len, head_dim)
-        key_states = self._shape(key_states, q_len, bsz)      # (bsz, num_kv_heads, q_len, head_dim)
-        value_states = self._shape(value_states, q_len, bsz)  # (bsz, num_kv_heads, q_len, head_dim)
+        key_states = self._shape(key_states, kv_len, bsz)      # (bsz, num_kv_heads, kv_len, head_dim)
+        value_states = self._shape(value_states, kv_len, bsz)  # (bsz, num_kv_heads, kv_len, head_dim)
         
         # Handle key-value caching for inference
         if past_key_value is not None:

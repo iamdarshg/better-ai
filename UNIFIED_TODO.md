@@ -10,7 +10,11 @@
 ### Phase 1: Foundation & Cleanup
 - [x] **Repository Cleanup:** Removed redundant files, split large modules.
 - [x] **Model Architecture:** 12-16 layers, 4096 hidden dim, 64k vocab, MoE with 4-8 experts.
-- [x] **Striped Attention:** Optimized for edge, replaced Ring Attention.
+- [x] **Striped Attention (Edge Core):** Optimized for edge, replaced Ring Attention.
+- [ ] **Striped Attention Refinement:**
+  - [ ] Implement real distributed ring communication (currently mocked/gathered)
+  - [ ] Support dynamic stripe width based on available VRAM
+  - [ ] Add flash attention integration to striped kernels
 - [x] **Dataset Migration:** Consolidated loading via `datasets.yml` and `UnifiedDataLoader`.
 - [x] **Remove obsolete dataset classes:**
   - [x] Delete `better_ai/data/datasets/code_dataset.py`
@@ -80,10 +84,11 @@
 ### 8.1 Quantization for Edge Devices
 - [x] **Implement INT8 quantization:**
   - [x] Add dynamic and symmetric weight-only quantization
+  - [ ] Complete `apply_int8_quantization` with `torch.ao.quantization` or `bitsandbytes`
   - [ ] Support quantization-aware training (QAT)
   - [ ] Quantize all Linear layers and attention
 - [ ] **Implement INT4 quantization:**
-  - [ ] Add GPTQ-style quantization for extreme compression
+  - [ ] Replace INT4 stub with real GPTQ-style quantization for extreme compression
   - [ ] Support mixed INT4/INT8 (INT4 for FFN, INT8 for attention)
 - [x] **Optimize KV cache quantization:**
   - [x] Initial implementation of compressed cache
@@ -127,6 +132,9 @@
   - [x] FastAPI server in `better_ai/inference/api_server.py`
   - [x] Implement `/v1/chat/completions` and `/v1/completions`
   - [x] Support streaming responses (SSE)
+- [ ] **API Refinement:**
+  - [ ] Replace mock tool-calling in `api_server.py` with real model orchestration
+  - [ ] Integrate real DeepSeek model loading instead of `MockModel`
 - [ ] **Add API features:**
   - [ ] Support temperature, top_p, max_tokens parameters
   - [ ] Add function calling / tool use support in the API
@@ -136,6 +144,8 @@
 - [x] **Initial RAG implementation:**
   - [x] Simple document retrieval system in `better_ai/inference/rag.py`
 - [ ] **Enhance RAG features:**
+  - [ ] Implement real embedding model integration (e.g., Sentence-Transformers)
+  - [ ] Implement semantic chunking instead of basic newline splitting
   - [ ] Implement vector database integration (FAISS, Qdrant)
   - [ ] Create embedding generation pipeline
   - [ ] Index entire codebases (AST-aware chunking)
@@ -154,6 +164,9 @@
 
 ### Phase 6: Multi-Modal & Tool Use
 - [x] **Visual Alignment:** Initial stub in `better_ai/models/features/visual_alignment.py`.
+- [ ] **Visual Alignment Refinement:**
+  - [ ] Replace simplified MLP/addition in `VisualAlignmentLayer` with cross-attention
+  - [ ] Optimize visual token projection for edge inference
 - [x] **Tool Use:** Specialized heads for API call prediction.
 - [ ] **Full Multi-Modal Training:** Align vision encoder with LLM backbone.
 
