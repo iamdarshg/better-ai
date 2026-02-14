@@ -44,6 +44,11 @@
   - [x] Calculate suspiciousness scores using spectrum-based techniques (Tarantula, Ochiai)
   - [x] Support real patch validation with AST checks
   - [x] Integrate with Actual code execution sandbox for repair verification
+  - [ ] **Production-grade Localization:**
+    - [ ] Implement specialized reasoning heads for direct fault prediction
+    - [ ] Use cross-modal attention to align error traces with source code tokens
+    - [ ] Integrate with external static analysis tools (SonarQube, Semgrep) for better signal
+    - [ ] Implement fully virtualized sandboxing (Docker/nsjail) for patch validation
 - [x] **Reasoning Diversity Metrics:**
   - [x] Implement semantic diversity metrics (n-gram, cosine)
   - [x] Implement solution approach classification

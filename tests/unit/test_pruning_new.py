@@ -47,6 +47,10 @@ class TestPruningNew(unittest.TestCase):
         class MockModel:
             def __init__(self, layer):
                 self.layers = [layer]
+                class Config:
+                    num_attention_heads = 4
+                    num_key_value_heads = 2
+                self.config = Config()
 
         layer = MockLayer(attn)
         model = MockModel(layer)

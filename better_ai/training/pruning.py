@@ -118,31 +118,43 @@ def prune_attention_heads(model: nn.Module, heads_to_prune: dict):
             current_kv_out = attn.k_proj.weight.data.shape[0]
             num_kv_heads = current_kv_out // head_dim
 
-            # num_groups should be based on the relationship between ORIGINAL Q and KV heads
-            # But if we don't have that, we can try to infer it.
-            # Usually num_heads is a multiple of num_kv_heads.
-            num_groups = num_heads // num_kv_heads
+            # Use model config to find the relationship between Q and KV heads if possible
+            # Defaulting to standard GQA ratio if not found
+            config = getattr(model, 'config', None)
+            if config:
+                num_q_heads = getattr(config, 'num_attention_heads', 32)
+                num_kv_heads_cfg = getattr(config, 'num_key_value_heads', 4)
+            else:
+                num_q_heads = 32
+                num_kv_heads_cfg = 4
+            num_groups = num_q_heads // num_kv_heads_cfg
 
             if num_groups > 0:
                 # Find which KV heads are still needed
                 kv_heads_needed = set()
                 for h in keep_heads:
+                    # We need to map current head index back to original if possible,
+                    # but since we're pruning iteratively, it's safer to use current grouping.
                     kv_heads_needed.add(h // num_groups)
 
                 keep_kv_heads = sorted(list(kv_heads_needed))
 
                 # Prune k_proj
                 k_weights = attn.k_proj.weight.data.view(num_kv_heads, head_dim, -1)
-                attn.k_proj.weight.data = k_weights[keep_kv_heads].view(-1, k_weights.shape[-1]).clone()
-                attn.k_proj.out_features = len(keep_kv_heads) * head_dim
+                # Adjust indices if they are out of bounds (safety check)
+                keep_kv_heads = [i for i in keep_kv_heads if i < num_kv_heads]
 
-                # Prune v_proj
-                v_weights = attn.v_proj.weight.data.view(num_kv_heads, head_dim, -1)
-                attn.v_proj.weight.data = v_weights[keep_kv_heads].view(-1, v_weights.shape[-1]).clone()
-                attn.v_proj.out_features = len(keep_kv_heads) * head_dim
+                if keep_kv_heads:
+                    attn.k_proj.weight.data = k_weights[keep_kv_heads].view(-1, k_weights.shape[-1]).clone()
+                    attn.k_proj.out_features = len(keep_kv_heads) * head_dim
 
-                attn.num_key_value_heads = len(keep_kv_heads)
-                attn.num_key_value_groups = attn.num_heads // attn.num_key_value_heads
+                    # Prune v_proj
+                    v_weights = attn.v_proj.weight.data.view(num_kv_heads, head_dim, -1)
+                    attn.v_proj.weight.data = v_weights[keep_kv_heads].view(-1, v_weights.shape[-1]).clone()
+                    attn.v_proj.out_features = len(keep_kv_heads) * head_dim
+
+                    attn.num_key_value_heads = len(keep_kv_heads)
+                    attn.num_key_value_groups = attn.num_heads // attn.num_key_value_heads
 
 def get_pruning_metrics(model: nn.Module) -> dict:
     """Calculates pruning statistics"""
