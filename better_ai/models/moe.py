@@ -80,8 +80,7 @@ class LossFreeBalancing:
         if compute_loads:
             # Vectorized load computation using bincount
             actual_counts = torch.bincount(
-                top_k_indices.flatten(),
-                minlength=num_experts
+                top_k_indices.flatten(), minlength=num_experts
             ).float()
             actual_loads = actual_counts / (batch_size * seq_len * 2)
 
@@ -90,7 +89,7 @@ class LossFreeBalancing:
             )
 
             load_imbalance = self.recent_loads - self.target_load
-        # Gradient-noise reduction: use a small update step for bias
+            # Gradient-noise reduction: use a small update step for bias
             self.expert_bias += self.bias_lr * load_imbalance
         # Keep biases in a reasonable range to prevent overflow/noise
         self.expert_bias = torch.clamp(self.expert_bias, min=-10.0, max=10.0)
@@ -251,6 +250,7 @@ class Expert(nn.Module):
         # Fused gate and up projections to save memory overhead and improve speed
         if use_fp8:
             from ..optimizers.fp8 import FP8Linear
+
             self.gate_up_proj = FP8Linear(hidden_size, 2 * intermediate_size, bias=bias)
             self.down_proj = FP8Linear(intermediate_size, hidden_size, bias=bias)
         else:
@@ -312,7 +312,10 @@ class ExpertRouter(nn.Module):
         - If num_experts is large (>32), uses a 2-stage hierarchical routing
           to avoid full [B, S, N] logit matrix.
         """
-        if hidden_states.device != self.device or hidden_states.dtype != self.router_dtype:
+        if (
+            hidden_states.device != self.device
+            or hidden_states.dtype != self.router_dtype
+        ):
             hidden_states = hidden_states.to(self.router_dtype).to(self.device)
 
         batch_size, sequence_length, hidden_dim = hidden_states.shape
@@ -333,7 +336,10 @@ class ExpertRouter(nn.Module):
         self, hidden_states: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Avoid redundant device transfers if already correct
-        if hidden_states.device != self.device or hidden_states.dtype != self.router_dtype:
+        if (
+            hidden_states.device != self.device
+            or hidden_states.dtype != self.router_dtype
+        ):
             hidden_states = hidden_states.to(self.router_dtype).to(self.device)
 
         batch_size, sequence_length, hidden_dim = hidden_states.shape
@@ -360,7 +366,9 @@ class ExpertRouter(nn.Module):
         )
 
         # Normalize weights safely
-        routing_weights = routing_weights / (routing_weights.sum(dim=-1, keepdim=True) + 1e-10)
+        routing_weights = routing_weights / (
+            routing_weights.sum(dim=-1, keepdim=True) + 1e-10
+        )
 
         return routing_weights, selected_experts, router_logits
 
@@ -404,7 +412,7 @@ class MoELayer(nn.Module):
         # Vectorized expert processing - avoids the double loop and large boolean masks
         # selected_experts_flat is [total_tokens, num_experts_per_token]
         for expert_idx in range(self.num_experts):
-            mask = (selected_experts_flat == expert_idx)
+            mask = selected_experts_flat == expert_idx
             if not mask.any():
                 continue
 
@@ -416,14 +424,14 @@ class MoELayer(nn.Module):
             # This is specifically useful for MoE layers with many experts
             if self.training and getattr(self, "expert_checkpointing", True):
                 expert_output = torch.utils.checkpoint.checkpoint(
-                    self.experts[expert_idx],
-                    expert_input,
-                    use_reentrant=False
+                    self.experts[expert_idx], expert_input, use_reentrant=False
                 )
             else:
                 expert_output = self.experts[expert_idx](expert_input)
 
-            expert_outputs.index_add_(0, token_indices, expert_output * weights)
+            expert_outputs.index_add_(
+                0, token_indices, expert_output * weights.to(expert_output.dtype)
+            )
             expert_loads[expert_idx] = token_indices.size(0)
 
         return expert_outputs, expert_loads
@@ -476,7 +484,9 @@ class MoELayer(nn.Module):
         )
 
         # Memory optimization: Use FP8 for experts if configured
-        use_fp8_experts = router_dtype == torch.float8_e4m3fn or router_dtype == torch.float8_e5m2
+        use_fp8_experts = (
+            router_dtype == torch.float8_e4m3fn or router_dtype == torch.float8_e5m2
+        )
 
         self.experts = nn.ModuleList(
             [
@@ -528,7 +538,9 @@ class MoELayer(nn.Module):
                 router_logits, compute_loads=True
             )
         else:
-            routing_weights, selected_experts, router_logits = self.router(hidden_states)
+            routing_weights, selected_experts, router_logits = self.router(
+                hidden_states
+            )
 
         hidden_states_flat = hidden_states.view(-1, hidden_dim)
         routing_weights_flat = routing_weights.view(-1, self.num_experts_per_token)
@@ -542,9 +554,15 @@ class MoELayer(nn.Module):
         # Process shared experts (always active) - optimized to avoid extra allocations
         if self.shared_experts > 0:
             shared_outputs = 0
-            shared_expert_loads = torch.full((self.shared_experts,), float(batch_size * sequence_length), device=device)
+            shared_expert_loads = torch.full(
+                (self.shared_experts,),
+                float(batch_size * sequence_length),
+                device=device,
+            )
             for shared_idx in range(self.shared_experts):
-                shared_outputs = shared_outputs + self.shared_experts_layer[shared_idx](hidden_states_flat)
+                shared_outputs = shared_outputs + self.shared_experts_layer[shared_idx](
+                    hidden_states_flat
+                )
 
             expert_outputs = expert_outputs + (shared_outputs / self.shared_experts)
             expert_loads = torch.cat([routed_expert_loads, shared_expert_loads])

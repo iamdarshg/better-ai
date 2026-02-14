@@ -73,6 +73,64 @@ trainer = CurriculumMCTSTrainer(model, training_config)
 trainer.train_with_curriculum(train_loader)
 ```
 
+## Model Export
+
+Export trained models to popular inference formats and optionally push directly to HuggingFace Hub.
+
+### Export to GGUF (Ollama, llama.cpp)
+
+```bash
+# Basic export
+python scripts/convert_to_gguf.py \
+    --model_path checkpoint.pt \
+    --output_path model.gguf \
+    --config_path config.json
+
+# With quantization
+python scripts/convert_to_gguf.py \
+    --model_path checkpoint.pt \
+    --output_path model-q4.gguf \
+    --config_path config.json \
+    --quantization q4_0
+
+# Export and push to HuggingFace Hub
+python scripts/convert_to_gguf.py \
+    --model_path checkpoint.pt \
+    --output_path model.gguf \
+    --config_path config.json \
+    --push_to_hub \
+    --repo_id username/model-name \
+    --private  # Optional: create private repo
+```
+
+### Export to vLLM Format
+
+```bash
+# Basic export
+python scripts/export_to_vllm.py \
+    --model_path checkpoint.pt \
+    --output_dir ./vllm_model \
+    --config_path config.json
+
+# With tensor parallelism for multi-GPU
+python scripts/export_to_vllm.py \
+    --model_path checkpoint.pt \
+    --output_dir ./vllm_model \
+    --config_path config.json \
+    --tensor_parallel_size 2
+
+# Export, verify, and push to HuggingFace
+python scripts/export_to_vllm.py \
+    --model_path checkpoint.pt \
+    --output_dir ./vllm_model \
+    --config_path config.json \
+    --verify \
+    --push_to_hub \
+    --repo_id username/model-name
+```
+
+**Note:** Both scripts automatically generate model cards with links to your repository and detailed information about the model's advanced features.
+
 ## Architecture
 
 ```

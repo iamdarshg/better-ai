@@ -71,7 +71,7 @@ class ModelConfig:
     use_linear_attention: bool = False
 
     # CoT Specialization parameters
-    use_cot_specialization: bool = False
+    use_cot_specialization: bool = True
     cot_num_heads: int = 4
     cot_hidden_dim: int = 3072
 
