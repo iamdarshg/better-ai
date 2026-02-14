@@ -25,7 +25,7 @@ DeepSeek-inspired RLHF system for coding models with MoE architecture, Ring Atte
 │  Model Layer                                                │
 │  ├── DeepSeekMoEModel (main model class)                    │
 │  │   ├── MoELayer (8 experts, top-2 routing)                │
-│  │   ├── RingAttention (524k context)                       │
+│  │   ├── StripedAttention (524k context)                    │
 │  │   └── TransformerBlock × 16                              │
 │  ├── Reward Models                                          │
 │  │   ├── BranchRewardModel (4 attributes)                   │
@@ -38,7 +38,6 @@ DeepSeek-inspired RLHF system for coding models with MoE architecture, Ring Atte
 ├─────────────────────────────────────────────────────────────┤
 │  Data Layer                                                 │
 │  ├── UnifiedDataLoader (stages: pretrain→sft→rlhf)          │
-│  ├── CodeDataset (The Stack v2, Magicoder)                  │
 │  └── DatasetConfig (datasets.yml)                           │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -60,7 +59,7 @@ ModelConfig(
     num_experts=8,
     num_experts_per_token=2,
     intermediate_dim=16384,
-    max_seq_length=524288,  # 524k with Ring Attention
+    max_seq_length=524288,  # 524k with Striped Attention
 )
 ```
 
@@ -70,21 +69,18 @@ ModelConfig(
 - `Expert` - Individual expert network (FFN)
 - `ExpertRouter` - Top-k routing with load balancing
 
-### 2. Ring Attention (`better_ai/models/ring_attention.py`)
+### 2. Striped Attention (`better_ai/models/attention.py`)
 
-Distributed attention mechanism for processing sequences longer than single GPU memory allows.
+Primary long-context solution optimized for edge and distributed systems.
 
 **Implementation:**
-```python
-class RingAttention(nn.Module):
-    def __init__(self, hidden_dim, num_heads, block_size=1024):
-        # Shards attention computation across devices
-        # Uses ring topology: device N talks to device (N+1) % world_size
-```
+- Shards sequence dimension in a load-balanced causal manner.
+- Supports INT8 quantization for edge deployment.
+- Memory-efficient through chunked computation.
 
 **Usage:**
 ```python
-config = ModelConfig(use_ring_attention=True, ring_block_size=1024)
+config = ModelConfig(use_striped_attention=True, striped_block_size=1024)
 model = DeepSeekMoEModel(config)  # Enables 524k context
 ```
 
@@ -354,7 +350,7 @@ class TrainingConfig:
 | Component | File | Key Classes |
 |-----------|------|-------------|
 | Model | `models/moe.py` | DeepSeekMoEModel, MoELayer |
-| Attention | `models/ring_attention.py` | RingAttention |
+| Attention | `models/attention.py` | FlashMultiHeadAttention |
 | Rewards | `models/reward_model.py` | BranchRewardModel, HierarchicalRewardModel |
 | Main Trainer | `training/curriculum_mcts_trainer.py` | CurriculumMCTSTrainer |
 | GRPO | `training/grpo.py` | GRPOTrainer |
@@ -374,7 +370,7 @@ class TrainingConfig:
 
 **Memory per component:**
 - Base model (16 layers, 1536 dim): ~12GB
-- With Ring Attention (524k context): +8GB
+- With Striped Attention (524k context): +8GB
 - With MoE (8 experts): +4GB
 - With KV-cache for GRPO: +6GB
 - FP8 quantization: -50% from above

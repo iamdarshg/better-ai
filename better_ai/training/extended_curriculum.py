@@ -19,6 +19,7 @@ class SequenceLengthConfig:
     """Configuration for sequence length curriculum per stage"""
 
     stage: str
+    total_steps: int = 10000
     min_length: int = 4096  # Starting sequence length
     warmup_steps: int = 1000  # Steps at min_length before progression
     schedule: str = "cosine"  # "cosine", "linear", "step", "exponential", "grokking_cosine", "grokking_step"
@@ -40,6 +41,7 @@ class DifficultyConfig:
     """Configuration for difficulty curriculum per stage"""
 
     stage: str
+    total_steps: int = 10000
     difficulty_field: str = "difficulty"  # Field to query from dataset
     alternative_fields: List[str] = field(
         default_factory=lambda: ["complexity", "difficulty_score", "hardness"]
@@ -140,9 +142,15 @@ class ExtendedCurriculumConfig:
 
     def __post_init__(self):
         if self.sequence_config is None:
-            self.sequence_config = SequenceLengthConfig(stage=self.stage)
+            self.sequence_config = SequenceLengthConfig(stage=self.stage, total_steps=self.total_steps)
+        else:
+            self.sequence_config.total_steps = self.total_steps
+
         if self.difficulty_config is None:
-            self.difficulty_config = DifficultyConfig(stage=self.stage)
+            self.difficulty_config = DifficultyConfig(stage=self.stage, total_steps=self.total_steps)
+        else:
+            self.difficulty_config.total_steps = self.total_steps
+
         if self.domain_config is None:
             self.domain_config = DomainMixingConfig(stage=self.stage)
 
@@ -199,10 +207,8 @@ class SequenceLengthScheduler:
             return 0.0
 
         effective_steps = self.current_step - self.config.warmup_steps
-        # Use a fixed denominator for progress calculation
-        # This should be the expected total training steps
-        # For now, use warmup_steps * 10 as a reasonable default
-        progress_denominator = max(1, self.config.warmup_steps * 10)
+        total_steps = getattr(self.config, "total_steps", 10000)
+        progress_denominator = max(1, total_steps - self.config.warmup_steps)
         return min(1.0, effective_steps / progress_denominator)
 
     def _calculate_length(self, min_len: int, max_len: int, progress: float) -> int:
@@ -212,7 +218,7 @@ class SequenceLengthScheduler:
         if schedule == "cosine":
             # Cosine annealing: slow start, fast middle, slow end
             cosine_factor = 0.5 * (1 + math.cos(math.pi * (1 - progress)))
-            length = min_len + (max_len - min_len) * (1 - cosine_factor)
+            length = min_len + (max_len - min_len) * cosine_factor
 
         elif schedule == "linear":
             # Linear progression
@@ -346,8 +352,9 @@ class DifficultyScheduler:
             return 0.0
 
         effective_steps = self.current_step - self.config.warmup_steps
-        # Progress over the course of training
-        return min(1.0, effective_steps / max(1, self.config.warmup_steps * 10))
+        total_steps = getattr(self.config, "total_steps", 10000)
+        progress_denominator = max(1, total_steps - self.config.warmup_steps)
+        return min(1.0, effective_steps / progress_denominator)
 
     def _calculate_target_difficulty(self, progress: float) -> float:
         """Calculate target difficulty threshold"""
@@ -356,7 +363,7 @@ class DifficultyScheduler:
 
         if schedule == "cosine":
             cosine_factor = 0.5 * (1 + math.cos(math.pi * (1 - progress)))
-            difficulty = min_d + (max_d - min_d) * (1 - cosine_factor)
+            difficulty = min_d + (max_d - min_d) * cosine_factor
 
         elif schedule == "linear":
             difficulty = min_d + (max_d - min_d) * progress
@@ -464,8 +471,7 @@ class DifficultyScheduler:
                 # Assume difficulty might be in various ranges, normalize
                 if difficulty > 1.0:  # Likely on different scale (e.g., 1-10)
                     difficulty = (difficulty - 1) / 9
-                elif difficulty < 0:  # Might be negative to positive
-                    difficulty = (difficulty + 1) / 2
+
                 # Clamp to [0, 1]
                 difficulty = max(0.0, min(1.0, difficulty))
             except (ValueError, TypeError):
@@ -659,6 +665,9 @@ class AdaptiveDomainMixer:
                     # If loss dropped significantly, slightly decrease
                     elif recent_loss < 0.3:
                         self.domain_weights[domain] *= 0.99
+
+        # Add to weight history
+        self.weight_history.append(self.domain_weights.copy())
 
         # Re-normalize
         total = sum(self.domain_weights.values())

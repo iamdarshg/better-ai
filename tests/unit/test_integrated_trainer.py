@@ -15,6 +15,7 @@ from better_ai.training.integrated_trainer import (
     IntegratedAdvancedTrainer,
     create_integrated_trainer,
 )
+from better_ai.test_resource_tags import low_resource
 
 class MockModel(nn.Module):
     def __init__(self, hidden_dim=128):
@@ -45,6 +46,7 @@ class MockModel(nn.Module):
         }
 
 
+@low_resource
 class TestIntegratedAdvancedTrainer(unittest.TestCase):
     """Test integrated trainer with all optimizations"""
 
@@ -157,6 +159,7 @@ class TestIntegratedAdvancedTrainer(unittest.TestCase):
         self.assertIn("kv_cache_saving_rate", efficiency)
 
 
+@low_resource
 class TestIntegratedTrainerFactory(unittest.TestCase):
     """Test factory function for integrated trainer"""
 
@@ -209,6 +212,7 @@ class TestIntegratedTrainerFactory(unittest.TestCase):
         self.assertEqual(trainer.config["custom_setting"], "test")  # User setting preserved
 
 
+@low_resource
 class TestFeatureIntegration(unittest.TestCase):
     """Test interaction between different features"""
 

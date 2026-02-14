@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Union, List
 import warnings
 from .core import RMSNorm, SwiGLU
-from .ring_attention import RingAttention, RotaryEmbedding
+from .striped_attention import StripedAttention, RotaryEmbedding
 
 
 def flash_attention_forward(query, key, value, dropout_p=0.0, softmax_scale=None, causal=True):

@@ -5,7 +5,9 @@ import sys
 from better_ai.training.rlvr_security import SecurityVerifier, SecurityRLVREnvironment
 from better_ai.scripts.main_workflow import train_security_dpo
 from better_ai.config import ModelConfig, TrainingConfig
+from better_ai.test_resource_tags import low_resource
 
+@low_resource
 class TestSecurityWorkflow(unittest.TestCase):
     def setUp(self):
         self.verifier = SecurityVerifier()

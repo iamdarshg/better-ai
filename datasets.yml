@@ -383,6 +383,7 @@ datasets:
   - name: "cve-dpo-4b"
     type: "huggingface"
     path: "RLLab/cve-dpo-4b"
+    config_name: "dpo"
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"

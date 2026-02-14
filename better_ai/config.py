@@ -63,11 +63,9 @@ class ModelConfig:
     use_flash_attention: bool = True
     use_paged_attention: bool = False
 
-    # Ring Attention parameters
-    use_ring_attention: bool = False
+    # Striped Attention parameters (Primary long-context solution)
     use_striped_attention: bool = True
-    ring_block_size: int = 1024
-    ring_num_devices: Optional[int] = None  # Auto-detect
+    striped_block_size: int = 1024
 
     # Linear Attention parameters
     use_linear_attention: bool = False
@@ -168,9 +166,9 @@ class ModelConfig:
                 "num_experts_per_token cannot be greater than total experts"
             )
 
-        if self.use_ring_attention and self.ring_block_size <= 0:
+        if self.use_striped_attention and self.striped_block_size <= 0:
             raise ConfigError(
-                "ring_block_size must be positive if ring attention is enabled"
+                "striped_block_size must be positive if striped attention is enabled"
             )
 
         return True
@@ -233,7 +231,6 @@ class ModelConfig:
             num_experts=4,
             num_experts_per_token=2,
             shared_experts=1,
-            use_ring_attention=False,
             use_striped_attention=False,
             use_tidar=False,
             use_star=True,
@@ -394,8 +391,8 @@ class TrainingConfig:
     pruning_ratio: float = 0.1
     pruning_steps: Optional[List[int]] = None
 
-    # Ring Attention
-    use_ring_attention: bool = False
+    # Striped Attention
+    use_striped_attention: bool = True
 
     # Enhanced MoE Training Features
     # Expert specialization and monitoring

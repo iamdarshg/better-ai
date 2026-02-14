@@ -12,7 +12,7 @@ from .training import Trainer
 from .inference import InferenceEngine, TextGenerator
 from .optimizers import FP8AdamW, FP8Optimizer
 from .utils import set_seed, get_device, get_memory_usage, get_model_size
-from .data import CodeDataset, create_code_dataloaders
+from .data import UnifiedDataLoader, create_code_dataloaders
 
 __all__ = [
     "DeepSeekModel",
@@ -29,6 +29,6 @@ __all__ = [
     "get_device", 
     "get_memory_usage",
     "get_model_size",
-    "CodeDataset",
+    "UnifiedDataLoader",
     "create_code_dataloaders"
 ]

@@ -14,7 +14,7 @@ Production-grade RLHF training system for coding models. Built on DeepSeek archi
 
 Better AI combines proven techniques into a cohesive training pipeline:
 
-- **Ring Attention** — Process 524k+ token contexts efficiently across multiple GPUs
+- **Striped Attention** — Optimized long-context processing for edge and distributed systems
 - **GRPO with KV-Cache Reuse** — Memory-optimized policy gradient training
 - **Hierarchical Reward Models** — Multi-attribute scoring for code quality (correctness, efficiency, readability, robustness)
 - **MCTS for Chain-of-Thought** — Tree search constructs high-quality reasoning data
@@ -56,7 +56,7 @@ model_config = ModelConfig(
     hidden_dim=1536,
     num_layers=16,
     num_experts=8,
-    use_ring_attention=True,
+    use_striped_attention=True,
 )
 
 # Configure training
@@ -77,7 +77,7 @@ trainer.train_with_curriculum(train_loader)
 
 ```
 DeepSeekMoEModel
-├── Ring Attention (distributed, 524k context)
+├── Striped Attention (edge-optimized long context)
 ├── MoE Layers (8 experts, top-2 routing)
 ├── Reasoning Features
 │   ├── Recursive Scratchpad (iterative refinement)
@@ -108,7 +108,7 @@ DeepSeekMoEModel
 - **CurriculumMCTSTrainer** — Combines cosine curriculum with Monte Carlo Tree Search for CoT data generation
 - **ARPO** — Agentic Reinforced Policy Optimization with entropy-based adaptive rollouts
 - **GRPO** — Group Reward Policy Optimization with KV-cache reuse (40% memory reduction)
-- **Ring Attention** — Distributed attention sharding for near-infinite contexts
+- **Striped Attention** — Load-balanced causal attention for 524k+ contexts
 - **BR-RM** — Branch Reward Model scores code on correctness, efficiency, readability, robustness
 - **Security DPO** — Final training phase for memory safety and prompt injection resistance
 - **Tool-Use Heads** — Specialized prediction for API calls
@@ -128,7 +128,7 @@ ModelConfig(
     hidden_dim=1536,
     num_layers=16,
     num_experts=8,
-    use_ring_attention=True,
+    use_striped_attention=True,
     use_recursive_scratchpad=True,
     use_cot_specialization=True,
 )
@@ -339,7 +339,7 @@ MIT — see [LICENSE](LICENSE)
 ## Resource Estimates
 
 *Auto-generated from config using production settings*
-*Last updated: 2026-02-14 01:08:43*
+*Last updated: 2026-02-14 09:22:48*
 
 ### Model Architecture
 - **Total Parameters**: 5.35B

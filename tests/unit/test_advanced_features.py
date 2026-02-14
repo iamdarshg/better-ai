@@ -1,10 +1,12 @@
 
 import unittest
 import torch
+from better_ai.test_resource_tags import low_resource
 from better_ai.models.enhanced_model import EnhancedDeepSeekModel
 from better_ai.config import ModelConfig
 from better_ai.test_config_utils import get_small_model_config
 
+@low_resource
 class TestAdvancedFeatures(unittest.TestCase):
     def setUp(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -12,6 +12,9 @@ tqdm>=4.64.0
 pyyaml>=6.0
 tokenizers>=0.13.0
 lark>=1.1.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
+gguf>=0.1.0
 
 # HTSR Monitoring
 weightwatcher>=0.5.0

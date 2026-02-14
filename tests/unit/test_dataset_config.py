@@ -4,7 +4,9 @@ import os
 from unittest.mock import MagicMock, patch
 from better_ai.data.dataset_config import DatasetConfig, load_dataset_from_config, load_datasets_by_stage
 from better_ai.data.unified_dataloader import create_dataloader
+from better_ai.test_resource_tags import low_resource
 
+@low_resource
 class TestDatasetConfig(unittest.TestCase):
     def setUp(self):
         self.config_path = 'test_datasets.yml'
