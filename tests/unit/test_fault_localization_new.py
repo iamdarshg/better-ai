@@ -56,6 +56,26 @@ class TestFaultLocalizationNew(unittest.TestCase):
         failure = pipeline.validate_repair("", code, test_cmd_fail)
         self.assertFalse(failure)
 
+    def test_validate_repair_docker_mock(self):
+        from unittest.mock import patch, MagicMock
+        from better_ai.training.fault_localization import PatchGenerator, SoftwareRepairPipeline
+        generator = PatchGenerator(self.model)
+        pipeline = SoftwareRepairPipeline(self.localizer, generator)
+
+        with patch('subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="success", stderr="")
+
+            code = "def foo(): return 1"
+            test_cmd = "pytest test_foo.py"
+            success = pipeline.validate_repair("", code, test_cmd, use_docker=True)
+
+            self.assertTrue(success)
+            # Check if docker was called
+            args, kwargs = mock_run.call_args
+            self.assertIn("docker run", args[0])
+            self.assertIn("python:3.10-alpine", args[0])
+            self.assertIn(test_cmd, args[0])
+
     def test_source_context(self):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
             tmp.write("def bug():\n    return 1/0\n")

@@ -326,12 +326,13 @@ class SoftwareRepairPipeline:
             "language": language
         }
 
-    def validate_repair(self, original_code: str, patch: str, test_command: str, filename: str = "repaired_code.py") -> bool:
+    def validate_repair(self, original_code: str, patch: str, test_command: str, filename: str = "repaired_code.py", use_docker: bool = False, docker_image: str = "python:3.10-alpine") -> bool:
         """
         Validates repair by running tests in a secure environment.
 
-        TODO: In production, this MUST be run inside a fully virtualized container (e.g., Docker, nsjail)
-        to prevent arbitrary code execution vulnerabilities.
+        Args:
+            use_docker: If True, runs the test command inside a Docker container for isolation.
+            docker_image: The Docker image to use (default: python:3.10-alpine).
         """
         import subprocess
         import os
@@ -345,25 +346,32 @@ class SoftwareRepairPipeline:
             with open(temp_file_path, "w") as f:
                 f.write(patch)
 
-            # If the test command needs other files from the environment, this might be tricky
-            # For now, we assume the test command can run with just this file or uses absolute paths
-
             try:
-                # Security check: avoid running as root if possible
-                if os.getuid() == 0:
-                    self.logger.warning("Running repair validation as ROOT. This is highly discouraged!")
+                if use_docker:
+                    # Run in Docker for enhanced isolation
+                    # Note: We map the temp directory to /app and set it as working directory
+                    docker_cmd = f"docker run --rm -v {os.path.abspath(tmpdir)}:/app -w /app {docker_image} {test_command}"
+                    result = subprocess.run(
+                        docker_cmd,
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=60 # Docker boot + execution timeout
+                    )
+                else:
+                    # Security check: avoid running as root if possible
+                    if os.getuid() == 0:
+                        self.logger.warning("Running repair validation as ROOT. This is highly discouraged!")
 
-                # Run the test command
-                # We set cwd to tmpdir so the test command runs in the context of the patched file
-                # In prod, we'd use 'runuser' or similar to drop privileges here.
-                result = subprocess.run(
-                    test_command,
-                    shell=True,
-                    cwd=tmpdir,
-                    capture_output=True,
-                    text=True,
-                    timeout=30 # Safety timeout
-                )
+                    # Run the test command locally
+                    result = subprocess.run(
+                        test_command,
+                        shell=True,
+                        cwd=tmpdir,
+                        capture_output=True,
+                        text=True,
+                        timeout=30 # Safety timeout
+                    )
 
                 self.logger.info(f"Repair validation stdout: {result.stdout}")
                 if result.returncode != 0:

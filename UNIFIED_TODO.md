@@ -43,12 +43,12 @@
   - [x] Map stack traces to source code locations
   - [x] Calculate suspiciousness scores using spectrum-based techniques (Tarantula, Ochiai)
   - [x] Support real patch validation with AST checks
-  - [x] Integrate with Actual code execution sandbox for repair verification
+   - [x] Integrate with Actual code execution sandbox for repair verification (including Docker-based isolation)
   - [ ] **Production-grade Localization:**
     - [ ] Implement specialized reasoning heads for direct fault prediction
     - [ ] Use cross-modal attention to align error traces with source code tokens
     - [ ] Integrate with external static analysis tools (SonarQube, Semgrep) for better signal
-    - [ ] Implement fully virtualized sandboxing (Docker/nsjail) for patch validation
+     - [x] Implement fully virtualized sandboxing (Docker) for patch validation
 - [x] **Reasoning Diversity Metrics:**
   - [x] Implement semantic diversity metrics (n-gram, cosine)
   - [x] Implement solution approach classification
