@@ -54,6 +54,14 @@ class SecurityVerifier:
             (r"system prompt", "Potential system prompt leak/manipulation"),
         ]
 
+        # PII patterns
+        self.pii_patterns = [
+            (r"[\w\.-]+@[\w\.-]+\.\w+", "Email Address"),
+            (r"\b\d{3}-\d{2}-\d{4}\b", "Social Security Number"),
+            (r"\b\d{4}-\d{4}-\d{4}-\d{4}\b", "Credit Card Number"),
+            (r"\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b", "IP Address"),
+        ]
+
     def verify_code(self, code: str, language: str = "python") -> Dict[str, Any]:
         """
         Runs static analysis on the provided code.
@@ -93,6 +101,15 @@ class SecurityVerifier:
             "findings": findings,
             "passed": len(findings) == 0
         }
+
+    def scrub_pii(self, text: str) -> str:
+        """
+        Detects and masks PII in the text.
+        """
+        scrubbed = text
+        for pattern, label in self.pii_patterns:
+            scrubbed = re.sub(pattern, f"<{label}>", scrubbed)
+        return scrubbed
 
     def verify_context_integrity(self, text: str) -> bool:
         """

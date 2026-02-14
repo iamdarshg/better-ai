@@ -176,7 +176,7 @@ def train_pretraining(
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
     languages: str = "python,c,rust,cpp,java,javascript,go",
-    use_ring_attention: bool = False,
+    use_striped_attention: bool = True,
 ):
     """
     Stage 1: Pretraining on Stack v2 dataset
@@ -304,7 +304,7 @@ def train_sft(
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
     languages: str = "python,c,cpp,java,javascript,go,rust",
-    use_ring_attention: bool = False,
+    use_striped_attention: bool = True,
 ):
     """
     Stage 2: Supervised Fine-Tuning on Magicoder + Code-Feedback
@@ -429,7 +429,7 @@ def train_rlhf(
     use_mock_data: bool = False,
     tokenizer_name: str = "microsoft/CodeGPT-small-py",
     languages: str = "python,c,rust,cpp,java,javascript,go",
-    use_ring_attention: bool = False,
+    use_striped_attention: bool = True,
 ):
     """
     Stage 3: RLHF training with GRPO
@@ -826,7 +826,7 @@ class DefaultArgs:
     test: bool = True
     tokenizer_name: str = "microsoft/CodeGPT-small-py"
     languages: str = "python,c,rust,cpp,java,javascript,go"
-    use_ring_attention: bool = True
+    use_striped_attention: bool = True
 
 
 def main():
@@ -861,10 +861,10 @@ def main():
         help="A comma-separated list of languages to use for filtering the datasets.",
     )
     parser.add_argument(
-        "--use-ring-attention",
+        "--use-striped-attention",
         default=True,
         action="store_true",
-        help="Enable Ring Attention mechanism in the model.",
+        help="Enable Striped Attention mechanism in the model.",
     )
     try:
         args = parser.parse_args()
@@ -887,7 +887,7 @@ def main():
         max_steps=args.max_steps,
         output_dir=args.output_dir,
         log_dir=args.log_dir,
-        use_ring_attention=args.use_ring_attention,
+        use_striped_attention=args.use_striped_attention,
     )
 
     logger.info("Better AI RLHF Training Pipeline")
@@ -909,7 +909,7 @@ def main():
                 use_mock_data=args.test,
                 tokenizer_name=args.tokenizer_name,
                 languages=args.languages,
-                use_ring_attention=args.use_ring_attention,
+                use_striped_attention=args.use_striped_attention,
             )
             model = trainer.model
             checkpoint_path = f"{args.output_dir}/pretrained_model.pt"
@@ -928,7 +928,7 @@ def main():
                 use_mock_data=args.test,
                 tokenizer_name=args.tokenizer_name,
                 languages=args.languages,
-                use_ring_attention=args.use_ring_attention,
+                use_striped_attention=args.use_striped_attention,
             )
             model = trainer.model
             checkpoint_path = f"{args.output_dir}/sft_model.pt"
@@ -945,7 +945,7 @@ def main():
                 use_mock_data=args.test,
                 tokenizer_name=args.tokenizer_name,
                 languages=args.languages,
-                use_ring_attention=args.use_ring_attention,
+                use_striped_attention=args.use_striped_attention,
             )
             model = trainer.model
             checkpoint_path = f"{args.output_dir}/rlhf_model.pt"

@@ -16,8 +16,10 @@ from better_ai.training.kv_cache_grpo import (
     KVCacheManager,
     OptimizedGRPOWithKVCache,
 )
+from better_ai.test_resource_tags import low_resource
 
 
+@low_resource
 class TestKVCacheEntry(unittest.TestCase):
     """Test KV cache entry functionality"""
 
@@ -48,6 +50,7 @@ class TestKVCacheEntry(unittest.TestCase):
         self.assertEqual(entry.timestamp, 1000.0)  # Original timestamp unchanged
 
 
+@low_resource
 class TestKVCacheManager(unittest.TestCase):
     """Test KV cache management"""
 
@@ -126,6 +129,7 @@ class TestKVCacheManager(unittest.TestCase):
         self.assertEqual(stats["cache_size"], 1)
 
 
+@low_resource
 class TestOptimizedGRPOWithKVCache(unittest.TestCase):
     """Test optimized GRPO with KV cache"""
 
@@ -218,6 +222,7 @@ class TestOptimizedGRPOWithKVCache(unittest.TestCase):
         self.assertLess(memory_per_token, 100000)
 
 
+@low_resource
 class TestIntegrationFeatures(unittest.TestCase):
     """Test integration of all optimization features"""
 

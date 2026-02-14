@@ -17,7 +17,6 @@ class TestStripedAttention(unittest.TestCase):
         # Use minimal config for speed - override test_config_utils defaults
         config = get_small_model_config()
         # Override with ultra-small settings for fast testing
-        config.use_ring_attention = True
         config.use_striped_attention = True
         config.hidden_dim = 32  # Much smaller
         config.num_layers = 1  # Single layer
@@ -35,7 +34,7 @@ class TestStripedAttention(unittest.TestCase):
         model = EnhancedDeepSeekModel(config)
 
         # Check if attention is StripedAttention
-        from better_ai.models.ring_attention import StripedAttention
+        from better_ai.models.striped_attention import StripedAttention
 
         self.assertIsInstance(model.layers[0].self_attn, StripedAttention)
 

@@ -6,6 +6,41 @@ Implements Agent-FLAN style decomposition and Difficulty-Diversity-Quality curat
 import numpy as np
 from typing import List, Dict, Any, Tuple
 import logging
+import ast
+
+class ASTComplexityScanner(ast.NodeVisitor):
+    def __init__(self):
+        self.complexity = 0
+        self.nesting_depth = 0
+        self.max_nesting_depth = 0
+
+    def visit_If(self, node):
+        self.complexity += 1
+        self.nesting_depth += 1
+        self.max_nesting_depth = max(self.max_nesting_depth, self.nesting_depth)
+        self.generic_visit(node)
+        self.nesting_depth -= 1
+
+    def visit_For(self, node):
+        self.complexity += 1
+        self.nesting_depth += 1
+        self.max_nesting_depth = max(self.max_nesting_depth, self.nesting_depth)
+        self.generic_visit(node)
+        self.nesting_depth -= 1
+
+    def visit_While(self, node):
+        self.complexity += 1
+        self.nesting_depth += 1
+        self.max_nesting_depth = max(self.max_nesting_depth, self.nesting_depth)
+        self.generic_visit(node)
+        self.nesting_depth -= 1
+
+    def visit_FunctionDef(self, node):
+        self.complexity += 1
+        self.nesting_depth += 1
+        self.max_nesting_depth = max(self.max_nesting_depth, self.nesting_depth)
+        self.generic_visit(node)
+        self.nesting_depth -= 1
 
 class AgentFLANDecomposer:
     """
@@ -48,11 +83,33 @@ class DatasetCurator:
             return dataset
         return dataset[:k] # Simplified
 
+    def estimate_difficulty(self, code: str) -> float:
+        """
+        Estimates difficulty based on AST complexity and nesting depth.
+        """
+        try:
+            tree = ast.parse(code)
+            scanner = ASTComplexityScanner()
+            scanner.visit(tree)
+            # Combine metrics into a difficulty score [0, 1]
+            # Base complexity + 2*max_depth
+            raw_score = scanner.complexity + (2 * scanner.max_nesting_depth)
+            # Normalize (clamped at 20 for max difficulty)
+            return min(1.0, raw_score / 20.0)
+        except Exception:
+            # Fallback to length-based if AST parsing fails
+            return min(1.0, len(code) / 2000.0)
+
     def balance_by_difficulty(self, dataset: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Ensures a balanced distribution of problem difficulties"""
-        difficulties = [item.get("difficulty", 0.5) for item in dataset]
-        # Perform stratified sampling based on difficulty tiers
-        return dataset # Simplified
+        for item in dataset:
+            if "difficulty" not in item:
+                content = item.get("content", item.get("target", ""))
+                item["difficulty"] = self.estimate_difficulty(content)
+
+        # Sort by difficulty to allow curriculum sampling later
+        dataset.sort(key=lambda x: x["difficulty"])
+        return dataset
 
 def curate_training_corpus(raw_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """

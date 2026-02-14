@@ -281,6 +281,7 @@ datasets:
   - name: "agentic-dpo"
     type: "huggingface"
     path: "Capx/Agentic-DPO-V0.1"
+    config_name: "dpo"
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 8192
@@ -289,6 +290,7 @@ datasets:
   - name: "ultrafeedback-binarized"
     type: "huggingface"
     path: "argilla/ultrafeedback-binarized-preferences-cleaned"
+    config_name: "dpo"
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 12288
@@ -297,6 +299,7 @@ datasets:
   - name: "helpsteer-code"
     type: "huggingface"
     path: "HelpSteer/code"
+    config_name: "dpo"
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 32768
@@ -305,6 +308,7 @@ datasets:
   - name: "stackoverflow-preferences"
     type: "huggingface"
     path: "stackoverflow-preferences"
+    config_name: "dpo"
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 65536
@@ -313,6 +317,7 @@ datasets:
   - name: "thumbs-up"
     type: "huggingface"
     path: "recmeapp/thumbs-up"
+    config_name: "dpo"
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 8192
@@ -321,6 +326,7 @@ datasets:
   - name: "github-issues-rlhf"
     type: "huggingface"
     path: "bigcode/github-issues"
+    config_name: "dpo"
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 131072
@@ -329,6 +335,7 @@ datasets:
   - name: "ultrafeedback-curated"
     type: "huggingface"
     path: "argilla/ultrafeedback-curated"
+    config_name: "dpo"
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 262144
@@ -337,6 +344,7 @@ datasets:
   - name: "ultrafeedback-curated-short"
     type: "huggingface"
     path: "argilla/ultrafeedback-curated"
+    config_name: "dpo"
     stage: "rlhf"
     split: "train_prefs"
     max_seq_length: 65536
@@ -353,6 +361,7 @@ datasets:
   - name: "HelpSteer2"
     type: "huggingface"
     path: "nvidia/HelpSteer2"
+    config_name: "dpo"
     stage: "rlhf"
     split: "train"
     max_seq_length: 131072
@@ -383,6 +392,7 @@ datasets:
   - name: "cve-dpo-4b"
     type: "huggingface"
     path: "RLLab/cve-dpo-4b"
+    config_name: "dpo"
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"
@@ -392,6 +402,7 @@ datasets:
   - name: "code-vulnerability-security-dpo"
     type: "huggingface"
     path: "CyberNative/Code_Vulnerability_Security_DPO"
+    config_name: "dpo"
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"
@@ -401,6 +412,7 @@ datasets:
   - name: "secure-code-repair-dpo"
     type: "huggingface"
     path: "Younis2003/secure-code-repair-dpo"
+    config_name: "dpo"
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"
@@ -410,6 +422,7 @@ datasets:
   - name: "pku-safe-rlhf-security"
     type: "huggingface"
     path: "PKU-Alignment/PKU-SafeRLHF"
+    config_name: "dpo"
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"
@@ -419,6 +432,7 @@ datasets:
   - name: "NIST cybersecurity dpo"
     type: "huggingface"
     path: "ethanolivertroy/nist-cybersecurity-training"
+    config_name: "dpo"
     stage: "security_dpo"
     split: "train"
     data_format: "rlhf"

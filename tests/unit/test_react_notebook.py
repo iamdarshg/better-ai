@@ -1,7 +1,9 @@
 
 import unittest
 from better_ai.utils.react_notebook import ReActNotebook
+from better_ai.test_resource_tags import low_resource
 
+@low_resource
 class TestReActNotebook(unittest.TestCase):
     def test_notebook(self):
         notebook = ReActNotebook()

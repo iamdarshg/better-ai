@@ -12,8 +12,10 @@ from better_ai.models.features.reasoning_rewards import StructuralSignalReward, 
 from better_ai.training.diversity_metrics import DiversityMeasurer
 from better_ai.data.curation import AgentFLANDecomposer, DatasetCurator
 from better_ai.utils.verification import Z3Verifier, PythonASTVerifier
+from better_ai.test_resource_tags import low_resource
 
 
+@low_resource
 class TestPhase7Features(unittest.TestCase):
     def setUp(self):
         self.model = nn.Linear(10, 10) # Mock model
@@ -34,7 +36,8 @@ class TestPhase7Features(unittest.TestCase):
         generator = PatchGenerator(self.model)
         pipeline = SoftwareRepairPipeline(localizer, generator)
 
-        results = pipeline.repair("def fix_me(): return arr[10]", "IndexError: list index out of range")
+        trace = 'File "fix_me.py", line 1, in fix_me\nIndexError: list index out of range'
+        results = pipeline.repair("def fix_me(): return arr[10]", trace)
         self.assertEqual(results["status"], "success")
         self.assertGreater(len(results["faults"]), 0)
         self.assertGreater(len(results["patches"]), 0)

@@ -14,6 +14,32 @@ class DiversityMeasurer:
     """
     def __init__(self, n_gram: int = 2):
         self.n_gram = n_gram
+        self.approach_keywords = {
+            "brute_force": ["brute force", "bruteforce", "try all", "exhaustive"],
+            "greedy": ["greedy", "local optimum", "always pick"],
+            "dynamic_programming": ["dp", "dynamic programming", "memoization", "table"],
+            "divide_and_conquer": ["divide and conquer", "recursive call", "subproblem"],
+            "backtracking": ["backtrack", "dfs", "recursion", "pruning"],
+            "sliding_window": ["sliding window", "two pointers", "left pointer"],
+            "binary_search": ["binary search", "logarithmic", "midpoint"],
+        }
+
+    def classify_approach(self, trajectory: str) -> str:
+        """Classifies the reasoning approach based on keywords"""
+        text = trajectory.lower()
+        for approach, keywords in self.approach_keywords.items():
+            if any(kw in text for kw in keywords):
+                return approach
+        return "unknown"
+
+    def compute_approach_diversity(self, trajectories: List[str]) -> float:
+        """Measures diversity of identified solution approaches"""
+        if not trajectories:
+            return 0.0
+        approaches = [self.classify_approach(t) for t in trajectories]
+        unique_approaches = set(approaches)
+        # Ratio of unique approaches to total trajectories
+        return len(unique_approaches) / len(trajectories)
 
     def compute_n_gram_diversity(self, trajectories: List[str]) -> float:
         """
@@ -60,9 +86,12 @@ def get_diversity_reward(group_trajectories: List[str], group_embeddings: Option
     """
     measurer = DiversityMeasurer()
     n_gram_div = measurer.compute_n_gram_diversity(group_trajectories)
+    approach_div = measurer.compute_approach_diversity(group_trajectories)
+
+    base_reward = 0.5 * n_gram_div + 0.5 * approach_div
 
     if group_embeddings is not None:
         emb_div = measurer.compute_embedding_diversity(group_embeddings)
-        return 0.5 * n_gram_div + 0.5 * emb_div
+        return 0.6 * base_reward + 0.4 * emb_div
 
-    return n_gram_div
+    return base_reward

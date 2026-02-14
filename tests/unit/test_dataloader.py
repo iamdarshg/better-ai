@@ -1,7 +1,9 @@
 import unittest
 from unittest.mock import Mock, patch
 from better_ai.data.unified_dataloader import StreamingDataset
+from better_ai.test_resource_tags import low_resource
 
+@low_resource
 class TestDataloader(unittest.TestCase):
     """Unit tests for the data loading and processing components."""
 

@@ -307,8 +307,8 @@ class DeepSeekModel(nn.Module):
         self._init_advanced_features(config, device)
 
         # Replace attention layers if requested
-        if getattr(config, "use_ring_attention", False):
-            self._replace_with_ring_attention(config, device)
+        if getattr(config, "use_striped_attention", False):
+            self._replace_with_striped_attention(config, device)
         elif getattr(config, "use_linear_attention", False):
             self._replace_with_linear_attention(config, device)
         
@@ -605,29 +605,28 @@ class DeepSeekModel(nn.Module):
                 linear_attn.to(device)
             layer.self_attn = linear_attn
 
-    def _replace_with_ring_attention(self, config: Any, device: Optional[torch.device] = None):
-        """Replace standard attention with Ring Attention or Striped Attention"""
-        from .ring_attention import RingAttention, StripedAttention
-        attn_class = StripedAttention if getattr(config, "use_striped_attention", False) else RingAttention
+    def _replace_with_striped_attention(self, config: Any, device: Optional[torch.device] = None):
+        """Replace standard attention with Striped Attention"""
+        from .striped_attention import StripedAttention
 
         for i, layer in enumerate(self.layers):
-            # Create Ring Attention module
-            ring_attn = attn_class(
+            # Create Striped Attention module
+            striped_attn = StripedAttention(
                 hidden_dim=config.hidden_dim,
                 num_heads=config.num_attention_heads,
                 num_key_value_heads=getattr(config, "num_key_value_heads", config.num_attention_heads // 2),
-                block_size=getattr(config, "ring_block_size", 1024),
+                striped_block_size=getattr(config, "striped_block_size", 1024),
                 dropout=getattr(config, "attention_dropout", 0.0),
                 rope_theta=getattr(config, "rope_theta", 10000.0),
-                max_seq_len=getattr(config, "max_seq_length", 4096),
+                max_seq_len=getattr(config, "max_seq_length", 524288),
             )
 
             # Move to device if specified
             if device is not None:
-                ring_attn = ring_attn.to(device)
+                striped_attn = striped_attn.to(device)
 
             # Replace attention in layer
-            layer.self_attn = ring_attn
+            layer.self_attn = striped_attn
 
     def _compute_advanced_features(self, hidden_states, input_ids, attention_mask, logits=None, use_compiled_mask: bool = False):
         """Compute all advanced features and return them in a dictionary"""

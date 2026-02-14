@@ -49,6 +49,9 @@ class CurriculumConfig:
     adaptive_adjustment: bool = True
     performance_window: int = 100
 
+    # Inference mode
+    inference_mode: bool = False
+
 
 class CosineCurriculumScheduler:
     """
@@ -58,6 +61,7 @@ class CosineCurriculumScheduler:
     def __init__(self, config: CurriculumConfig):
         self.config = config
         self.current_step = 0
+        self.inference_step = 0
         self.current_stage_idx = 0
 
         # Performance tracking
@@ -70,8 +74,11 @@ class CosineCurriculumScheduler:
 
         logging.info(f"Initialized Cosine Curriculum with {len(config.stages)} stages")
 
-    def step(self) -> Dict[str, Any]:
+    def step(self, query: Optional[str] = None) -> Dict[str, Any]:
         """Advance one step and return curriculum state"""
+        if self.config.inference_mode:
+            return self.inference_step_func(query)
+
         self.current_step += 1
 
         # Calculate cosine-based difficulty
@@ -113,6 +120,30 @@ class CosineCurriculumScheduler:
                 - self.config.cooldown_steps
             )
             return effective_steps / max(1, effective_total)
+
+    def inference_step_func(self, query: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Specialized step for inference-time curriculum.
+        Progresses difficulty within a single query or across a session.
+        """
+        self.inference_step += 1
+
+        # Estimate initial difficulty if query is provided
+        if query and self.inference_step == 1:
+            from ..data.curation import DatasetCurator
+            curator = DatasetCurator()
+            self.current_difficulty = curator.estimate_difficulty(query)
+
+        # Progress difficulty slightly for multi-step reasoning
+        progress_factor = min(1.0, self.inference_step / 10.0)
+        self.current_difficulty = min(1.0, self.current_difficulty + (0.1 * progress_factor))
+
+        return {
+            "step": self.inference_step,
+            "difficulty": self.current_difficulty,
+            "max_tokens": int(512 * (1 + self.current_difficulty)),
+            "early_stopping": self.current_difficulty < 0.3
+        }
 
     def _calculate_cosine_difficulty(self, progress: float) -> float:
         """Calculate difficulty using cosine annealing"""

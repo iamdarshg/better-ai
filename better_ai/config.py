@@ -6,7 +6,7 @@ import math
 import json
 import yaml
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Union, Dict, Any
 from .utils.exceptions import ConfigError
 
@@ -18,7 +18,7 @@ class ModelConfig:
     vocab_size: int = 64000
     hidden_dim: int = 4096
     num_layers: int = 8
-    num_attention_heads: int = 24
+    num_attention_heads: int = 32
     num_key_value_heads: Optional[int] = 4  # Default: num_attention_heads // 2
     intermediate_dim: int = 11000
     max_seq_length: int = 524288
@@ -63,11 +63,9 @@ class ModelConfig:
     use_flash_attention: bool = True
     use_paged_attention: bool = False
 
-    # Ring Attention parameters
-    use_ring_attention: bool = False
+    # Striped Attention parameters (Primary long-context solution)
     use_striped_attention: bool = True
-    ring_block_size: int = 1024
-    ring_num_devices: Optional[int] = None  # Auto-detect
+    striped_block_size: int = 1024
 
     # Linear Attention parameters
     use_linear_attention: bool = False
@@ -126,7 +124,7 @@ class ModelConfig:
     # TiDAR parameters
     use_tidar: bool = True
     tidar_num_steps: int = 2
-    tidar_diffusion_dim: int = 1536
+    tidar_diffusion_dim: int = 4096
     tidar_num_layers: int = 2
 
     # Feature Toggles for Memory management
@@ -137,6 +135,27 @@ class ModelConfig:
     # Resource Estimation Ratios
     training_fragmentation_ratio: float = 1.10
     inference_fragmentation_ratio: float = 1.15
+
+    # HTSR (Hurst Temperature Spectral Rigidity) monitoring
+    enable_htsr_monitoring: bool = False
+    htsr_monitor_interval: int = 75
+    htsr_alpha_upper_threshold: float = 4.5
+    htsr_variance_threshold: float = 0.5
+    htsr_lr_reduction_factor: float = 0.5
+    htsr_wd_increase_factor: float = 2.0
+    htsr_apply_intervention: bool = True
+    htsr_dashboard_port: int = 8050
+    htsr_dashboard_host: str = "0.0.0.0"
+    htsr_dashboard_auth: bool = True
+    htsr_dashboard_auto_refresh: int = 120
+    htsr_comm_email_enabled: bool = False
+    htsr_comm_slack_enabled: bool = False
+    htsr_comm_discord_enabled: bool = False
+    htsr_comm_pagerduty_enabled: bool = False
+    htsr_train_loss_warning: float = 1.0
+    htsr_train_loss_critical: float = 0.1
+    htsr_val_loss_warning: float = 1.5
+    htsr_val_loss_critical: float = 0.2
 
     def __post_init__(self):
         self.validate()
@@ -168,26 +187,12 @@ class ModelConfig:
                 "num_experts_per_token cannot be greater than total experts"
             )
 
-        if self.use_ring_attention and self.ring_block_size <= 0:
+        if self.use_striped_attention and self.striped_block_size <= 0:
             raise ConfigError(
-                "ring_block_size must be positive if ring attention is enabled"
+                "striped_block_size must be positive if striped attention is enabled"
             )
 
-        return True
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
-
-    def __post_init__(self):
-        self.validate()
-
-    def validate(self):
-        """Validate HTSR configuration"""
+        # HTSR validation
         if self.htsr_monitor_interval < 1:
             raise ConfigError("htsr_monitor_interval must be positive")
         if self.htsr_alpha_upper_threshold < 1.0:
@@ -203,7 +208,10 @@ class ModelConfig:
         if self.htsr_dashboard_auto_refresh < 10:
             raise ConfigError("htsr_dashboard_auto_refresh must be >= 10 seconds")
 
+        return True
+
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
         return asdict(self)
 
     @classmethod
@@ -233,7 +241,6 @@ class ModelConfig:
             num_experts=4,
             num_experts_per_token=2,
             shared_experts=1,
-            use_ring_attention=False,
             use_striped_attention=False,
             use_tidar=False,
             use_star=True,
@@ -278,48 +285,6 @@ class ModelConfig:
 
         return cls.from_dict(data)
 
-    """Configuration for HTSR (Hurst Temperature Spectral Rigidity) monitoring.
-
-    This config enables grokking detection during training by monitoring
-    the spectral properties of weight matrices.
-
-    Key thresholds:
-    - α > 4.5: Over-grokking / excessive memorization (SEVERE)
-    - α variance > 0.5: Unstable training (SEVERE)
-    """
-
-    # Enable/disable HTSR monitoring
-    enable_htsr_monitoring: bool = False
-
-    # Monitoring frequency (check every N steps)
-    htsr_monitor_interval: int = 75
-
-    # α thresholds for grokking detection
-    htsr_alpha_upper_threshold: float = 4.5  # Over-grokking threshold
-    htsr_variance_threshold: float = 0.5  # High variance threshold
-
-    # Intervention settings
-    htsr_lr_reduction_factor: float = 0.5  # Reduce LR by 50%
-    htsr_wd_increase_factor: float = 2.0  # Double weight decay
-    htsr_apply_intervention: bool = True  # Auto-apply interventions
-
-    # Dashboard settings
-    htsr_dashboard_port: int = 8050
-    htsr_dashboard_host: str = "0.0.0.0"  # Local network access
-    htsr_dashboard_auth: bool = True
-    htsr_dashboard_auto_refresh: int = 120  # seconds
-
-    # Communication channels (for severe alerts)
-    htsr_comm_email_enabled: bool = False
-    htsr_comm_slack_enabled: bool = False
-    htsr_comm_discord_enabled: bool = False
-    htsr_comm_pagerduty_enabled: bool = False
-
-    # Loss thresholds for alerts
-    htsr_train_loss_warning: float = 1.0
-    htsr_train_loss_critical: float = 0.1
-    htsr_val_loss_warning: float = 1.5
-    htsr_val_loss_critical: float = 0.2
 
 HTSRConfig = ModelConfig
 
@@ -394,8 +359,8 @@ class TrainingConfig:
     pruning_ratio: float = 0.1
     pruning_steps: Optional[List[int]] = None
 
-    # Ring Attention
-    use_ring_attention: bool = False
+    # Striped Attention
+    use_striped_attention: bool = True
 
     # Enhanced MoE Training Features
     # Expert specialization and monitoring

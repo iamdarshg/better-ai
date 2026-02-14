@@ -1,6 +1,7 @@
 """Data loading and processing utilities for DeepSeek model"""
 
-from .hf_datasets import CodeDataset, MixedCodeDataset, create_code_dataloaders
+from .hf_datasets import create_code_dataloaders
+from .unified_dataloader import UnifiedDataLoader, create_dataloader
 from .curation import (
     DatasetCurator,
     AgentFLANDecomposer,
@@ -35,8 +36,8 @@ except ImportError:
     DATASET_CONFIG_AVAILABLE = False
 
 __all__ = [
-    "CodeDataset",
-    "MixedCodeDataset",
+    "UnifiedDataLoader",
+    "create_dataloader",
     "create_code_dataloaders",
     "DatasetCurator",
     "AgentFLANDecomposer",

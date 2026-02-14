@@ -11,7 +11,7 @@ from .attention import (
     OptimizedTransformerBlock,
     get_optimized_attention_config
 )
-from .ring_attention import RingAttention
+from .striped_attention import StripedAttention
 from .reward_model import BranchRewardModel, MultiAttributeRewardModel, HierarchicalRewardModel
 from .advanced_features import (
     RecursiveScratchpad,
@@ -41,7 +41,7 @@ __all__ = [
     "LatentAttention",
     "OptimizedTransformerBlock",
     "get_optimized_attention_config",
-    "RingAttention",
+    "StripedAttention",
     "BranchRewardModel",
     "MultiAttributeRewardModel",
     "HierarchicalRewardModel",

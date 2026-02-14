@@ -9,8 +9,10 @@ import yaml
 from better_ai.config import ModelConfig, TrainingConfig, InferenceConfig
 from better_ai.utils.exceptions import ConfigError
 from better_ai.test_config_utils import get_small_model_config
+from better_ai.test_resource_tags import low_resource
 
 
+@low_resource
 class TestModelConfigValidation(unittest.TestCase):
     """Test ModelConfig validation and edge cases."""
 
@@ -51,16 +53,16 @@ class TestModelConfigValidation(unittest.TestCase):
 
     def test_attention_config_validation(self):
         """Test attention-specific configuration validation."""
-        # Test ring attention config
+        # Test striped attention config
         config = ModelConfig(
-            use_ring_attention=True, ring_block_size=1024, ring_num_devices=2
+            use_striped_attention=True, striped_block_size=1024
         )
-        self.assertTrue(config.use_ring_attention)
-        self.assertEqual(config.ring_block_size, 1024)
+        self.assertTrue(config.use_striped_attention)
+        self.assertEqual(config.striped_block_size, 1024)
 
-        # Invalid ring attention
+        # Invalid striped attention
         with self.assertRaises(ConfigError):
-            ModelConfig(use_ring_attention=True, ring_block_size=0)
+            ModelConfig(use_striped_attention=True, striped_block_size=0)
 
     def test_config_serialization(self):
         """Test config serialization to dict and back."""
@@ -77,6 +79,7 @@ class TestModelConfigValidation(unittest.TestCase):
         self.assertEqual(reconstructed.hidden_dim, original.hidden_dim)
 
 
+@low_resource
 class TestTrainingConfigValidation(unittest.TestCase):
     """Test TrainingConfig validation and edge cases."""
 
@@ -139,6 +142,7 @@ class TestTrainingConfigValidation(unittest.TestCase):
             TrainingConfig(save_steps=0)
 
 
+@low_resource
 class TestInferenceConfigValidation(unittest.TestCase):
     """Test InferenceConfig validation and edge cases."""
 
@@ -178,6 +182,7 @@ class TestInferenceConfigValidation(unittest.TestCase):
             InferenceConfig(quantize_weights=True, weight_bits=7)
 
 
+@low_resource
 class TestConfigIntegration(unittest.TestCase):
     """Test configuration integration and compatibility."""
 
@@ -219,6 +224,7 @@ class TestConfigIntegration(unittest.TestCase):
         self.assertEqual(large.vocab_size, 100000)
 
 
+@low_resource
 class TestConfigFileHandling(unittest.TestCase):
     """Test configuration file loading and saving."""
 

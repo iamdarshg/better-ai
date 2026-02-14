@@ -63,7 +63,16 @@ class StreamingDataset(IterableDataset):
 
         return formatted.strip()
 
-    def __init__(self, dataset_name, tokenizer, max_length=8192, split="train", streaming=True, data_format="text", languages=None):
+    def _format_conversation(self, messages: List[Dict[str, str]]) -> str:
+        """Formats multi-turn conversation into a single string"""
+        formatted = ""
+        for msg in messages:
+            role = msg.get("role", "user").upper()
+            content = msg.get("content", "")
+            formatted += f"[{role}]{content}[/{role}]\n"
+        return formatted.strip()
+
+    def __init__(self, dataset_name, tokenizer, max_length=8192, split="train", streaming=True, data_format="text", languages=None, config_name=None):
         self.dataset_name = dataset_name
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -71,9 +80,10 @@ class StreamingDataset(IterableDataset):
         self.streaming = streaming
         self.data_format = data_format
         self.languages = languages
+        self.config_name = config_name
 
         try:
-            self.dataset = load_dataset(self.dataset_name, split=self.split, streaming=self.streaming)
+            self.dataset = load_dataset(self.dataset_name, name=self.config_name, split=self.split, streaming=self.streaming)
             if self.languages:
                 self.dataset = self.dataset.filter(lambda x: x.get("lang") in self.languages)
             logger.info(f"Loaded dataset {self.dataset_name} ({self.split} split)")
@@ -83,8 +93,14 @@ class StreamingDataset(IterableDataset):
 
     def __iter__(self):
         for item in self.dataset:
+            # Handle Data Mixing (7.14) - Check for conversation type
+            is_multiturn = "messages" in item or "conversations" in item
+
             if self.data_format == "text":
-                if "text" in item:
+                if is_multiturn:
+                    messages = item.get("messages") or item.get("conversations")
+                    text = self._format_conversation(messages)
+                elif "text" in item:
                     text = item["text"]
                 elif "content" in item:
                     text = item["content"]
@@ -135,12 +151,23 @@ class StreamingDataset(IterableDataset):
                     "rejected_attention_mask": rejected_encoding["attention_mask"].squeeze()
                 }
 
+# Alias for compatibility with UNIFIED_TODO.md
+UnifiedDataLoader = StreamingDataset
+
 
 class CombinedStreamingDataset(IterableDataset):
-    def __init__(self, dataset_configs, tokenizer, max_length=8192, split="train", streaming=True, data_format="text", languages=None):
-        self.datasets = [
-            StreamingDataset(
+    def __init__(self, dataset_configs, tokenizer, max_length=8192, split="train", streaming=True, data_format="text", languages=None, multi_turn_ratio=0.25):
+        self.tokenizer = tokenizer
+        self.multi_turn_ratio = multi_turn_ratio
+
+        # Categorize datasets
+        self.single_turn_datasets = []
+        self.multi_turn_datasets = []
+
+        for config in dataset_configs:
+            ds = StreamingDataset(
                 dataset_name=config['path'],
+                config_name=config.get('config_name'),
                 tokenizer=tokenizer,
                 max_length=config.get('max_seq_length', max_length),
                 split=config.get('split', split),
@@ -148,19 +175,49 @@ class CombinedStreamingDataset(IterableDataset):
                 data_format=config.get('data_format', data_format),
                 languages=config.get('languages', languages)
             )
-            for config in dataset_configs
-        ]
+
+            # Use metadata or name to distinguish (simplified)
+            if "multi-turn" in config['path'].lower() or "conversation" in config['path'].lower():
+                self.multi_turn_datasets.append(ds)
+            else:
+                self.single_turn_datasets.append(ds)
+
+        # Fallback if only one type exists
+        if not self.multi_turn_datasets:
+            self.multi_turn_datasets = self.single_turn_datasets
+            self.multi_turn_ratio = 0.0
+        if not self.single_turn_datasets:
+            self.single_turn_datasets = self.multi_turn_datasets
+            self.multi_turn_ratio = 1.0
 
     def __iter__(self):
-        iterators = [iter(ds) for ds in self.datasets]
-        while iterators:
-            # Iterate over a copy of the list to allow safe removal
-            for it in list(iterators):
+        import random
+
+        st_iterators = [iter(ds) for ds in self.single_turn_datasets]
+        mt_iterators = [iter(ds) for ds in self.multi_turn_datasets]
+
+        while st_iterators or mt_iterators:
+            # Sample based on ratio (75/25)
+            if random.random() < self.multi_turn_ratio and mt_iterators:
+                it = random.choice(mt_iterators)
                 try:
                     yield next(it)
                 except StopIteration:
-                    # This iterator is exhausted, remove it.
-                    iterators.remove(it)
+                    mt_iterators.remove(it)
+            elif st_iterators:
+                it = random.choice(st_iterators)
+                try:
+                    yield next(it)
+                except StopIteration:
+                    st_iterators.remove(it)
+            elif mt_iterators: # Fallback to MT if ST is empty
+                it = random.choice(mt_iterators)
+                try:
+                    yield next(it)
+                except StopIteration:
+                    mt_iterators.remove(it)
+            else:
+                break
 
 
 class MemoryMappedDataset(torch.utils.data.Dataset):
@@ -201,6 +258,7 @@ def create_dataloader(
     else:
         dataset = StreamingDataset(
             dataset_name=dataset_config['path'],
+            config_name=dataset_config.get('config_name'),
             tokenizer=tokenizer,
             max_length=dataset_config['max_seq_length'],
             split=split,
