@@ -19,6 +19,19 @@ class FaultLocalizer:
         self.model = model
         self.logger = logging.getLogger(__name__)
 
+    def _get_line_context(self, filename: str, lineno: int) -> Optional[str]:
+        """Helper to read a specific line from a file for context"""
+        try:
+            import os
+            if os.path.exists(filename):
+                with open(filename, 'r') as f:
+                    lines = f.readlines()
+                    if 1 <= lineno <= len(lines):
+                        return lines[lineno - 1].strip()
+        except Exception:
+            pass
+        return None
+
     def parse_python_trace(self, trace: str) -> List[Dict[str, Any]]:
         """Parses Python traceback to extract file and line information"""
         faults = []
@@ -27,14 +40,22 @@ class FaultLocalizer:
         matches = re.findall(pattern, trace)
 
         for i, (filename, lineno, func) in enumerate(matches):
+            line_int = int(lineno)
             # Higher suspiciousness for lines deeper in the stack trace (last matched are usually closer to error)
             suspiciousness = (i + 1) / len(matches)
+
+            line_content = self._get_line_context(filename, line_int)
+            reason = f"Present in stack trace at depth {len(matches) - i}"
+            if line_content:
+                reason += f": `{line_content}`"
+
             faults.append({
                 "file": filename,
-                "line_no": int(lineno),
+                "line_no": line_int,
                 "function": func,
                 "suspiciousness": suspiciousness,
-                "reason": f"Present in stack trace at depth {len(matches) - i}"
+                "reason": reason,
+                "context": line_content
             })
 
         # Sort by suspiciousness descending
@@ -48,13 +69,21 @@ class FaultLocalizer:
         matches = re.findall(pattern, trace)
 
         for i, (filename, lineno, colno) in enumerate(matches):
+            line_int = int(lineno)
             suspiciousness = (i + 1) / len(matches)
+
+            line_content = self._get_line_context(filename, line_int)
+            reason = "Rust backtrace entry"
+            if line_content:
+                reason += f": `{line_content}`"
+
             faults.append({
                 "file": filename,
-                "line_no": int(lineno),
+                "line_no": line_int,
                 "column": int(colno),
                 "suspiciousness": suspiciousness,
-                "reason": f"Rust backtrace entry"
+                "reason": reason,
+                "context": line_content
             })
         return sorted(faults, key=lambda x: x["suspiciousness"], reverse=True)
 
@@ -66,12 +95,20 @@ class FaultLocalizer:
         matches = re.findall(pattern, trace)
 
         for i, (filename, lineno) in enumerate(matches):
+            line_int = int(lineno)
             suspiciousness = 1.0 / (i + 1) # Closer to #0 is more suspicious
+
+            line_content = self._get_line_context(filename, line_int)
+            reason = f"C stack frame #{i}"
+            if line_content:
+                reason += f": `{line_content}`"
+
             faults.append({
                 "file": filename,
-                "line_no": int(lineno),
+                "line_no": line_int,
                 "suspiciousness": suspiciousness,
-                "reason": f"C stack frame #{i}"
+                "reason": reason,
+                "context": line_content
             })
         return faults
 
@@ -88,13 +125,81 @@ class FaultLocalizer:
             if len(groups) >= 2:
                 filename, lineno = groups[0], groups[1]
                 if lineno.isdigit():
+                    line_int = int(lineno)
+                    line_content = self._get_line_context(filename, line_int)
+                    reason = "Generic trace pattern match"
+                    if line_content:
+                        reason += f": `{line_content}`"
+
                     faults.append({
                         "file": filename,
-                        "line_no": int(lineno),
+                        "line_no": line_int,
                         "suspiciousness": 0.5,
-                        "reason": "Generic trace pattern match"
+                        "reason": reason,
+                        "context": line_content
                     })
         return faults
+
+    def calculate_sbfl_scores(self, coverage_data: List[Dict[str, Any]], technique: str = "ochiai") -> List[Dict[str, Any]]:
+        """
+        Calculates suspiciousness scores using Spectrum-Based Fault Localization (SBFL)
+
+        Args:
+            coverage_data: List of dicts with keys: 'passed' (bool), 'covered_lines' (Dict[file, List[int]])
+            technique: 'tarantula' or 'ochiai'
+        """
+        line_stats = {} # (file, line) -> {'passed': count, 'failed': count}
+        total_passed = 0
+        total_failed = 0
+
+        for test_result in coverage_data:
+            passed = test_result.get('passed', False)
+            if passed:
+                total_passed += 1
+            else:
+                total_failed += 1
+
+            covered_lines = test_result.get('covered_lines', {})
+            for filename, lines in covered_lines.items():
+                for lineno in lines:
+                    key = (filename, lineno)
+                    if key not in line_stats:
+                        line_stats[key] = {'passed': 0, 'failed': 0}
+
+                    if passed:
+                        line_stats[key]['passed'] += 1
+                    else:
+                        line_stats[key]['failed'] += 1
+
+        scores = []
+        import math
+
+        for (filename, lineno), stats in line_stats.items():
+            p_s = stats['passed']
+            f_s = stats['failed']
+
+            suspiciousness = 0.0
+            if technique.lower() == "tarantula":
+                if total_passed > 0 and total_failed > 0:
+                    top = f_s / total_failed
+                    bottom = (p_s / total_passed) + (f_s / total_failed)
+                    if bottom > 0:
+                        suspiciousness = top / bottom
+            elif technique.lower() == "ochiai":
+                if total_failed > 0 and (f_s + p_s) > 0:
+                    suspiciousness = f_s / math.sqrt(total_failed * (f_s + p_s))
+
+            if suspiciousness > 0:
+                scores.append({
+                    "file": filename,
+                    "line_no": lineno,
+                    "suspiciousness": suspiciousness,
+                    "reason": f"SBFL score ({technique}): {suspiciousness:.4f}",
+                    "passed_count": p_s,
+                    "failed_count": f_s
+                })
+
+        return sorted(scores, key=lambda x: x["suspiciousness"], reverse=True)
 
     def localize_fault(self, code: str, error_trace: str, language: str = "python") -> List[Dict[str, Any]]:
         """
@@ -116,6 +221,19 @@ class FaultLocalizer:
         if not faults and self.model:
             # Placeholder for model-based localization
             pass
+
+        # If code was provided, and we found faults but no context, try to use provided code
+        if code and faults:
+            code_lines = code.splitlines()
+            for fault in faults:
+                if not fault.get("context"):
+                    # Check if filename in fault matches something reasonable or if it's the only code provided
+                    # For simplicity, if code is provided, we assume it's for the first file in the trace if not specified
+                    l_no = fault["line_no"]
+                    if 1 <= l_no <= len(code_lines):
+                        fault["context"] = code_lines[l_no - 1].strip()
+                        if "`" not in fault["reason"]:
+                             fault["reason"] += f": `{fault['context']}`"
 
         return faults
 
@@ -175,6 +293,7 @@ class SoftwareRepairPipeline:
     def __init__(self, localizer: FaultLocalizer, generator: PatchGenerator):
         self.localizer = localizer
         self.generator = generator
+        self.logger = logging.getLogger(__name__)
 
     def repair(self, code: str, error_trace: str, language: str = "python") -> Dict[str, Any]:
         """
@@ -193,15 +312,48 @@ class SoftwareRepairPipeline:
             "language": language
         }
 
-    def validate_repair(self, original_code: str, patch: str, test_command: str) -> bool:
+    def validate_repair(self, original_code: str, patch: str, test_command: str, filename: str = "repaired_code.py") -> bool:
         """
         Validates repair by running tests in sandbox
         """
-        # In real implementation, this would:
-        # 1. Apply patch to temporary file
-        # 2. Run test_command
-        # 3. Check return code
-        return True
+        import subprocess
+        import os
+        import tempfile
+        import shutil
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file_path = os.path.join(tmpdir, filename)
+
+            # Write the patched code to the temporary file
+            with open(temp_file_path, "w") as f:
+                f.write(patch)
+
+            # If the test command needs other files from the environment, this might be tricky
+            # For now, we assume the test command can run with just this file or uses absolute paths
+
+            try:
+                # Run the test command
+                # We set cwd to tmpdir so the test command runs in the context of the patched file
+                result = subprocess.run(
+                    test_command,
+                    shell=True,
+                    cwd=tmpdir,
+                    capture_output=True,
+                    text=True,
+                    timeout=30 # Safety timeout
+                )
+
+                self.logger.info(f"Repair validation stdout: {result.stdout}")
+                if result.returncode != 0:
+                    self.logger.warning(f"Repair validation failed (exit {result.returncode}): {result.stderr}")
+
+                return result.returncode == 0
+            except subprocess.TimeoutExpired:
+                self.logger.error("Repair validation timed out")
+                return False
+            except Exception as e:
+                self.logger.error(f"Error during repair validation: {e}")
+                return False
 
 def compute_repair_reward(results: Dict[str, Any], test_pass_rate: float, ground_truth_fault_line: Optional[int] = None) -> float:
     """
