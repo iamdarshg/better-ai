@@ -181,7 +181,40 @@ def calculate_parameters(config: ModelConfig) -> Dict:
 def calculate_inference_memory(
     config: ModelConfig, batch_size: int, seq_len: int, precision: str
 ) -> float:
-    """Calculate VRAM needed for inference in bytes."""
+    """Calculate VRAM needed for inference in bytes, using empirical extrapolation if available."""
+    # Check if we have empirical data from tools/analyze_ram_usage.py
+    analysis_path = Path(__file__).parent.parent / ".ram_analysis.json"
+    if analysis_path.exists():
+        try:
+            import json
+            with open(analysis_path, 'r') as f:
+                analysis = json.load(f)
+
+            data = analysis.get(precision, [])
+            if data:
+                # Use the last measurement as a base
+                base = data[-1]
+
+                # Extrapolate parameter memory
+                prod_params = calculate_parameters(config)["total_params"]
+                small_params = calculate_parameters(ModelConfig.get_small_model_config())["total_params"]
+                param_scaling = prod_params / small_params
+
+                # Extrapolate overhead (activations + KV cache)
+                # Overhead scales roughly with batch * seq * model_size_factor
+                base_overhead = base["overhead_bytes"]
+                base_batch_seq = base["batch_size"] * base["seq_len"]
+
+                current_batch_seq = batch_size * seq_len
+                # Model size factor for activations/KV
+                size_factor = (config.hidden_dim * config.num_layers) / (ModelConfig.get_small_model_config().hidden_dim * ModelConfig.get_small_model_config().num_layers)
+
+                overhead_scaling = (current_batch_seq / base_batch_seq) * size_factor
+
+                return (base["param_bytes"] * param_scaling + base_overhead * overhead_scaling) * 1.15
+        except Exception:
+            pass
+
     params = calculate_parameters(config)
 
     bytes_per_param = 1 if precision == "fp8" else 2

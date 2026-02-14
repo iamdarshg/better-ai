@@ -38,6 +38,7 @@ class GRPOTrainer:
         self.value_loss_coef = config.get("value_loss_coef", 0.5)
         self.group_size = config.get("group_size", 4)  # Group size for advantage estimation
         self.device = config.get("device", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        self.tokenizer = config.get("tokenizer", getattr(model, "tokenizer", None))
 
         # Value function for baseline
         hidden_dim = config.get("hidden_dim", getattr(model, "config", None).hidden_dim if hasattr(model, "config") else 128)
@@ -302,6 +303,9 @@ class GRPOTrainer:
         reward_scores = torch.zeros(batch_size, self.group_size, device=self.device)
         old_logprobs = torch.zeros(batch_size, self.group_size, device=self.device)
 
+        # Store generated trajectories for diversity reward
+        all_group_trajectories = [[] for _ in range(batch_size)]
+
         # Extract input sequences (remove padding if needed)
         input_ids = batch["input_ids"].to(self.device)
         attention_mask = batch.get("attention_mask", None)
@@ -323,13 +327,31 @@ class GRPOTrainer:
                 reward_scores[:, group_idx] = response_reward
                 old_logprobs[:, group_idx] = response_logprobs
 
+                # Decode for diversity reward if tokenizer is available
+                if self.tokenizer:
+                    for i in range(batch_size):
+                        # Extract only the generated part
+                        input_len = input_ids.shape[1]
+                        gen_tokens = generated_response[i, input_len:]
+                        text = self.tokenizer.decode(gen_tokens, skip_special_tokens=True)
+                        all_group_trajectories[i].append(text)
+
             except Exception as e:
                 # Fallback to random values if generation/reward computation fails
-                # This ensures training continues even if individual responses fail
                 import logging
                 logging.warning(f"Failed to compute reward for group {group_idx}: {e}")
                 reward_scores[:, group_idx] = torch.randn(batch_size, device=self.device)
                 old_logprobs[:, group_idx] = torch.randn(batch_size, device=self.device)
+
+        # Apply diversity reward if enabled and tokenizer is available
+        if self.config.get("use_diversity_reward", False) and self.tokenizer:
+            from .diversity_metrics import get_diversity_reward
+            diversity_weight = self.config.get("diversity_reward_weight", 0.1)
+
+            for i in range(batch_size):
+                if len(all_group_trajectories[i]) == self.group_size:
+                    div_reward = get_diversity_reward(all_group_trajectories[i])
+                    reward_scores[i, :] += diversity_weight * div_reward
 
         return reward_scores, old_logprobs
 

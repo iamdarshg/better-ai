@@ -339,12 +339,12 @@ MIT — see [LICENSE](LICENSE)
 ## Resource Estimates
 
 *Auto-generated from config using production settings*
-*Last updated: 2026-02-14 09:22:48*
+*Last updated: 2026-02-14 13:35:14*
 
 ### Model Architecture
-- **Total Parameters**: 5.35B
-- **Active Parameters**: 2.91B (per token with MoE)
-- **Sparsity**: 45.5%
+- **Total Parameters**: 5.74B
+- **Active Parameters**: 3.31B (per token with MoE)
+- **Sparsity**: 42.4%
 - **Layers**: 8 (5 standard + 3 MoE)
 - **Hidden Dimension**: 4096
 - **Intermediate Dimension**: 11000
@@ -354,39 +354,39 @@ MIT — see [LICENSE](LICENSE)
 **Parameter Breakdown:**
 | Component | Parameters | % of Total |
 |-----------|------------|------------|
-| Embeddings | 262.14M | 4.9% |
-| LM Head | 262.14M | 4.9% |
-| Attention | 311.95M | 5.8% |
-| FFN (Standard) | 675.84M | 12.6% |
-| FFN (MoE - All) | 3.65B | 68.3% |
-| FFN (MoE - Active) | 1.22B | 41.7% of active |
+| Embeddings | 262.14M | 4.6% |
+| LM Head | 262.14M | 4.6% |
+| Attention | 301.99M | 5.3% |
+| FFN (Standard) | 675.84M | 11.8% |
+| FFN (MoE - All) | 3.65B | 63.5% |
+| FFN (MoE - Active) | 1.22B | 36.8% of active |
 | Routers | 98304 | 0.0% |
 
 **Advanced Features:**
 | Feature | Parameters |
 |---------|------------|
-| tidar | 80.22M |
+| tidar | 486.54M |
 | tool_heads | 54.53M |
 | scratchpad | 50.33M |
-| **Total Features** | **185.07M** |
+| **Total Features** | **591.40M** |
 
 ### VRAM Requirements (Batch=1, Seq=524,288)
 
 **Inference VRAM per GPU:**
 | GPU | Available | BF16 Required | FP8 Required | BF16 Batch | FP8 Batch |
 |-----|-----------|---------------|--------------|------------|-----------|
-| RTX 2070 | 8 GB | 28 GB | 14 GB | 0 (need 28GB) | 0 (need 14GB) |
-| RTX 5090 | 32 GB | 28 GB | 14 GB | 1 | 3 |
-| H300e | 80 GB | 28 GB | 14 GB | 4 | 10 |
-| H200 | 141 GB | 28 GB | 14 GB | 9 | 19 |
+| RTX 2070 | 8 GB | 26 GB | 13 GB | 0 (need 26GB) | 0 (need 13GB) |
+| RTX 5090 | 32 GB | 26 GB | 13 GB | 1 | 4 |
+| H300e | 80 GB | 26 GB | 13 GB | 6 | 13 |
+| H200 | 141 GB | 26 GB | 13 GB | 11 | 25 |
 
 **Training VRAM per GPU (with 8-bit optimizer, avg seq length):**
 | GPU | Available | BF16 Required | FP8 Required | BF16 Batch | FP8 Batch |
 |-----|-----------|---------------|--------------|------------|-----------|
-| RTX 2070 | 8 GB | 87 GB | 81 GB | 0 (need 87GB) | 0 (need 81GB) |
-| RTX 5090 | 32 GB | 87 GB | 81 GB | 0 (need 87GB) | 0 (need 81GB) |
-| H300e | 80 GB | 87 GB | 81 GB | 0 (need 87GB) | 0 (need 81GB) |
-| H200 | 141 GB | 87 GB | 81 GB | 7 | 9 |
+| RTX 2070 | 8 GB | 93 GB | 87 GB | 0 (need 93GB) | 0 (need 87GB) |
+| RTX 5090 | 32 GB | 93 GB | 87 GB | 0 (need 93GB) | 0 (need 87GB) |
+| H300e | 80 GB | 93 GB | 87 GB | 0 (need 93GB) | 0 (need 87GB) |
+| H200 | 141 GB | 93 GB | 87 GB | 6 | 7 |
 
 ### Training Pipeline
 
@@ -403,9 +403,9 @@ MIT — see [LICENSE](LICENSE)
 
 | GPU | FP16 TFLOPS | Hours | Days |
 |-----|-------------|-------|------|
-| RTX 2070 | 8 | 2,765 | 115.2 |
-| RTX 5090 | 100 | 207 | 8.6 |
-| H300e | 2000 | 10 | 0.4 |
-| H200 | 1000 | 21 | 0.9 |
+| RTX 2070 | 8 | 2,970 | 123.8 |
+| RTX 5090 | 100 | 223 | 9.3 |
+| H300e | 2000 | 11 | 0.5 |
+| H200 | 1000 | 22 | 0.9 |
 
 _Note: Training times assume 100% GPU utilization. Real-world training typically achieves 30-70%._

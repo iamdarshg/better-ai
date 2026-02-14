@@ -80,15 +80,81 @@ class DiversityMeasurer:
 
         return (1.0 - avg_sim).item()
 
+    def _split_into_steps(self, trajectory: str) -> List[str]:
+        """Splits a trajectory into individual reasoning steps"""
+        # Common step markers
+        import re
+        step_pattern = r'(?:Step\s+\d+:|(?:\n\n)+)'
+        steps = re.split(step_pattern, trajectory)
+        return [s.strip() for s in steps if s.strip()]
+
+    def measure_step_diversity(self, trajectories: List[str]) -> float:
+        """Measures diversity of intermediate reasoning steps across trajectories"""
+        if not trajectories:
+            return 0.0
+
+        all_trajs_steps = [self._split_into_steps(t) for t in trajectories]
+
+        # Calculate unique steps across all trajectories (normalized)
+        all_steps = []
+        for steps in all_trajs_steps:
+            all_steps.extend(steps)
+
+        if not all_steps:
+            return 0.0
+
+        unique_steps = set(all_steps)
+        return len(unique_steps) / len(all_steps)
+
+    def label_reasoning_patterns(self, trajectory: str) -> List[str]:
+        """Identifies reasoning patterns in a trajectory using heuristics"""
+        patterns = []
+        text = trajectory.lower()
+
+        heuristics = {
+            "verification": ["verify", "check", "confirm", "proof", "validate", "ensure"],
+            "backtracking": ["go back", "instead", "wait", "actually", "reconsider", "correction"],
+            "exploratory": ["maybe", "try", "perhaps", "could", "hypothesis", "explore"],
+            "analytical": ["analyze", "break down", "structure", "components", "logic", "deduce"],
+            "mathematical": ["equation", "formula", "calculate", "sum", "product", "derive"]
+        }
+
+        for pattern, keywords in heuristics.items():
+            if any(kw in text for kw in keywords):
+                patterns.append(pattern)
+
+        return patterns if patterns else ["standard"]
+
+    def compute_pattern_diversity(self, trajectories: List[str]) -> float:
+        """Measures diversity of reasoning patterns across a group of trajectories"""
+        if not trajectories:
+            return 0.0
+
+        all_patterns = []
+        for t in trajectories:
+            all_patterns.extend(self.label_reasoning_patterns(t))
+
+        unique_patterns = set(all_patterns)
+        return len(unique_patterns) / 5.0 # Normalized by number of known patterns
+
 def get_diversity_reward(group_trajectories: List[str], group_embeddings: Optional[torch.Tensor] = None) -> float:
     """
     Computes an aggregate diversity reward for a group of rollouts
     """
+    if not group_trajectories:
+        return 0.0
+
     measurer = DiversityMeasurer()
     n_gram_div = measurer.compute_n_gram_diversity(group_trajectories)
     approach_div = measurer.compute_approach_diversity(group_trajectories)
+    step_div = measurer.measure_step_diversity(group_trajectories)
+    pattern_div = measurer.compute_pattern_diversity(group_trajectories)
 
-    base_reward = 0.5 * n_gram_div + 0.5 * approach_div
+    # Aggregate base reward from multiple text-based diversity signals
+    base_reward = (0.3 * n_gram_div +
+                   0.3 * approach_div +
+                   0.2 * step_div +
+                   0.2 * pattern_div)
 
     if group_embeddings is not None:
         emb_div = measurer.compute_embedding_diversity(group_embeddings)

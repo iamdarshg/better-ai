@@ -38,23 +38,28 @@
 ## 🚨 CRITICAL ISSUES (Immediate Action Required)
 
 ### 1. Stub Implementation Completion (Priority: CRITICAL)
-- [ ] **Fault Localization & Patch Generation (Refinement):**
+- [x] **Fault Localization & Patch Generation (Refinement):**
   - [x] Parse error traces (Python, C, Rust)
-  - [ ] Map stack traces to source code locations
-  - [ ] Calculate suspiciousness scores using spectrum-based techniques (Tarantula, Ochiai)
+  - [x] Map stack traces to source code locations
+  - [x] Calculate suspiciousness scores using spectrum-based techniques (Tarantula, Ochiai)
   - [x] Support real patch validation with AST checks
-  - [ ] Integrate with Actual code execution sandbox for repair verification
-- [ ] **Reasoning Diversity Metrics:**
+   - [x] Integrate with Actual code execution sandbox for repair verification (including Docker-based isolation)
+  - [ ] **Production-grade Localization:**
+    - [ ] Implement specialized reasoning heads for direct fault prediction
+    - [ ] Use cross-modal attention to align error traces with source code tokens
+    - [ ] Integrate with external static analysis tools (SonarQube, Semgrep) for better signal
+     - [x] Implement fully virtualized sandboxing (Docker) for patch validation
+- [x] **Reasoning Diversity Metrics:**
   - [x] Implement semantic diversity metrics (n-gram, cosine)
   - [x] Implement solution approach classification
-  - [ ] Add semantic role labeling to identify reasoning patterns
-  - [ ] Measure diversity of intermediate reasoning steps
-  - [ ] Integrate diversity bonus to GRPO/ARPO training loop
-- [ ] **Model Pruning (Physical Shrinkage):**
+  - [x] Add semantic role labeling to identify reasoning patterns
+  - [x] Measure diversity of intermediate reasoning steps
+  - [x] Integrate diversity bonus to GRPO/ARPO training loop
+- [x] **Model Pruning (Physical Shrinkage):**
   - [x] Implement `shrink_model_after_pruning` to physically remove zeroed parameters
-  - [ ] Reconstruct Linear layers with reduced dimensions after pruning
-  - [ ] Update bias vectors to match pruned weight dimensions
-  - [ ] Implement head pruning for attention layers
+  - [x] Reconstruct Linear layers with reduced dimensions after pruning
+  - [x] Update bias vectors to match pruned weight dimensions
+  - [x] Implement head pruning for attention layers
 
 ---
 
@@ -66,10 +71,10 @@
 - [x] **Difficulty Estimation:** AST-based complexity scanning in `better_ai/data/curation.py`.
 - [ ] **Recursive Scratchpad Iteration:** Refine MCTS CoT integration.
 - [ ] **Curriculum Fine-tuning:**
-  - [ ] Fine-tune curriculum progression rates (grokking ratios)
-  - [ ] Test different `grokking_fast_ratio` values (currently 0.4)
-  - [ ] Validate plateau_steps effectiveness
-  - [ ] Add scripts for automated curriculum tuning
+    - [ ] Fine-tune curriculum progression rates (grokking ratios) using real datasets for training stability
+    - [ ] Test different `grokking_fast_ratio` values (currently 0.4) on domain-specific real datasets to find optimal convergence
+    - [ ] Validate plateau_steps effectiveness using real-world reasoning tasks and datasets
+    - [ ] Add scripts for automated curriculum tuning (for both RAM and grokking ratio analysis using real data samples)
 
 ### Phase 5: Evaluation & Benchmarking
 - [x] **Evaluation Suite:** SWE-bench integration, HumanEval/MBPP trackers.
