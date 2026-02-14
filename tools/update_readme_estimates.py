@@ -183,25 +183,35 @@ def calculate_inference_memory(
 ) -> float:
     """Calculate VRAM needed for inference in bytes, using empirical extrapolation if available."""
     # Check if we have empirical data from tools/analyze_ram_usage.py
-    ram_estimate_path = Path(__file__).parent.parent / ".ram_estimate"
-    if ram_estimate_path.exists():
+    analysis_path = Path(__file__).parent.parent / ".ram_analysis.json"
+    if analysis_path.exists():
         try:
-            with open(ram_estimate_path, 'r') as f:
-                empirical_total = float(f.read().strip())
-                # Empirical data is for batch=1, seq=128
-                # Scale it to current batch and seq
-                # Note: Parameters stay constant, activations and KV cache scale
+            import json
+            with open(analysis_path, 'r') as f:
+                analysis = json.load(f)
 
-                # Simplified scaling for README update:
-                # If precision is FP8, reduce by ~40% (not all memory is weights)
-                if precision == "fp8":
-                    empirical_total *= 0.6
+            data = analysis.get(precision, [])
+            if data:
+                # Use the last measurement as a base
+                base = data[-1]
 
-                # Scale by batch and seq (approximate)
-                seq_scaling = max(1.0, seq_len / 128.0)
-                batch_scaling = float(batch_size)
+                # Extrapolate parameter memory
+                prod_params = calculate_parameters(config)["total_params"]
+                small_params = calculate_parameters(ModelConfig.get_small_model_config())["total_params"]
+                param_scaling = prod_params / small_params
 
-                return empirical_total * batch_scaling * seq_scaling
+                # Extrapolate overhead (activations + KV cache)
+                # Overhead scales roughly with batch * seq * model_size_factor
+                base_overhead = base["overhead_bytes"]
+                base_batch_seq = base["batch_size"] * base["seq_len"]
+
+                current_batch_seq = batch_size * seq_len
+                # Model size factor for activations/KV
+                size_factor = (config.hidden_dim * config.num_layers) / (ModelConfig.get_small_model_config().hidden_dim * ModelConfig.get_small_model_config().num_layers)
+
+                overhead_scaling = (current_batch_seq / base_batch_seq) * size_factor
+
+                return (base["param_bytes"] * param_scaling + base_overhead * overhead_scaling) * 1.15
         except Exception:
             pass
 

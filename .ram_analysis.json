@@ -1,0 +1,89 @@
+{
+  "bf16": [],
+  "fp8": [
+    {
+      "peak_bytes": 929087488,
+      "param_bytes": 7321796,
+      "overhead_bytes": 921765692,
+      "batch_size": 1,
+      "seq_len": 128
+    },
+    {
+      "peak_bytes": 929218560,
+      "param_bytes": 7321796,
+      "overhead_bytes": 921896764,
+      "batch_size": 1,
+      "seq_len": 256
+    },
+    {
+      "peak_bytes": 929349632,
+      "param_bytes": 7321796,
+      "overhead_bytes": 922027836,
+      "batch_size": 1,
+      "seq_len": 512
+    },
+    {
+      "peak_bytes": 898584576,
+      "param_bytes": 7321796,
+      "overhead_bytes": 891262780,
+      "batch_size": 1,
+      "seq_len": 1024
+    },
+    {
+      "peak_bytes": 898584576,
+      "param_bytes": 7321796,
+      "overhead_bytes": 891262780,
+      "batch_size": 2,
+      "seq_len": 128
+    },
+    {
+      "peak_bytes": 898584576,
+      "param_bytes": 7321796,
+      "overhead_bytes": 891262780,
+      "batch_size": 2,
+      "seq_len": 256
+    },
+    {
+      "peak_bytes": 936202240,
+      "param_bytes": 7321796,
+      "overhead_bytes": 928880444,
+      "batch_size": 2,
+      "seq_len": 512
+    },
+    {
+      "peak_bytes": 936443904,
+      "param_bytes": 7321796,
+      "overhead_bytes": 929122108,
+      "batch_size": 2,
+      "seq_len": 1024
+    },
+    {
+      "peak_bytes": 936443904,
+      "param_bytes": 7321796,
+      "overhead_bytes": 929122108,
+      "batch_size": 4,
+      "seq_len": 128
+    },
+    {
+      "peak_bytes": 936443904,
+      "param_bytes": 7321796,
+      "overhead_bytes": 929122108,
+      "batch_size": 4,
+      "seq_len": 256
+    },
+    {
+      "peak_bytes": 906952704,
+      "param_bytes": 7321796,
+      "overhead_bytes": 899630908,
+      "batch_size": 4,
+      "seq_len": 512
+    },
+    {
+      "peak_bytes": 932659200,
+      "param_bytes": 7321796,
+      "overhead_bytes": 925337404,
+      "batch_size": 4,
+      "seq_len": 1024
+    }
+  ]
+}
