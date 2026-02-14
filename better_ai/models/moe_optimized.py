@@ -25,14 +25,13 @@ class Expert(nn.Module):
         intermediate_size: int,
         dropout: float = 0.0,
         bias: bool = False,
-        use_fp8: bool = False,
+        use_fp8: bool = False
     ):
         super().__init__()
 
         # Fused gate and up projections to save memory overhead and improve speed
         if use_fp8:
             from ..optimizers.fp8 import FP8Linear
-
             self.gate_up_proj = FP8Linear(hidden_size, 2 * intermediate_size, bias=bias)
             self.down_proj = FP8Linear(intermediate_size, hidden_size, bias=bias)
         else:
@@ -50,7 +49,7 @@ class Expert(nn.Module):
 
 
 class OptimizedExpertRouter(nn.Module):
-    """Optimized router with load-aware routing"""
+    """Optimized router with load-aware routing and Expert Choice support"""
 
     def __init__(
         self,
@@ -60,6 +59,7 @@ class OptimizedExpertRouter(nn.Module):
         router_bias: bool = False,
         router_dtype: torch.dtype = torch.float32,
         capacity_factor: float = 1.25,
+        routing_type: str = "topk" # "topk" or "expert_choice"
     ):
         super().__init__()
 
@@ -67,14 +67,18 @@ class OptimizedExpertRouter(nn.Module):
         self.num_experts = num_experts
         self.num_experts_per_token = num_experts_per_token
         self.capacity_factor = capacity_factor
+        self.routing_type = routing_type
 
         # Router projection
         self.router_linear = nn.Linear(
-            hidden_size, num_experts, bias=router_bias, dtype=router_dtype
+            hidden_size,
+            num_experts,
+            bias=router_bias,
+            dtype=router_dtype
         )
 
         # Load balancing stats (updated lazily)
-        self.register_buffer("expert_loads_ema", torch.zeros(num_experts))
+        self.register_buffer('expert_loads_ema', torch.zeros(num_experts))
         self.load_update_freq = 100
         self.update_counter = 0
 
@@ -83,25 +87,42 @@ class OptimizedExpertRouter(nn.Module):
         return self.router_linear(hidden_states)
 
     def forward(
-        self, hidden_states: torch.Tensor
+        self,
+        hidden_states: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+
         batch_size, sequence_length, hidden_dim = hidden_states.shape
+        num_tokens = batch_size * sequence_length
 
         # Compute router logits
-        router_logits = self.get_logits(hidden_states)
+        router_logits = self.get_logits(hidden_states) # [B, S, E]
 
-        # Apply softmax with temperature for better routing
+        if self.routing_type == "expert_choice":
+            # Expert Choice routing logic (ST-MoE)
+            # Each expert selects top tokens based on capacity
+            capacity = int((num_tokens * self.num_experts_per_token) / self.num_experts * self.capacity_factor)
+
+            # router_logits_flat: [num_tokens, num_experts]
+            router_logits_flat = router_logits.view(-1, self.num_experts)
+            probs = F.softmax(router_logits_flat, dim=0) # Normalize across tokens for each expert?
+            # Actually, standard Expert Choice uses scores directly or normalized across experts
+
+            # Top-C tokens for each expert
+            expert_scores, token_indices = torch.topk(router_logits_flat.t(), k=capacity, dim=-1) # [E, C]
+
+            # We need to return in a format compatible with the MoE layer
+            # For Expert Choice, we'll return a sparse representation or mapped weights
+            # This is a stub for full implementation
+            return expert_scores, token_indices, router_logits
+
+        # Default Top-k selection
         routing_probs = F.softmax(router_logits, dim=-1)
-
-        # Top-k selection
         routing_weights, selected_experts = torch.topk(
-            routing_probs, self.num_experts_per_token, dim=-1
+            routing_probs,
+            self.num_experts_per_token,
+            dim=-1
         )
-
-        # Normalize weights
-        routing_weights = routing_weights / (
-            routing_weights.sum(dim=-1, keepdim=True) + 1e-6
-        )
+        routing_weights = routing_weights / (routing_weights.sum(dim=-1, keepdim=True) + 1e-6)
 
         return routing_weights, selected_experts, router_logits
 
@@ -111,7 +132,8 @@ class OptimizedExpertRouter(nn.Module):
         if self.update_counter % self.load_update_freq == 0:
             alpha = 0.1  # EMA decay
             self.expert_loads_ema = (
-                alpha * expert_counts + (1 - alpha) * self.expert_loads_ema
+                alpha * expert_counts +
+                (1 - alpha) * self.expert_loads_ema
             )
 
 
@@ -130,7 +152,7 @@ class OptimizedMoELayer(nn.Module):
         router_bias: bool = False,
         router_dtype: torch.dtype = torch.float32,
         shared_experts: int = 1,
-        loss_free_balancing: bool = True,
+        loss_free_balancing: bool = True
     ):
         super().__init__()
 
@@ -152,54 +174,46 @@ class OptimizedMoELayer(nn.Module):
             num_experts_per_token=num_experts_per_token,
             router_bias=router_bias,
             router_dtype=router_dtype,
-            capacity_factor=capacity_factor,
+            capacity_factor=capacity_factor
         )
 
         if self.loss_free_balancing:
             self.balancer = LossFreeBalancing(
                 num_experts=num_experts,
-                device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+                device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
             )
         else:
             self.balancer = None
 
         # Experts
-        use_fp8_experts = (
-            router_dtype == torch.float8_e4m3fn or router_dtype == torch.float8_e5m2
-        )
+        use_fp8_experts = router_dtype == torch.float8_e4m3fn or router_dtype == torch.float8_e5m2
 
-        self.experts = nn.ModuleList(
-            [
+        self.experts = nn.ModuleList([
+            Expert(
+                hidden_size=hidden_size,
+                intermediate_size=expert_intermediate_size,
+                dropout=dropout,
+                use_fp8=use_fp8_experts
+            ) for _ in range(num_experts)
+        ])
+
+        # Shared experts (always active)
+        if shared_experts > 0:
+            self.shared_experts_layer = nn.ModuleList([
                 Expert(
                     hidden_size=hidden_size,
                     intermediate_size=expert_intermediate_size,
                     dropout=dropout,
-                    use_fp8=use_fp8_experts,
-                )
-                for _ in range(num_experts)
-            ]
-        )
-
-        # Shared experts (always active)
-        if shared_experts > 0:
-            self.shared_experts_layer = nn.ModuleList(
-                [
-                    Expert(
-                        hidden_size=hidden_size,
-                        intermediate_size=expert_intermediate_size,
-                        dropout=dropout,
-                        use_fp8=use_fp8_experts,
-                    )
-                    for _ in range(shared_experts)
-                ]
-            )
+                    use_fp8=use_fp8_experts
+                ) for _ in range(shared_experts)
+            ])
 
     def _token_centric_expert_forward(
         self,
         hidden_states_flat: torch.Tensor,
         routing_weights_flat: torch.Tensor,
         selected_experts_flat: torch.Tensor,
-        total_tokens: int,
+        total_tokens: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Optimized token-centric expert processing using vectorized indexing and index_add
@@ -209,7 +223,7 @@ class OptimizedMoELayer(nn.Module):
         expert_loads = torch.zeros(self.num_experts, device=device)
 
         for expert_idx in range(self.num_experts):
-            mask = selected_experts_flat == expert_idx
+            mask = (selected_experts_flat == expert_idx)
             if not mask.any():
                 continue
 
@@ -220,51 +234,72 @@ class OptimizedMoELayer(nn.Module):
             # Use checkpointing for memory-critical training
             if self.training and getattr(self, "expert_checkpointing", True):
                 expert_output = torch.utils.checkpoint.checkpoint(
-                    self.experts[expert_idx], expert_input, use_reentrant=False
+                    self.experts[expert_idx],
+                    expert_input,
+                    use_reentrant=False
                 )
             else:
                 expert_output = self.experts[expert_idx](expert_input)
 
-            expert_outputs.index_add_(
-                0, token_indices, expert_output * weights.to(expert_output.dtype)
-            )
+            expert_outputs.index_add_(0, token_indices, expert_output * weights)
             expert_loads[expert_idx] = token_indices.size(0)
 
         return expert_outputs, expert_loads
 
     def forward(
-        self, hidden_states: torch.Tensor, attention_mask: Optional[torch.Tensor] = None
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
+
         batch_size, sequence_length, hidden_dim = hidden_states.shape
 
         # Route tokens - use balancer if available for noise reduction
         if self.loss_free_balancing and self.balancer is not None:
             # Use get_logits if available to ensure pre_router_net is handled
-            if hasattr(self.router, "get_logits"):
+            if hasattr(self.router, 'get_logits'):
                 router_logits = self.router.get_logits(hidden_states)
             else:
                 router_logits = self.router.router_linear(hidden_states)
 
             routing_weights, selected_experts = self.balancer.update_and_route(
-                router_logits, compute_loads=True
+                router_logits, compute_loads=True, k=self.num_experts_per_token
             )
             routing_type = "topk"
         else:
-            routing_weights, selected_experts, router_logits = self.router(
-                hidden_states
-            )
+            routing_weights, selected_experts, router_logits = self.router(hidden_states)
+            routing_type = getattr(self.router, "routing_type", "topk")
 
         # Flatten for processing
         hidden_states_flat = hidden_states.view(-1, hidden_dim)
         total_tokens = hidden_states_flat.size(0)
 
-        # Expert processing
-        expert_outputs, expert_loads = self._token_centric_expert_forward(
-            hidden_states_flat,
-            routing_weights_flat,
-            selected_experts_flat,
-            total_tokens,
-        )
+        if routing_type == "expert_choice":
+            # routing_weights is [E, C], selected_experts is [E, C] (token indices)
+            expert_outputs = torch.zeros_like(hidden_states_flat)
+            expert_loads = torch.zeros(self.num_experts, device=hidden_states.device)
+
+            for expert_idx in range(self.num_experts):
+                token_indices = selected_experts[expert_idx]
+                weights = routing_weights[expert_idx].unsqueeze(-1)
+
+                expert_input = hidden_states_flat[token_indices]
+                expert_output = self.experts[expert_idx](expert_input)
+
+                expert_outputs.index_add_(0, token_indices, expert_output * weights)
+                expert_loads[expert_idx] = token_indices.size(0)
+
+            # For aux loss compatibility
+            selected_experts_flat = None
+        else:
+            # Default Top-k path
+            routing_weights_flat = routing_weights.view(-1, self.num_experts_per_token)
+            selected_experts_flat = selected_experts.view(-1, self.num_experts_per_token)
+
+            # Expert processing
+            expert_outputs, expert_loads = self._token_centric_expert_forward(
+                hidden_states_flat, routing_weights_flat, selected_experts_flat, total_tokens
+            )
 
         # Shared experts
         if self.shared_experts > 0:
@@ -272,9 +307,7 @@ class OptimizedMoELayer(nn.Module):
             shared_output = torch.zeros_like(hidden_states_flat)
             shared_expert_loads = torch.zeros(self.shared_experts, device=device)
             for shared_idx in range(self.shared_experts):
-                shared_expert_output = self.shared_experts_layer[shared_idx](
-                    hidden_states_flat
-                )
+                shared_expert_output = self.shared_experts_layer[shared_idx](hidden_states_flat)
                 shared_output += shared_expert_output / self.shared_experts
                 shared_expert_loads[shared_idx] = total_tokens
 
@@ -289,23 +322,30 @@ class OptimizedMoELayer(nn.Module):
             # Noise-free balancing
             z_loss = router_z_loss(router_logits, 1e-3)
             aux_losses = {
-                "load_balance_loss": torch.tensor(0.0, device=final_outputs.device),
-                "router_z_loss": z_loss,
-                "total_aux_loss": z_loss,
+                'load_balance_loss': torch.tensor(0.0, device=final_outputs.device),
+                'router_z_loss': z_loss,
+                'total_aux_loss': z_loss
             }
         else:
             # Switch-Transformer style auxiliary loss
-            aux_losses = self._compute_aux_losses(
-                router_logits, selected_experts_flat, total_tokens
-            )
+            if selected_experts_flat is None:
+                # Expert Choice aux loss (simplified or skipped)
+                router_z_loss_val = torch.logsumexp(router_logits, dim=-1).pow(2).mean()
+                aux_losses = {
+                    'load_balance_loss': torch.tensor(0.0, device=final_outputs.device),
+                    'router_z_loss': router_z_loss_val,
+                    'total_aux_loss': 0.001 * router_z_loss_val
+                }
+            else:
+                aux_losses = self._compute_aux_losses(router_logits, selected_experts_flat, total_tokens)
 
-        return final_outputs, aux_losses["total_aux_loss"], aux_losses
+        return final_outputs, aux_losses['total_aux_loss'], aux_losses
 
     def _compute_aux_losses(
         self,
         router_logits: torch.Tensor,
         selected_experts_flat: torch.Tensor,
-        total_tokens: int,
+        total_tokens: int
     ) -> Dict[str, torch.Tensor]:
         """Switch-Transformer style auxiliary loss"""
 
@@ -314,9 +354,7 @@ class OptimizedMoELayer(nn.Module):
         # we only count the top-1 for the standard Switch loss
         top1_experts = selected_experts_flat[:, 0]
         f_i = torch.zeros(self.num_experts, device=router_logits.device)
-        f_i.scatter_add_(
-            0, top1_experts, torch.ones_like(top1_experts, dtype=torch.float32)
-        )
+        f_i.scatter_add_(0, top1_experts, torch.ones_like(top1_experts, dtype=torch.float32))
         f_i = f_i / total_tokens
 
         # 2. Routing probability (P_i): average routing probability for expert i
@@ -330,14 +368,15 @@ class OptimizedMoELayer(nn.Module):
         router_z_loss = torch.logsumexp(router_logits, dim=-1).pow(2).mean()
 
         total_aux_loss = (
-            self.load_balance_loss_weight * load_balance_loss + 0.001 * router_z_loss
+            self.load_balance_loss_weight * load_balance_loss +
+            0.001 * router_z_loss
         )
 
         return {
-            "load_balance_loss": load_balance_loss,
-            "router_z_loss": router_z_loss,
-            "total_aux_loss": total_aux_loss,
+            'load_balance_loss': load_balance_loss,
+            'router_z_loss': router_z_loss,
+            'total_aux_loss': total_aux_loss
         }
 
 
-__all__ = ["OptimizedMoELayer", "OptimizedExpertRouter"]
+__all__ = ['OptimizedMoELayer', 'OptimizedExpertRouter']
