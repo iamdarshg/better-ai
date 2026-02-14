@@ -152,7 +152,8 @@ class OptimizedMoELayer(nn.Module):
         router_bias: bool = False,
         router_dtype: torch.dtype = torch.float32,
         shared_experts: int = 1,
-        loss_free_balancing: bool = True
+        loss_free_balancing: bool = True,
+        routing_type: str = "topk"
     ):
         super().__init__()
 
@@ -174,7 +175,8 @@ class OptimizedMoELayer(nn.Module):
             num_experts_per_token=num_experts_per_token,
             router_bias=router_bias,
             router_dtype=router_dtype,
-            capacity_factor=capacity_factor
+            capacity_factor=capacity_factor,
+            routing_type=routing_type
         )
 
         if self.loss_free_balancing:

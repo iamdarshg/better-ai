@@ -30,6 +30,7 @@ class ModelConfig:
     shared_experts: int = 1
     moe_load_balance_weight: float = 0.01
     use_moe_every_n_layers: int = 2
+    moe_routing_type: str = "topk"  # "topk" or "expert_choice"
 
     # Attention parameters
     rope_theta: float = 10000.0

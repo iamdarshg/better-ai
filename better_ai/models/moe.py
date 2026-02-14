@@ -281,6 +281,7 @@ class ExpertRouter(nn.Module):
         router_dtype: torch.dtype = torch.float32,
         pre_router_dim: Optional[int] = None,
         device: Optional[torch.device] = torch.device("cpu"),
+        routing_type: str = "topk",
     ):
         super().__init__()
 
@@ -290,6 +291,7 @@ class ExpertRouter(nn.Module):
         self.pre_router_dim = pre_router_dim
         self.router_bias = router_bias
         self.router_dtype = router_dtype
+        self.routing_type = routing_type
 
         # Initialize router projection - this will be updated in forward if needed
         self.router_linear = nn.Linear(
@@ -351,6 +353,15 @@ class ExpertRouter(nn.Module):
 
         # Compute router logits
         router_logits = self.router_linear(hidden_states)
+
+        if self.routing_type == "expert_choice":
+            # Expert Choice routing logic (simplified stub for base ExpertRouter)
+            batch_size, sequence_length, _ = hidden_states.shape
+            num_tokens = batch_size * sequence_length
+            capacity = int((num_tokens * self.num_experts_per_token) / self.num_experts * 1.1)
+            router_logits_flat = router_logits.view(-1, self.num_experts)
+            expert_scores, token_indices = torch.topk(router_logits_flat.t(), k=min(capacity, num_tokens), dim=-1)
+            return expert_scores, token_indices, router_logits
 
         # Only compute routing probabilities if specifically needed here
         # (MoELayer might call balancer instead)
@@ -447,6 +458,7 @@ class MoELayer(nn.Module):
         router_z_loss_weight: float = 1e-3,
         gradient_clip_norm: float = 1.0,
         device: Optional[torch.device] = None,
+        routing_type: str = "topk",
     ):
         super().__init__()
 
@@ -475,6 +487,7 @@ class MoELayer(nn.Module):
             router_bias=router_bias,
             router_dtype=router_dtype,
             device=device,
+            routing_type=routing_type,
         )
 
         # Memory optimization: Use FP8 for experts if configured
@@ -529,17 +542,35 @@ class MoELayer(nn.Module):
             routing_weights, selected_experts = self.balancer.update_and_route(
                 router_logits, compute_loads=True, k=self.num_experts_per_token
             )
+            routing_type = "topk"
         else:
             routing_weights, selected_experts, router_logits = self.router(hidden_states)
+            routing_type = getattr(self.router, "routing_type", "topk")
 
         hidden_states_flat = hidden_states.view(-1, hidden_dim)
-        routing_weights_flat = routing_weights.view(-1, self.num_experts_per_token)
-        selected_experts_flat = selected_experts.view(-1, self.num_experts_per_token)
+        total_tokens = hidden_states_flat.size(0)
 
-        # Process routed experts - token-centric optimized
-        expert_outputs, routed_expert_loads = self._parallel_expert_forward(
-            hidden_states_flat, routing_weights_flat, selected_experts_flat
-        )
+        if routing_type == "expert_choice":
+            expert_outputs = torch.zeros_like(hidden_states_flat)
+            expert_loads = torch.zeros(self.num_experts, device=device)
+            for expert_idx in range(self.num_experts):
+                token_indices = selected_experts[expert_idx]
+                weights = routing_weights[expert_idx].unsqueeze(-1)
+                expert_input = hidden_states_flat[token_indices]
+                expert_output = self.experts[expert_idx](expert_input)
+                expert_outputs.index_add_(0, token_indices, expert_output * weights)
+                expert_loads[expert_idx] = token_indices.size(0)
+            selected_experts_flat = None
+        else:
+            routing_weights_flat = routing_weights.view(-1, self.num_experts_per_token)
+            selected_experts_flat = selected_experts.view(-1, self.num_experts_per_token)
+
+            # Process routed experts - token-centric optimized
+            expert_outputs, expert_loads = self._parallel_expert_forward(
+                hidden_states_flat, routing_weights_flat, selected_experts_flat
+            )
+
+        routed_expert_loads = expert_loads
 
         # Process shared experts (always active) - optimized to avoid extra allocations
         if self.shared_experts > 0:
@@ -558,12 +589,13 @@ class MoELayer(nn.Module):
         # Compute auxiliary losses only if needed - noise reduction
         load_balance_loss = torch.tensor(0.0, device=device)
         if not self.loss_free_balancing or self.balancer is None:
-            expert_loads_normalized = expert_loads / (expert_loads.sum() + 1e-10)
-            ideal_load = 1.0 / (self.num_experts + self.shared_experts)
-            load_balance_loss = F.mse_loss(
-                expert_loads_normalized,
-                torch.full_like(expert_loads_normalized, ideal_load),
-            )
+            if selected_experts_flat is not None:
+                expert_loads_normalized = expert_loads / (expert_loads.sum() + 1e-10)
+                ideal_load = 1.0 / (self.num_experts + self.shared_experts)
+                load_balance_loss = F.mse_loss(
+                    expert_loads_normalized,
+                    torch.full_like(expert_loads_normalized, ideal_load),
+                )
 
         # z-loss is critical for stability but can be noisy if too high
         z_loss = router_z_loss(router_logits, self.router_z_loss_weight)
@@ -623,6 +655,7 @@ class DeepSeekMoEModel(nn.Module):
         specialization_weight: float = 0.05,
         router_z_loss_weight: float = 1e-3,
         gradient_clip_norm: float = 1.0,
+        routing_type: str = "topk",
     ):
         super().__init__()
 
@@ -653,6 +686,7 @@ class DeepSeekMoEModel(nn.Module):
                     specialization_weight=specialization_weight,
                     router_z_loss_weight=router_z_loss_weight,
                     gradient_clip_norm=gradient_clip_norm,
+                    routing_type=routing_type,
                 )
                 self.layers.append(moe_layer)
             else:

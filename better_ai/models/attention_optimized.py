@@ -200,7 +200,8 @@ class MoEWithMLABlock(nn.Module):
         compression_ratio: float = 4.0,
         norm_eps: float = 1e-6,
         dropout: float = 0.0,
-        use_mla: bool = True
+        use_mla: bool = True,
+        routing_type: str = "topk"
     ):
         super().__init__()
         
@@ -242,7 +243,8 @@ class MoEWithMLABlock(nn.Module):
             dropout=dropout,
             capacity_factor=1.25,
             load_balance_loss_weight=0.01,
-            shared_experts=1
+            shared_experts=1,
+            routing_type=routing_type
         )
         
         # Normalization
