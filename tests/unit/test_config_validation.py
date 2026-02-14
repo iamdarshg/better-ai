@@ -53,16 +53,16 @@ class TestModelConfigValidation(unittest.TestCase):
 
     def test_attention_config_validation(self):
         """Test attention-specific configuration validation."""
-        # Test ring attention config
+        # Test striped attention config
         config = ModelConfig(
-            use_ring_attention=True, ring_block_size=1024, ring_num_devices=2
+            use_striped_attention=True, striped_block_size=1024
         )
-        self.assertTrue(config.use_ring_attention)
-        self.assertEqual(config.ring_block_size, 1024)
+        self.assertTrue(config.use_striped_attention)
+        self.assertEqual(config.striped_block_size, 1024)
 
-        # Invalid ring attention
+        # Invalid striped attention
         with self.assertRaises(ConfigError):
-            ModelConfig(use_ring_attention=True, ring_block_size=0)
+            ModelConfig(use_striped_attention=True, striped_block_size=0)
 
     def test_config_serialization(self):
         """Test config serialization to dict and back."""

@@ -36,7 +36,8 @@ class TestPhase7Features(unittest.TestCase):
         generator = PatchGenerator(self.model)
         pipeline = SoftwareRepairPipeline(localizer, generator)
 
-        results = pipeline.repair("def fix_me(): return arr[10]", "IndexError: list index out of range")
+        trace = 'File "fix_me.py", line 1, in fix_me\nIndexError: list index out of range'
+        results = pipeline.repair("def fix_me(): return arr[10]", trace)
         self.assertEqual(results["status"], "success")
         self.assertGreater(len(results["faults"]), 0)
         self.assertGreater(len(results["patches"]), 0)

@@ -45,16 +45,16 @@ class TestAdvancedFeatures(unittest.TestCase):
         self.assertIn('math_reasoning_head', outputs['advanced_features'])
         self.assertIn('algorithm_head', outputs['advanced_features'])
 
-    def test_ring_attention_creation(self):
+    def test_striped_attention_creation(self):
         config = get_small_model_config()
-        config.use_ring_attention = True
+        config.use_striped_attention = True
         model = EnhancedDeepSeekModel(config).to(self.device)
-        from better_ai.models.ring_attention import RingAttention
+        from better_ai.models.striped_attention import StripedAttention
         for layer in model.layers:
-            self.assertTrue(isinstance(layer.self_attn, RingAttention))
+            self.assertTrue(isinstance(layer.self_attn, StripedAttention))
 
         config = get_small_model_config()
-        config.use_ring_attention = False
+        config.use_striped_attention = False
         model = EnhancedDeepSeekModel(config).to(self.device)
         from better_ai.models.core import MultiHeadAttention
         for layer in model.layers:
