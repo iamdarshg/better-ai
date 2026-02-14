@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from typing import Tuple, Optional
 
+
 class RoPECache(nn.Module):
     def __init__(self, dim: int, max_seq_len: int, base: int = 10000, device: torch.device = None, scaling_factor: float = 1.0, use_yarn: bool = False):
         super().__init__()
@@ -12,7 +13,9 @@ class RoPECache(nn.Module):
         self.scaling_factor = scaling_factor
         self.use_yarn = use_yarn
 
-        self.inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
+        self.inv_freq = 1.0 / (
+            self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim)
+        )
         self._cache = self._build_cache(max_seq_len)
 
     def _build_cache(self, max_seq_len: int):
@@ -29,7 +32,7 @@ class RoPECache(nn.Module):
         freqs = torch.einsum("i,j->ij", t, self.inv_freq)
         # Different from paper, but it uses a different permutation in order to obtain the same calculation
         emb = torch.cat((freqs, freqs), dim=-1)
-        return emb.unsqueeze(0).unsqueeze(0) # [1, 1, max_seq_len, dim]
+        return emb.unsqueeze(0).unsqueeze(0)  # [1, 1, max_seq_len, dim]
 
     def to(self, device, **kwargs):
         super().to(device, **kwargs)
@@ -78,10 +81,10 @@ class RoPECache(nn.Module):
         q: torch.Tensor,
         k: torch.Tensor,
         offset: int = 0,
-        seq_len: Optional[int] = None
+        seq_len: Optional[int] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if seq_len is None:
-            seq_len = q.shape[-2] # Assuming [B, H, S, D] or [B, S, H, D]
+            seq_len = q.shape[-2]  # Assuming [B, H, S, D] or [B, S, H, D]
 
         # Determine dimension and shape
         # Handle both [B, H, S, D] and [B, S, D]
@@ -96,7 +99,9 @@ class RoPECache(nn.Module):
             self.max_seq_len = needed_len
 
         # Extract relevant part of cache
-        cache = self._cache[:, :, offset:offset+seq_len, :].to(q.device)
+        cache = self._cache[:, :, offset : offset + seq_len, :].to(
+            q.device, dtype=q.dtype
+        )
         cos = cache.cos()
         sin = cache.sin()
 

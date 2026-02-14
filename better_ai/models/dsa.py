@@ -172,13 +172,64 @@ class DeepSeekSparseAttention(nn.Module):
         """Reshape tensor for attention computation"""
         return tensor.view(bsz, seq_len, num_heads, self.head_dim).transpose(1, 2)
     
-    def _repeat_kv(self, hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
-        """Repeat key/value heads to match query heads"""
-        batch, num_key_value_heads, slen, head_dim = hidden_states.shape
-        if n_rep == 1:
-            return hidden_states
-        hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
-        return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
+    def _scaled_dot_product_attention_gqa(
+        self,
+        query_states: torch.Tensor,
+        key_states: torch.Tensor,
+        value_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        dropout_p: float = 0.0
+    ) -> torch.Tensor:
+        """
+        Compute attention with GQA support using broadcasting without repeating KV heads.
+        Uses proper tensor operations to avoid memory duplication.
+        """
+        # Query: (batch, num_heads, q_len, head_dim)
+        # Key/Value: (batch, num_key_value_heads, kv_len, head_dim)
+        # For GQA, key/value have fewer heads than query
+        
+        batch, num_heads, q_len, head_dim = query_states.shape
+        _, num_key_value_heads, kv_len, _ = key_states.shape
+        
+        # Compute attention scores with broadcasting
+        if num_heads != num_key_value_heads:
+            # GQA case: reshape query to group with KV heads
+            num_groups = num_heads // num_key_value_heads
+            query_states_reshaped = query_states.view(
+                batch, num_key_value_heads, num_groups, q_len, head_dim
+            )
+            # Key transpose for broadcasting: (batch, num_key_value_heads, head_dim, kv_len)
+            key_states_t = key_states.transpose(-2, -1)
+            # Attention scores: (batch, num_key_value_heads, num_groups, q_len, kv_len)
+            attn_weights = torch.matmul(query_states_reshaped, key_states_t.unsqueeze(2)) / math.sqrt(head_dim)
+            # Reshape back: (batch, num_heads, q_len, kv_len)
+            attn_weights = attn_weights.view(batch, num_heads, q_len, kv_len)
+        else:
+            # Standard case: regular matmul
+            attn_weights = torch.matmul(query_states, key_states.transpose(-2, -1)) / math.sqrt(head_dim)
+        
+        if attention_mask is not None:
+            attn_weights = attn_weights + attention_mask
+        
+        attn_weights = F.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+        attn_weights = F.dropout(attn_weights, p=dropout_p, training=self.training)
+        
+        if num_heads != num_key_value_heads:
+            # GQA case: reshape for value matmul
+            num_groups = num_heads // num_key_value_heads
+            attn_weights_reshaped = attn_weights.view(
+                batch, num_key_value_heads, num_groups, q_len, kv_len
+            )
+            # Value: (batch, num_key_value_heads, kv_len, head_dim)
+            # Output: (batch, num_key_value_heads, num_groups, q_len, head_dim)
+            attn_output = torch.matmul(attn_weights_reshaped, value_states.unsqueeze(2))
+            # Reshape back: (batch, num_heads, q_len, head_dim)
+            attn_output = attn_output.view(batch, num_heads, q_len, head_dim)
+        else:
+            # Standard case
+            attn_output = torch.matmul(attn_weights, value_states)
+        
+        return attn_output
     
     def _create_combined_mask(
         self,
@@ -234,37 +285,16 @@ class DeepSeekSparseAttention(nn.Module):
         key_states = self._shape(key_states, q_len, bsz, self.num_key_value_heads)
         value_states = self._shape(value_states, q_len, bsz, self.num_key_value_heads)
         
-        # Handle GQA
-        if self.num_key_value_groups > 1:
-            key_states = self._repeat_kv(key_states, self.num_key_value_groups)
-            value_states = self._repeat_kv(value_states, self.num_key_value_groups)
+        # Convert sparse mask to attention mask format
+        attention_mask_full = (~sparse_mask).float() * -1e9
         
-        # Compute attention with sparse mask
-        if self.use_flash_attention and hasattr(F, 'scaled_dot_product_attention'):
-            # Convert sparse mask to attention mask format
-            attention_mask_full = (~sparse_mask).float() * -1e9
-            
-            attn_output = F.scaled_dot_product_attention(
-                query_states, key_states, value_states,
-                attn_mask=attention_mask_full,
-                dropout_p=self.attention_dropout.p if self.training else 0.0,
-                is_causal=False  # Causal is handled in our mask
-            )
-            attn_weights = None
-        else:
-            # Standard attention computation with sparse mask
-            attn_weights = torch.matmul(query_states, key_states.transpose(-2, -1)) / math.sqrt(self.head_dim)
-            
-            # Apply sparse mask
-            attn_weights = attn_weights.masked_fill(~sparse_mask, -float('inf'))
-            
-            # Apply additional attention mask if provided
-            if attention_mask is not None and attention_mask.dim() == 3:
-                attn_weights += attention_mask
-            
-            attn_weights = F.softmax(attn_weights, dim=-1)
-            attn_weights = self.attention_dropout(attn_weights)
-            attn_output = torch.matmul(attn_weights, value_states)
+        # Compute attention with sparse mask using GQA-aware function
+        attn_output = self._scaled_dot_product_attention_gqa(
+            query_states, key_states, value_states,
+            attention_mask=attention_mask_full,
+            dropout_p=self.attention_dropout.p if self.training else 0.0
+        )
+        attn_weights = None
         
         # Reshape output
         attn_output = attn_output.transpose(1, 2).contiguous()

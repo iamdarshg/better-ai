@@ -54,7 +54,7 @@ class ModelConfig:
     fp8_e4m3: bool = True  # E4M3 for forward, E5M2 for gradients
 
     # Sparse attention
-    use_sparse_attention: bool = False
+    use_sparse_attention: bool = True
     local_window_size: int = 4096
     global_stride: int = 512
 
@@ -71,7 +71,7 @@ class ModelConfig:
     use_linear_attention: bool = False
 
     # CoT Specialization parameters
-    use_cot_specialization: bool = False
+    use_cot_specialization: bool = True
     cot_num_heads: int = 4
     cot_hidden_dim: int = 3072
 
