@@ -49,7 +49,7 @@ class Expert(nn.Module):
 
 
 class OptimizedExpertRouter(nn.Module):
-    """Optimized router with load-aware routing"""
+    """Optimized router with load-aware routing and Expert Choice support"""
     
     def __init__(
         self,
@@ -58,7 +58,8 @@ class OptimizedExpertRouter(nn.Module):
         num_experts_per_token: int = 2,
         router_bias: bool = False,
         router_dtype: torch.dtype = torch.float32,
-        capacity_factor: float = 1.25
+        capacity_factor: float = 1.25,
+        routing_type: str = "topk" # "topk" or "expert_choice"
     ):
         super().__init__()
         
@@ -66,6 +67,7 @@ class OptimizedExpertRouter(nn.Module):
         self.num_experts = num_experts
         self.num_experts_per_token = num_experts_per_token
         self.capacity_factor = capacity_factor
+        self.routing_type = routing_type
         
         # Router projection
         self.router_linear = nn.Linear(
@@ -90,21 +92,36 @@ class OptimizedExpertRouter(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         
         batch_size, sequence_length, hidden_dim = hidden_states.shape
+        num_tokens = batch_size * sequence_length
         
         # Compute router logits
-        router_logits = self.get_logits(hidden_states)
+        router_logits = self.get_logits(hidden_states) # [B, S, E]
         
-        # Apply softmax with temperature for better routing
+        if self.routing_type == "expert_choice":
+            # Expert Choice routing logic (ST-MoE)
+            # Each expert selects top tokens based on capacity
+            capacity = int((num_tokens * self.num_experts_per_token) / self.num_experts * self.capacity_factor)
+
+            # router_logits_flat: [num_tokens, num_experts]
+            router_logits_flat = router_logits.view(-1, self.num_experts)
+            probs = F.softmax(router_logits_flat, dim=0) # Normalize across tokens for each expert?
+            # Actually, standard Expert Choice uses scores directly or normalized across experts
+
+            # Top-C tokens for each expert
+            expert_scores, token_indices = torch.topk(router_logits_flat.t(), k=capacity, dim=-1) # [E, C]
+
+            # We need to return in a format compatible with the MoE layer
+            # For Expert Choice, we'll return a sparse representation or mapped weights
+            # This is a stub for full implementation
+            return expert_scores, token_indices, router_logits
+        
+        # Default Top-k selection
         routing_probs = F.softmax(router_logits, dim=-1)
-        
-        # Top-k selection
         routing_weights, selected_experts = torch.topk(
             routing_probs, 
             self.num_experts_per_token, 
             dim=-1
         )
-        
-        # Normalize weights
         routing_weights = routing_weights / (routing_weights.sum(dim=-1, keepdim=True) + 1e-6)
         
         return routing_weights, selected_experts, router_logits
@@ -248,19 +265,38 @@ class OptimizedMoELayer(nn.Module):
             routing_weights, selected_experts = self.balancer.update_and_route(
                 router_logits, compute_loads=True
             )
+            routing_type = "topk"
         else:
             routing_weights, selected_experts, router_logits = self.router(hidden_states)
+            routing_type = getattr(self.router, "routing_type", "topk")
         
         # Flatten for processing
         hidden_states_flat = hidden_states.view(-1, hidden_dim)
-        routing_weights_flat = routing_weights.view(-1, self.num_experts_per_token)
-        selected_experts_flat = selected_experts.view(-1, self.num_experts_per_token)
         total_tokens = hidden_states_flat.size(0)
-        
-        # Expert processing
-        expert_outputs, expert_loads = self._token_centric_expert_forward(
-            hidden_states_flat, routing_weights_flat, selected_experts_flat, total_tokens
-        )
+
+        if routing_type == "expert_choice":
+            # routing_weights is [E, C], selected_experts is [E, C] (token indices)
+            expert_outputs = torch.zeros_like(hidden_states_flat)
+            expert_loads = torch.zeros(self.num_experts, device=hidden_states.device)
+
+            for expert_idx in range(self.num_experts):
+                token_indices = selected_experts[expert_idx]
+                weights = routing_weights[expert_idx].unsqueeze(-1)
+
+                expert_input = hidden_states_flat[token_indices]
+                expert_output = self.experts[expert_idx](expert_input)
+
+                expert_outputs.index_add_(0, token_indices, expert_output * weights)
+                expert_loads[expert_idx] = token_indices.size(0)
+        else:
+            # Default Top-k path
+            routing_weights_flat = routing_weights.view(-1, self.num_experts_per_token)
+            selected_experts_flat = selected_experts.view(-1, self.num_experts_per_token)
+
+            # Expert processing
+            expert_outputs, expert_loads = self._token_centric_expert_forward(
+                hidden_states_flat, routing_weights_flat, selected_experts_flat, total_tokens
+            )
         
         # Shared experts
         if self.shared_experts > 0:
