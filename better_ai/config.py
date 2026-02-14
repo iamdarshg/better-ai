@@ -54,7 +54,7 @@ class ModelConfig:
     fp8_e4m3: bool = True  # E4M3 for forward, E5M2 for gradients
 
     # Sparse attention
-    use_sparse_attention: bool = False
+    use_sparse_attention: bool = True
     local_window_size: int = 4096
     global_stride: int = 512
 

@@ -95,12 +95,14 @@ class MultiHeadAttention(nn.Module):
         return tensor.view(bsz, seq_len, num_heads, self.head_dim).transpose(1, 2)
     
     def repeat_kv(self, hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
-        """Repeat key/value heads to match query heads"""
-        batch, num_key_value_heads, slen, head_dim = hidden_states.shape
+        """
+        Apply GQA (Grouped Query Attention) using broadcasting without repeating KV heads.
+        This preserves memory efficiency while handling multiple query heads per KV head.
+        """
         if n_rep == 1:
             return hidden_states
-        hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
-        return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
+        # Return as-is; broadcasting will be handled in attention computation
+        return hidden_states
     
     def forward(
         self,
@@ -141,20 +143,40 @@ class MultiHeadAttention(nn.Module):
         else:
             present = None
         
-        # Handle GQA (Grouped Query Attention)
-        if self.num_key_value_groups > 1:
-            key_states = self.repeat_kv(key_states, self.num_key_value_groups)
-            value_states = self.repeat_kv(value_states, self.num_key_value_groups)
+        # Handle GQA (Grouped Query Attention) with broadcasting
+        # Don't repeat KV heads; use broadcasting in attention computation
         
-        # Compute attention
-        attn_weights = torch.matmul(query_states, key_states.transpose(-2, -1)) / math.sqrt(self.head_dim)
+        # Compute attention with GQA support
+        if self.num_key_value_groups > 1:
+            # GQA: reshape query to group with KV heads for broadcasting
+            batch, num_heads, q_len, head_dim = query_states.shape
+            _, num_kv_heads, kv_len, _ = key_states.shape
+            
+            query_reshaped = query_states.view(batch, num_kv_heads, self.num_key_value_groups, q_len, head_dim)
+            key_t = key_states.transpose(-2, -1)
+            # Broadcasting matmul: (batch, num_kv_heads, groups, q_len, head_dim) x (batch, num_kv_heads, head_dim, kv_len)
+            attn_weights = torch.matmul(query_reshaped, key_t.unsqueeze(2)) / math.sqrt(self.head_dim)
+            attn_weights = attn_weights.view(batch, num_heads, q_len, kv_len)
+        else:
+            attn_weights = torch.matmul(query_states, key_states.transpose(-2, -1)) / math.sqrt(self.head_dim)
         
         if attention_mask is not None:
             attn_weights += attention_mask
         
         attn_weights = F.softmax(attn_weights, dim=-1)
         attn_weights = self.attention_dropout(attn_weights)
-        attn_output = torch.matmul(attn_weights, value_states)
+        
+        # Apply attention to values with GQA support
+        if self.num_key_value_groups > 1:
+            batch, num_heads, q_len, kv_len = attn_weights.shape
+            _, num_kv_heads, _, head_dim = value_states.shape
+            
+            attn_reshaped = attn_weights.view(batch, num_kv_heads, self.num_key_value_groups, q_len, kv_len)
+            # Broadcasting matmul: (batch, num_kv_heads, groups, q_len, kv_len) x (batch, num_kv_heads, kv_len, head_dim)
+            attn_output = torch.matmul(attn_reshaped, value_states.unsqueeze(2))
+            attn_output = attn_output.view(batch, num_heads, q_len, head_dim)
+        else:
+            attn_output = torch.matmul(attn_weights, value_states)
         
         # Reshape output
         attn_output = attn_output.transpose(1, 2).contiguous()
