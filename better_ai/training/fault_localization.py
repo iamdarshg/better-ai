@@ -75,21 +75,44 @@ class FaultLocalizer:
             })
         return faults
 
+    def parse_generic_trace(self, trace: str) -> List[Dict[str, Any]]:
+        """Fallback parser that looks for file:line or file, line patterns"""
+        faults = []
+        # Pattern for generic file:line or file, line
+        pattern = r'([a-zA-Z0-9_\-\./]+)[:\s,]+line\s+(\d+)|([a-zA-Z0-9_\-\./]+):(\d+)'
+        matches = re.findall(pattern, trace)
+
+        for match in matches:
+            # Match is a tuple, find the non-empty parts
+            groups = [g for g in match if g]
+            if len(groups) >= 2:
+                filename, lineno = groups[0], groups[1]
+                if lineno.isdigit():
+                    faults.append({
+                        "file": filename,
+                        "line_no": int(lineno),
+                        "suspiciousness": 0.5,
+                        "reason": "Generic trace pattern match"
+                    })
+        return faults
+
     def localize_fault(self, code: str, error_trace: str, language: str = "python") -> List[Dict[str, Any]]:
         """
         Analyzes code and error trace to identify likely faulty lines
         """
+        faults = []
         if language.lower() == "python":
             faults = self.parse_python_trace(error_trace)
         elif language.lower() == "rust":
             faults = self.parse_rust_trace(error_trace)
         elif language.lower() == "c" or language.lower() == "cpp":
             faults = self.parse_c_trace(error_trace)
-        else:
-            self.logger.warning(f"Unsupported language for trace parsing: {language}")
-            return []
 
-        # If no faults found via parsing, use model inference as fallback
+        # If no language-specific faults found, try generic parsing
+        if not faults:
+            faults = self.parse_generic_trace(error_trace)
+
+        # If still no faults found via parsing, use model inference as fallback
         if not faults and self.model:
             # Placeholder for model-based localization
             pass

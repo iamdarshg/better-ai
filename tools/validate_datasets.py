@@ -27,8 +27,19 @@ def validate_datasets(config_path="datasets.yml"):
         path = ds_config.get("path")
         config_name = ds_config.get("config_name")
         split = ds_config.get("split", "train")
+        stage = ds_config.get("stage")
 
-        logger.info(f"Validating dataset: {name} ({path})")
+        logger.info(f"Validating dataset: {name} ({path}), stage: {stage}")
+
+        # Basic field validation
+        if not name or not path or not stage:
+            logger.error(f"Dataset {name} missing mandatory fields (name, path, stage)")
+            failure_count += 1
+            continue
+
+        # Check for DPO config_name
+        if (stage == "rlhf" or stage == "security_dpo") and not config_name:
+            logger.warning(f"DPO dataset {name} might be missing 'config_name: dpo'")
 
         try:
             # We use a very short timeout or just check if it can be initialized
@@ -40,6 +51,11 @@ def validate_datasets(config_path="datasets.yml"):
                 split=split,
                 streaming=True
             )
+
+            # Check if we can get at least one item (to verify split/path)
+            # This might be slow for some datasets, but we try it with a timeout-like logic
+            # Actually, just initializing it usually verifies the path and split existence in HF
+
             logger.info(f"Successfully initialized {name}")
             success_count += 1
         except Exception as e:

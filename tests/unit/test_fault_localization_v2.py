@@ -13,6 +13,7 @@ class TestFaultLocalization(unittest.TestCase):
         self.pipeline = SoftwareRepairPipeline(self.localizer, self.generator)
 
     def test_python_trace_parsing(self):
+        # IndexError case
         trace = """
 Traceback (most recent call last):
   File "app.py", line 5, in <module>
@@ -29,6 +30,37 @@ IndexError: list index out of range
         self.assertEqual(faults[0]["line_no"], 25)
         self.assertGreater(faults[0]["suspiciousness"], faults[1]["suspiciousness"])
 
+    def test_python_more_crashes(self):
+        # ZeroDivisionError
+        trace = """
+Traceback (most recent call last):
+  File "calc.py", line 42, in divide
+    return a / b
+ZeroDivisionError: division by zero
+        """
+        faults = self.localizer.localize_fault("code", trace, language="python")
+        self.assertEqual(faults[0]["file"], "calc.py")
+        self.assertEqual(faults[0]["line_no"], 42)
+
+        # KeyError
+        trace = """
+Traceback (most recent call last):
+  File "config.py", line 15, in get_val
+    return self.settings[key]
+KeyError: 'missing_key'
+        """
+        faults = self.localizer.localize_fault("code", trace, language="python")
+        self.assertEqual(faults[0]["file"], "config.py")
+        self.assertEqual(faults[0]["line_no"], 15)
+
+    def test_unintended_behavior_localization(self):
+        # Logic error (no crash, but failed assertion or unexpected value)
+        # We simulate this by providing a manual "error" description instead of a trace
+        error_desc = "Expected list to have 5 items, but found 0 at processor.py:88"
+        faults = self.localizer.localize_fault("code", error_desc, language="python")
+        # The localizer should still try to extract line info if it looks like a file/line
+        self.assertTrue(any(f["file"] == "processor.py" and f["line_no"] == 88 for f in faults))
+
     def test_rust_trace_parsing(self):
         trace = """
 thread 'main' panicked at src/main.rs:10:5:
@@ -44,14 +76,27 @@ stack backtrace:
         self.assertEqual(faults[0]["line_no"], 10)
 
     def test_c_trace_parsing(self):
+        # Segfault case (GDB style)
         trace = """
+Program received signal SIGSEGV, Segmentation fault.
+0x0000555555555139 in crash () at crash.c:5
 #0  0x0000555555555139 in crash () at crash.c:5
 #1  0x000055555555515e in main () at crash.c:10
         """
         faults = self.localizer.localize_fault("code", trace, language="c")
-        self.assertEqual(len(faults), 2)
+        self.assertEqual(len(faults), 3)
         self.assertEqual(faults[0]["file"], "crash.c")
         self.assertEqual(faults[0]["line_no"], 5)
+
+        # AddressSanitizer style
+        asan_trace = """
+==12345==ERROR: AddressSanitizer: heap-use-after-free on address 0x602000000010
+    #0 0x7f1234567890 in free_func common.c:12
+    #1 0x7f1234567891 in main main.c:20
+        """
+        faults = self.localizer.localize_fault("code", asan_trace, language="c")
+        self.assertEqual(faults[0]["file"], "common.c")
+        self.assertEqual(faults[0]["line_no"], 12)
 
     def test_patch_validation(self):
         valid_python = "def foo(): pass"

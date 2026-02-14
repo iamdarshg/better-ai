@@ -34,10 +34,24 @@ class ChatCompletionRequest(BaseModel):
     top_p: Optional[float] = 1.0
     max_tokens: Optional[int] = 512
     stream: Optional[bool] = False
+    tools: Optional[List[Dict]] = None
+    tool_choice: Optional[Union[str, Dict]] = "auto"
 
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest):
     prompt = "\n".join([f"{m.role}: {m.content}" for m in request.messages])
+
+    # Tool use handling (mocked)
+    tool_calls = []
+    if request.tools and "tool" in prompt.lower():
+        tool_calls = [{
+            "id": "call_123",
+            "type": "function",
+            "function": {
+                "name": request.tools[0]["function"]["name"],
+                "arguments": '{"query": "mocked tool call"}'
+            }
+        }]
 
     if request.stream:
         async def stream_generator():
@@ -59,15 +73,23 @@ async def chat_completions(request: ChatCompletionRequest):
         return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
     response_text = model.generate(prompt)
+
+    message = {"role": "assistant", "content": response_text}
+    if tool_calls:
+        message["tool_calls"] = tool_calls
+        finish_reason = "tool_calls"
+    else:
+        finish_reason = "stop"
+
     return {
         "id": f"chatcmpl-{int(time.time())}",
         "object": "chat.completion",
         "created": int(time.time()),
         "model": request.model,
         "choices": [{
-            "message": {"role": "assistant", "content": response_text},
+            "message": message,
             "index": 0,
-            "finish_reason": "stop"
+            "finish_reason": finish_reason
         }],
         "usage": {
             "prompt_tokens": len(prompt.split()),
