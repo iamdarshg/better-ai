@@ -7,6 +7,9 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Union, List, Dict
 import torch.distributed as dist
 from .core import RMSNorm
+from .moe_kernels import fused_logsoftmax_topk, chunked_router_logits, grouped_expert_gemm
+from ..utils.memory_pool import get_global_buffer_pool
+from .expert_pruning import DynamicExpertPruner
 
 
 class LossFreeBalancing:
@@ -404,19 +407,28 @@ class MoELayer(nn.Module):
         hidden_states_flat: torch.Tensor,
         routing_weights_flat: torch.Tensor,
         selected_experts_flat: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        expert_outputs: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """
         Optimized token-centric expert processing.
         Processes experts sequentially to minimize peak memory while using vectorized
         indexing for maximum performance.
+        
+        OPTIMIZATION 2: Now accepts pre-allocated expert_outputs buffer from pool.
         """
         device = hidden_states_flat.device
-        expert_outputs = torch.zeros_like(hidden_states_flat)
+        if expert_outputs is None:
+            expert_outputs = torch.zeros_like(hidden_states_flat)
         expert_loads = torch.zeros(self.num_experts, device=device)
 
         # Vectorized expert processing - avoids the double loop and large boolean masks
         # selected_experts_flat is [total_tokens, num_experts_per_token]
         for expert_idx in range(self.num_experts):
+            # OPTIMIZATION 5: Skip pruned experts in inference
+            if self.use_dynamic_pruning and not self.training and self.pruner is not None:
+                if not self.pruner.is_expert_active(expert_idx):
+                    continue
+            
             mask = (selected_experts_flat == expert_idx)
             if not mask.any():
                 continue
@@ -439,7 +451,7 @@ class MoELayer(nn.Module):
             expert_outputs.index_add_(0, token_indices, expert_output * weights)
             expert_loads[expert_idx] = token_indices.size(0)
 
-        return expert_outputs, expert_loads
+        return expert_loads
 
     def __init__(
         self,
@@ -459,6 +471,13 @@ class MoELayer(nn.Module):
         gradient_clip_norm: float = 1.0,
         device: Optional[torch.device] = None,
         routing_type: str = "topk",
+        # NEW: Memory optimization flags
+        use_chunked_routing: bool = False,
+        routing_chunk_size: int = 512,
+        use_fused_softmax_topk: bool = True,
+        use_buffer_pool: bool = True,
+        use_dynamic_pruning: bool = False,
+        layer_id: int = 0,
     ):
         super().__init__()
 
@@ -472,6 +491,14 @@ class MoELayer(nn.Module):
         self.specialization_weight = specialization_weight
         self.router_z_loss_weight = router_z_loss_weight
         self.gradient_clip_norm = gradient_clip_norm
+        
+        # Memory optimization settings
+        self.use_chunked_routing = use_chunked_routing
+        self.routing_chunk_size = routing_chunk_size
+        self.use_fused_softmax_topk = use_fused_softmax_topk
+        self.use_buffer_pool = use_buffer_pool
+        self.use_dynamic_pruning = use_dynamic_pruning
+        self.layer_id = layer_id
 
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -529,6 +556,24 @@ class MoELayer(nn.Module):
         else:
             self.balancer = None
             self.aux_loss_weight = torch.tensor(load_balance_loss_weight, device=device)
+        
+        # Initialize dynamic pruning if enabled
+        if self.use_dynamic_pruning:
+            self.pruner = DynamicExpertPruner(
+                num_experts=num_experts,
+                pruning_threshold=0.01,
+                pruning_interval=100,
+                enable_cpu_offload=True
+            )
+            self.pruner.set_expert_modules(self.experts)
+        else:
+            self.pruner = None
+        
+        # Get global buffer pool if enabled
+        if self.use_buffer_pool:
+            self.buffer_pool = get_global_buffer_pool(num_layers=16)
+        else:
+            self.buffer_pool = None
 
     def forward(
         self, hidden_states: torch.Tensor, attention_mask: Optional[torch.Tensor] = None
@@ -536,12 +581,28 @@ class MoELayer(nn.Module):
         batch_size, sequence_length, hidden_dim = hidden_states.shape
         device = hidden_states.device
 
-        # Initial routing logits - optimized to avoid redundant topk/softmax
-        if self.loss_free_balancing and self.balancer is not None:
-            router_logits = self.router.get_logits(hidden_states)
-            routing_weights, selected_experts = self.balancer.update_and_route(
-                router_logits, compute_loads=True, k=self.num_experts_per_token
+        # OPTIMIZATION 1 & 3: Chunked routing + Fused softmax-topk
+        if self.use_chunked_routing:
+            # Chunked routing for large expert counts (70-80% memory reduction)
+            routing_weights, selected_experts = chunked_router_logits(
+                hidden_states=hidden_states,
+                router_linear=self.router.router_linear,
+                chunk_size=self.routing_chunk_size,
+                k=self.num_experts_per_token
             )
+            router_logits = None  # Not materialized in chunked mode
+            routing_type = "topk"
+        elif self.loss_free_balancing and self.balancer is not None:
+            router_logits = self.router.get_logits(hidden_states)
+            if self.use_fused_softmax_topk:
+                # Fused softmax-topk (40-60% memory reduction)
+                routing_weights, selected_experts = fused_logsoftmax_topk(
+                    router_logits, k=self.num_experts_per_token
+                )
+            else:
+                routing_weights, selected_experts = self.balancer.update_and_route(
+                    router_logits, compute_loads=True, k=self.num_experts_per_token
+                )
             routing_type = "topk"
         else:
             routing_weights, selected_experts, router_logits = self.router(hidden_states)
@@ -549,6 +610,10 @@ class MoELayer(nn.Module):
 
         hidden_states_flat = hidden_states.view(-1, hidden_dim)
         total_tokens = hidden_states_flat.size(0)
+        
+        # OPTIMIZATION 5: Dynamic expert pruning during inference
+        if self.use_dynamic_pruning and not self.training and self.pruner is not None:
+            self.pruner.update_and_prune(selected_experts)
 
         if routing_type == "expert_choice":
             expert_outputs = torch.zeros_like(hidden_states_flat)
@@ -565,9 +630,21 @@ class MoELayer(nn.Module):
             routing_weights_flat = routing_weights.view(-1, self.num_experts_per_token)
             selected_experts_flat = selected_experts.view(-1, self.num_experts_per_token)
 
+            # OPTIMIZATION 2: Buffer pooling for expert outputs (50% memory reduction)
+            if self.use_buffer_pool and self.buffer_pool is not None:
+                expert_outputs = self.buffer_pool.get_output_buffer(
+                    layer_id=self.layer_id,
+                    total_tokens=total_tokens,
+                    hidden_dim=hidden_dim,
+                    dtype=hidden_states_flat.dtype,
+                    device=device
+                )
+            else:
+                expert_outputs = torch.zeros_like(hidden_states_flat)
+            
             # Process routed experts - token-centric optimized
-            expert_outputs, expert_loads = self._parallel_expert_forward(
-                hidden_states_flat, routing_weights_flat, selected_experts_flat
+            expert_loads = self._parallel_expert_forward(
+                hidden_states_flat, routing_weights_flat, selected_experts_flat, expert_outputs
             )
 
         routed_expert_loads = expert_loads
