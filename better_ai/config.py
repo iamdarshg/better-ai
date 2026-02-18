@@ -30,6 +30,7 @@ class ModelConfig:
     shared_experts: int = 1
     moe_load_balance_weight: float = 0.01
     use_moe_every_n_layers: int = 2
+    moe_routing_type: str = "topk"  # "topk" or "expert_choice"
 
     # Attention parameters
     rope_theta: float = 10000.0
@@ -54,7 +55,7 @@ class ModelConfig:
     fp8_e4m3: bool = True  # E4M3 for forward, E5M2 for gradients
 
     # Sparse attention
-    use_sparse_attention: bool = True
+    use_sparse_attention: bool = False
     local_window_size: int = 4096
     global_stride: int = 512
 
@@ -71,7 +72,7 @@ class ModelConfig:
     use_linear_attention: bool = False
 
     # CoT Specialization parameters
-    use_cot_specialization: bool = True
+    use_cot_specialization: bool = False
     cot_num_heads: int = 4
     cot_hidden_dim: int = 3072
 

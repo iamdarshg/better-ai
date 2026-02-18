@@ -167,6 +167,40 @@
 
 ## 🚀 UPCOMING PHASES
 
+### Phase 1.1: Advanced Core Refinements (NEW)
+- [ ] **Flash Attention 2/3 Explicit Integration:**
+    - [ ] Add explicit support for `flash-attn` library if installed.
+    - [ ] Implement custom CUDA kernels for LSE (Log-Sum-Exp) output to optimize ring attention.
+    - [ ] Integrate xformers' memory-efficient attention as an alternative backend.
+- [ ] **GQA Memory-Optimized Sharing:**
+    - [ ] Refactor `StripedAttention` and `FlashMultiHeadAttention` to strictly avoid KV repetition.
+    - [ ] Implement grouped query reshaping to leverage broadcasting in standard attention kernels.
+- [ ] **RoPE Context Scaling (YaRN/NTK):**
+    - [ ] Implement YaRN (Yet another RoPE extension) in `better_ai/models/rope.py`.
+    - [ ] Add support for NTK-aware scaling with dynamic base adjustment based on sequence length.
+- [ ] **Expert Choice Routing:**
+    - [ ] Complete `ExpertChoiceRouter` implementation in `better_ai/models/moe_optimized.py`.
+    - [ ] Implement specialized expert-centric forward pass for better load balancing in MoE.
+- [ ] **V-STaR (Verifier-based STaR):**
+    - [ ] Integrate a trained verifier model into `STaRModule`.
+    - [ ] Implement real-world verification loops (e.g., Python execution, math solvers) for trace validation.
+- [ ] **Advanced MCTS (PUCT/UCB1):**
+    - [ ] Implement PUCT (Predictor + Upper Confidence Bound applied to Trees) for node selection.
+    - [ ] Add transposition tables to `mcts_cot.py` for state caching and equivalent state detection.
+
+### Phase 4.1: RLHF & Training Refinements (NEW)
+- [ ] **Rejection Sampling implementation:**
+    - [ ] Modify `grpo.py` to support N-solution rollouts per prompt.
+    - [ ] Implement reward-based filtering (top-K selection) before gradient computation.
+- [ ] **Data Contamination Detection:**
+    - [ ] Implement n-gram (8-13) based overlap detection in `better_ai/data/curation.py`.
+    - [ ] Add embedding-based similarity check for benchmark leakage prevention.
+- [ ] **RLVR Context Training:**
+    - [ ] Implement Stage 5: RLVR training where context is explicitly marked with `[CONTEXT]` tags.
+    - [ ] Train model to prioritize instructions while correctly leveraging provided context.
+- [ ] **Standardized Evaluation Harness:**
+    - [ ] Integrate `lm-evaluation-harness` for broad, standardized benchmarking across MMLU, GSM8K, etc.
+
 ### Phase 6: Multi-Modal & Tool Use
 - [x] **Visual Alignment:** Initial stub in `better_ai/models/features/visual_alignment.py`.
 - [ ] **Visual Alignment Refinement:**

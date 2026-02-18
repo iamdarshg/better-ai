@@ -98,14 +98,12 @@ class MultiHeadLatentAttention(nn.Module):
         return k_up, v_up
     
     def _repeat_kv(self, hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
-        """
-        Apply GQA (Grouped Query Attention) using broadcasting without repeating KV heads.
-        This preserves memory efficiency while handling multiple query heads per KV head.
-        """
+        """Repeat key/value heads to match query heads (for GQA)"""
+        batch, num_key_value_heads, slen, head_dim = hidden_states.shape
         if n_rep == 1:
             return hidden_states
-        # Return as-is; broadcasting will be handled in attention computation
-        return hidden_states
+        hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
+        return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
     
     def forward(
         self,
@@ -152,53 +150,24 @@ class MultiHeadLatentAttention(nn.Module):
             torch.cat([key_compressed, value_compressed], dim=-1), bsz, key_compressed.size(2)
         )
         
-        # Handle GQA (Grouped Query Attention) with broadcasting
+        # Handle GQA (Grouped Query Attention)
         num_key_value_groups = self.num_heads // self.num_key_value_heads
+        if num_key_value_groups > 1:
+            key_upsampled = self._repeat_kv(key_upsampled, num_key_value_groups)
+            value_upsampled = self._repeat_kv(value_upsampled, num_key_value_groups)
         
         # Compute attention
         if self.use_flash_attention and hasattr(F, 'scaled_dot_product_attention'):
-            # Use Flash Attention with GQA support
-            if num_key_value_groups > 1:
-                # Reshape for proper broadcasting in flash attention
-                batch, num_heads, q_len, head_dim = query_states.shape
-                _, num_kv_heads, kv_len, _ = key_upsampled.shape
-                
-                # Reshape query: (batch, num_kv_heads, groups, q_len, head_dim)
-                query_reshaped = query_states.view(batch, num_kv_heads, num_key_value_groups, q_len, head_dim)
-                # Reshape key/value: expand to match groups (batch, num_kv_heads, 1, kv_len, head_dim)
-                key_expanded = key_upsampled.unsqueeze(2)
-                value_expanded = value_upsampled.unsqueeze(2)
-                
-                # Compute attention for each group
-                attn_output = F.scaled_dot_product_attention(
-                    query_reshaped, key_expanded, value_expanded,
-                    dropout_p=self.attention_dropout.p if self.training else 0.0,
-                    is_causal=True
-                )
-                # Reshape back: (batch, num_heads, q_len, head_dim)
-                attn_output = attn_output.view(batch, num_heads, q_len, head_dim)
-            else:
-                attn_output = F.scaled_dot_product_attention(
-                    query_states, key_upsampled, value_upsampled,
-                    dropout_p=self.attention_dropout.p if self.training else 0.0,
-                    is_causal=True
-                )
+            # Use Flash Attention with upsampled KV
+            attn_output = F.scaled_dot_product_attention(
+                query_states, key_upsampled, value_upsampled,
+                dropout_p=self.attention_dropout.p if self.training else 0.0,
+                is_causal=True
+            )
             attn_weights = None
         else:
-            # Standard attention computation with GQA support
-            if num_key_value_groups > 1:
-                batch, num_heads, q_len, head_dim = query_states.shape
-                _, num_kv_heads, kv_len, _ = key_upsampled.shape
-                
-                # GQA: reshape query to group with KV heads for broadcasting
-                query_reshaped = query_states.view(batch, num_kv_heads, num_key_value_groups, q_len, head_dim)
-                key_t = key_upsampled.transpose(-2, -1)
-                # Broadcasting matmul: (batch, num_kv_heads, groups, q_len, head_dim) x (batch, num_kv_heads, head_dim, kv_len)
-                attn_weights = torch.matmul(query_reshaped, key_t.unsqueeze(2))
-                attn_weights = attn_weights.view(batch, num_heads, q_len, kv_len)
-            else:
-                attn_weights = torch.matmul(query_states, key_upsampled.transpose(-2, -1))
-            
+            # Standard attention computation
+            attn_weights = torch.matmul(query_states, key_upsampled.transpose(-2, -1))
             attn_weights = attn_weights / math.sqrt(self.head_dim)
             
             if attention_mask is not None:
@@ -206,18 +175,7 @@ class MultiHeadLatentAttention(nn.Module):
             
             attn_weights = F.softmax(attn_weights, dim=-1)
             attn_weights = self.attention_dropout(attn_weights)
-            
-            # Apply attention to values with GQA support
-            if num_key_value_groups > 1:
-                batch, num_heads, q_len, kv_len = attn_weights.shape
-                _, num_kv_heads, _, head_dim = value_upsampled.shape
-                
-                attn_reshaped = attn_weights.view(batch, num_kv_heads, num_key_value_groups, q_len, kv_len)
-                # Broadcasting matmul: (batch, num_kv_heads, groups, q_len, kv_len) x (batch, num_kv_heads, kv_len, head_dim)
-                attn_output = torch.matmul(attn_reshaped, value_upsampled.unsqueeze(2))
-                attn_output = attn_output.view(batch, num_heads, q_len, head_dim)
-            else:
-                attn_output = torch.matmul(attn_weights, value_upsampled)
+            attn_output = torch.matmul(attn_weights, value_upsampled)
         
         # Reshape and project output
         attn_output = attn_output.transpose(1, 2).contiguous()
@@ -242,7 +200,8 @@ class MoEWithMLABlock(nn.Module):
         compression_ratio: float = 4.0,
         norm_eps: float = 1e-6,
         dropout: float = 0.0,
-        use_mla: bool = True
+        use_mla: bool = True,
+        routing_type: str = "topk"
     ):
         super().__init__()
         
@@ -284,7 +243,8 @@ class MoEWithMLABlock(nn.Module):
             dropout=dropout,
             capacity_factor=1.25,
             load_balance_loss_weight=0.01,
-            shared_experts=1
+            shared_experts=1,
+            routing_type=routing_type
         )
         
         # Normalization

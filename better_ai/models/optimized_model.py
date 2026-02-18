@@ -60,11 +60,13 @@ class OptimizedDeepSeekMoEModel(nn.Module):
             num_experts = getattr(config, "num_experts", num_experts)
             num_experts_per_token = getattr(config, "num_experts_per_token", num_experts_per_token)
             expert_capacity_factor = getattr(config, "expert_capacity_factor", expert_capacity_factor)
+            moe_routing_type = getattr(config, "moe_routing_type", "topk")
             max_seq_length = getattr(config, "max_seq_length", max_seq_length)
             norm_eps = getattr(config, "norm_eps", norm_eps)
             dropout = getattr(config, "residual_dropout", dropout)
         else:
             self.config = None # Should probably create one if missing, but following existing logic
+            moe_routing_type = "topk"
         
         self.padding_idx = 0
         self.hidden_size = hidden_size
@@ -110,7 +112,8 @@ class OptimizedDeepSeekMoEModel(nn.Module):
                         compression_ratio=mla_compression_ratio,
                         norm_eps=norm_eps,
                         dropout=dropout,
-                        use_mla=use_mla
+                        use_mla=use_mla,
+                        routing_type=moe_routing_type
                     )
                 elif use_token_centric_moe:
                     # Use optimized MoE with standard attention
@@ -138,7 +141,8 @@ class OptimizedDeepSeekMoEModel(nn.Module):
                                 dropout=dropout,
                                 capacity_factor=expert_capacity_factor,
                                 load_balance_loss_weight=load_balance_loss_weight,
-                                shared_experts=shared_experts
+                                shared_experts=shared_experts,
+                                routing_type=moe_routing_type
                             )
                             self.input_layernorm = RMSNorm(hidden_size, eps=norm_eps)
                             self.post_attention_layernorm = RMSNorm(hidden_size, eps=norm_eps)
@@ -203,7 +207,8 @@ class OptimizedDeepSeekMoEModel(nn.Module):
                         max_seq_length=max_seq_length,
                         norm_eps=norm_eps,
                         dropout=dropout,
-                        use_moe_every_n_layers=1  # Always use MoE
+                        use_moe_every_n_layers=1,  # Always use MoE
+                        routing_type=moe_routing_type
                     )
                     layer = original_model.layers[0]  # Get the MoE layer
                 
