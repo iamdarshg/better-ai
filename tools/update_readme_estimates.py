@@ -186,11 +186,34 @@ def calculate_parameters(config: ModelConfig) -> Dict:
         "num_moe_layers": num_moe_layers,
     }
 
+def get_measured_constant_overhead() -> float:
+    """Measure actual CUDA/framework overhead if possible."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, str(Path(__file__).parent / "measure_baseline_overhead.py")],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            val = float(result.stdout.strip())
+            if val > 0:
+                return val
+    except Exception:
+        pass
+    return 850 * 1024 * 1024  # Fallback to 850MB
+
 def calculate_inference_memory(
     config: ModelConfig, batch_size: int, seq_len: int, precision: str
 ) -> float:
     """Calculate VRAM needed for inference in bytes, using empirical extrapolation if available."""
-    # Check if we have empirical data from tools/analyze_ram_usage.py
+    params = calculate_parameters(config)
+    bytes_per_param = 1 if precision == "fp8" else 2
+
+    # Base parameter memory is always calculated analytically for the production model
+    # to avoid errors in scaling from small models.
+    model_mem = params["total_params"] * bytes_per_param
+
+    # Check if we have empirical data from tools/analyze_ram_usage.py to refine overhead
     analysis_path = Path(__file__).parent.parent / ".ram_analysis.json"
     if analysis_path.exists():
         try:
@@ -198,52 +221,48 @@ def calculate_inference_memory(
             with open(analysis_path, 'r') as f:
                 analysis = json.load(f)
 
-            data = analysis.get(precision, [])
+            # Use any available precision data to estimate scaling, favoring the requested one
+            data = analysis.get(precision, []) or analysis.get("fp8", []) or analysis.get("bf16", [])
+
             if data:
-                # Use the last measurement as a base
+                # Use the last measurement as a base for overhead scaling
                 base = data[-1]
 
-                # Extrapolate parameter memory
-                prod_params = calculate_parameters(config)["total_params"]
-                small_params = calculate_parameters(ModelConfig.get_small_model_config())["total_params"]
-                param_scaling = prod_params / small_params
-
-                # Extrapolate overhead (activations + KV cache)
-                # Note: A large part of measured overhead in small models is constant CUDA overhead (~800MB-1GB)
-                # that does NOT scale with model size.
-                base_overhead = base["overhead_bytes"]
+                # Overhead = Total - Parameters
+                base_overhead = base["peak_bytes"] - base["param_bytes"]
                 base_batch_seq = base["batch_size"] * base["seq_len"]
 
-                # Heuristic: assume up to 850MB is constant CUDA/framework overhead
-                constant_overhead = min(base_overhead * 0.95, 850 * 1024 * 1024)
-                scaling_overhead = base_overhead - constant_overhead
+                # Measure or assume constant CUDA overhead
+                constant_overhead = get_measured_constant_overhead()
+                scaling_overhead = max(0, base_overhead - constant_overhead)
 
                 current_batch_seq = batch_size * seq_len
                 # Model size factor for activations/KV
                 small_cfg = ModelConfig.get_small_model_config()
+                # We use (hidden * layers) as a proxy for activation size scaling
                 size_factor = (config.hidden_dim * config.num_layers) / (small_cfg.hidden_dim * small_cfg.num_layers)
 
+                # Scaling factor based on sequence length, batch size and model width/depth
                 overhead_scaling = (current_batch_seq / base_batch_seq) * size_factor
 
-                # Analytical KV cache for safety (to bound the extrapolation)
+                # Analytical KV cache for safety/bounding
                 num_kv_heads = config.num_key_value_heads or (config.num_attention_heads // 2)
                 head_dim = config.hidden_dim // config.num_attention_heads
-                bytes_per_param = 1 if precision == "fp8" else 2
                 analytical_kv = 2 * batch_size * seq_len * config.num_layers * num_kv_heads * head_dim * bytes_per_param
 
-                extrapolated_overhead = constant_overhead + scaling_overhead * overhead_scaling
+                extrapolated_scaling = scaling_overhead * overhead_scaling
 
-                # Cap the extrapolated scaling by a factor of the analytical KV cache + some slack for activations
-                # This prevents nonsensical values when jumping from 1k to 512k sequence length.
-                max_allowed_overhead = constant_overhead + analytical_kv * 3.0
+                # Cap the extrapolated scaling to prevent runaway values at high sequence lengths.
+                # It should not be more than a few times larger than the theoretical KV cache.
+                max_allowed_scaling = analytical_kv * 4.0
 
-                final_overhead = min(extrapolated_overhead, max_allowed_overhead)
+                final_overhead = constant_overhead + min(extrapolated_scaling, max_allowed_scaling)
 
-                return (base["param_bytes"] * param_scaling + final_overhead) * 1.15
+                return (model_mem + final_overhead) * 1.15
         except Exception:
             pass
 
-    params = calculate_parameters(config)
+    # Fallback to purely analytical calculation if no data or error
 
     bytes_per_param = 1 if precision == "fp8" else 2
 
