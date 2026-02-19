@@ -339,12 +339,12 @@ MIT — see [LICENSE](LICENSE)
 ## Resource Estimates
 
 *Auto-generated from config using production settings*
-*Last updated: 2026-02-14 13:35:14*
+*Last updated: 2026-02-19 07:45:06*
 
 ### Model Architecture
-- **Total Parameters**: 5.74B
-- **Active Parameters**: 3.31B (per token with MoE)
-- **Sparsity**: 42.4%
+- **Total Parameters**: 5.72B
+- **Active Parameters**: 3.29B (per token with MoE)
+- **Sparsity**: 42.5%
 - **Layers**: 8 (5 standard + 3 MoE)
 - **Hidden Dimension**: 4096
 - **Intermediate Dimension**: 11000
@@ -358,8 +358,8 @@ MIT — see [LICENSE](LICENSE)
 | LM Head | 262.14M | 4.6% |
 | Attention | 301.99M | 5.3% |
 | FFN (Standard) | 675.84M | 11.8% |
-| FFN (MoE - All) | 3.65B | 63.5% |
-| FFN (MoE - Active) | 1.22B | 36.8% of active |
+| FFN (MoE - All) | 3.65B | 63.8% |
+| FFN (MoE - Active) | 1.22B | 37.0% of active |
 | Routers | 98304 | 0.0% |
 
 **Advanced Features:**
@@ -367,18 +367,18 @@ MIT — see [LICENSE](LICENSE)
 |---------|------------|
 | tidar | 486.54M |
 | tool_heads | 54.53M |
-| scratchpad | 50.33M |
-| **Total Features** | **591.40M** |
+| scratchpad | 30.54M |
+| **Total Features** | **571.61M** |
 
 ### VRAM Requirements (Batch=1, Seq=524,288)
 
 **Inference VRAM per GPU:**
 | GPU | Available | BF16 Required | FP8 Required | BF16 Batch | FP8 Batch |
 |-----|-----------|---------------|--------------|------------|-----------|
-| RTX 2070 | 8 GB | 26 GB | 13 GB | 0 (need 26GB) | 0 (need 13GB) |
-| RTX 5090 | 32 GB | 26 GB | 13 GB | 1 | 4 |
-| H300e | 80 GB | 26 GB | 13 GB | 6 | 13 |
-| H200 | 141 GB | 26 GB | 13 GB | 11 | 25 |
+| RTX 2070 | 8 GB | 26 GB | 43 GB | 0 (need 26GB) | 0 (need 43GB) |
+| RTX 5090 | 32 GB | 26 GB | 43 GB | 1 | 0 (need 43GB) |
+| H300e | 80 GB | 26 GB | 43 GB | 6 | 3 |
+| H200 | 141 GB | 26 GB | 43 GB | 11 | 7 |
 
 **Training VRAM per GPU (with 8-bit optimizer, avg seq length):**
 | GPU | Available | BF16 Required | FP8 Required | BF16 Batch | FP8 Batch |
@@ -403,8 +403,8 @@ MIT — see [LICENSE](LICENSE)
 
 | GPU | FP16 TFLOPS | Hours | Days |
 |-----|-------------|-------|------|
-| RTX 2070 | 8 | 2,970 | 123.8 |
-| RTX 5090 | 100 | 223 | 9.3 |
+| RTX 2070 | 8 | 2,960 | 123.3 |
+| RTX 5090 | 100 | 222 | 9.3 |
 | H300e | 2000 | 11 | 0.5 |
 | H200 | 1000 | 22 | 0.9 |
 

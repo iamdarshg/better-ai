@@ -139,10 +139,18 @@ def calculate_parameters(config: ModelConfig) -> Dict:
         total_feature += tool
 
     if config.use_recursive_scratchpad:
-        scratch = (
-            hidden_dim * config.scratchpad_hidden_dim * 2
-            + hidden_dim * (hidden_dim // 2) * 2
-        )
+        # Looped Latent Reasoning: projections to/from private subspace + gates
+        # (2 * hidden_dim * subspace_dim) + entry gate + halting gate + entropy_proj
+        subspace_dim = config.private_subspace_dim
+        projections = 2 * hidden_dim * subspace_dim
+        # Entry gate: hidden -> hidden/4 -> 1
+        entry_gate = hidden_dim * (hidden_dim // 4) + (hidden_dim // 4) * 1
+        # Halting gate: (subspace + 1) -> 256 -> 1
+        halting_gate = (subspace_dim + 1) * 256 + 256 * 1
+        # Entropy proj: subspace -> 128
+        entropy_proj = subspace_dim * 128
+
+        scratch = projections + entry_gate + halting_gate + entropy_proj
         feature_params["scratchpad"] = scratch
         total_feature += scratch
 
@@ -201,17 +209,37 @@ def calculate_inference_memory(
                 param_scaling = prod_params / small_params
 
                 # Extrapolate overhead (activations + KV cache)
-                # Overhead scales roughly with batch * seq * model_size_factor
+                # Note: A large part of measured overhead in small models is constant CUDA overhead (~800MB-1GB)
+                # that does NOT scale with model size.
                 base_overhead = base["overhead_bytes"]
                 base_batch_seq = base["batch_size"] * base["seq_len"]
 
+                # Heuristic: assume up to 850MB is constant CUDA/framework overhead
+                constant_overhead = min(base_overhead * 0.95, 850 * 1024 * 1024)
+                scaling_overhead = base_overhead - constant_overhead
+
                 current_batch_seq = batch_size * seq_len
                 # Model size factor for activations/KV
-                size_factor = (config.hidden_dim * config.num_layers) / (ModelConfig.get_small_model_config().hidden_dim * ModelConfig.get_small_model_config().num_layers)
+                small_cfg = ModelConfig.get_small_model_config()
+                size_factor = (config.hidden_dim * config.num_layers) / (small_cfg.hidden_dim * small_cfg.num_layers)
 
                 overhead_scaling = (current_batch_seq / base_batch_seq) * size_factor
 
-                return (base["param_bytes"] * param_scaling + base_overhead * overhead_scaling) * 1.15
+                # Analytical KV cache for safety (to bound the extrapolation)
+                num_kv_heads = config.num_key_value_heads or (config.num_attention_heads // 2)
+                head_dim = config.hidden_dim // config.num_attention_heads
+                bytes_per_param = 1 if precision == "fp8" else 2
+                analytical_kv = 2 * batch_size * seq_len * config.num_layers * num_kv_heads * head_dim * bytes_per_param
+
+                extrapolated_overhead = constant_overhead + scaling_overhead * overhead_scaling
+
+                # Cap the extrapolated scaling by a factor of the analytical KV cache + some slack for activations
+                # This prevents nonsensical values when jumping from 1k to 512k sequence length.
+                max_allowed_overhead = constant_overhead + analytical_kv * 3.0
+
+                final_overhead = min(extrapolated_overhead, max_allowed_overhead)
+
+                return (base["param_bytes"] * param_scaling + final_overhead) * 1.15
         except Exception:
             pass
 

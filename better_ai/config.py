@@ -76,11 +76,10 @@ class ModelConfig:
     cot_num_heads: int = 4
     cot_hidden_dim: int = 3072
 
-    # Inner Monologue parameters
+    # Inner Monologue parameters (Legacy - Unified with Recursive Scratchpad)
     use_inner_monologue: bool = False
     thought_token_id: Optional[int] = 100  # Default for testing
     thought_end_token_id: Optional[int] = 101  # Default for testing
-    private_subspace_dim: int = 3072
 
     # STaR parameters
     use_star: bool = True
@@ -117,10 +116,10 @@ class ModelConfig:
     entropy_threshold: float = 2.5
     clarify_token_id: Optional[int] = None  # Will be set during tokenization
 
-    # Recursive Scratchpad parameters
+    # Recursive Scratchpad (Unified Looped Latent Reasoning)
     use_recursive_scratchpad: bool = True
     scratchpad_max_iterations: int = 6
-    scratchpad_hidden_dim: int = 4096
+    private_subspace_dim: int = 3072
 
     # TiDAR parameters
     use_tidar: bool = True

@@ -195,7 +195,8 @@ class TestRecursiveScratchpad(unittest.TestCase):
         hidden_states = torch.randn(batch_size, seq_len, self.config.hidden_dim).to(
             self.device
         )
-        outputs = self.module(hidden_states)
+        # Unified Looped Latent Reasoning requires a layers_fn to perform iterations
+        outputs = self.module(hidden_states, layers_fn=lambda x: x)
         self.assertEqual(
             outputs["scratchpad_output"].shape,
             (batch_size, seq_len, self.config.hidden_dim),
