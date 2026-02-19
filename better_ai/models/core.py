@@ -319,10 +319,11 @@ class DeepSeekModel(nn.Module):
     def _init_advanced_features(self, config, device):
         """Initialize all advanced features if enabled in config"""
         if getattr(config, "use_recursive_scratchpad", False):
+            # Unified Looped Latent Reasoning with private subspace
             self.scratchpad = RecursiveScratchpad(
                 config.hidden_dim,
                 max_iterations=getattr(config, "scratchpad_max_iterations", 8),
-                scratchpad_dim=getattr(config, "scratchpad_hidden_dim", 32),
+                private_subspace_dim=getattr(config, "private_subspace_dim", 3072),
             )
 
         if getattr(config, "use_tidar", False):
@@ -635,9 +636,17 @@ class DeepSeekModel(nn.Module):
         # Ensure hidden_states is on correct device if needed
         # (Usually already handled, but being safe)
 
-        # Recursive Scratchpad
+        # Recursive Scratchpad (Unified Looped Latent Reasoning)
         if hasattr(self, "scratchpad") and getattr(self.config, "use_recursive_scratchpad", False):
-            scratchpad_out = self.scratchpad(hidden_states)
+            # Define layer function for parameter-shared looping
+            def layers_fn(h):
+                for layer in self.layers:
+                    # Process through each transformer block
+                    # We pass the same attention mask
+                    h = layer(h, attention_mask=attention_mask)[0]
+                return h
+
+            scratchpad_out = self.scratchpad(hidden_states, layers_fn=layers_fn)
             advanced_outputs["scratchpad"] = scratchpad_out
             hidden_states = scratchpad_out["scratchpad_output"]
 
@@ -655,7 +664,8 @@ class DeepSeekModel(nn.Module):
             hidden_states = cot_out["final_output"]
 
         # Inner Monologue
-        if hasattr(self, "inner_monologue"):
+        # Inner Monologue is now unified with Recursive Scratchpad
+        if hasattr(self, "inner_monologue") and not getattr(self.config, "use_recursive_scratchpad", False):
             monologue_out = self.inner_monologue(
                 hidden_states,
                 token_ids=input_ids,
