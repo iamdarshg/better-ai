@@ -8,7 +8,9 @@ sys.path.append(".")
 from better_ai.config import ModelConfig
 from better_ai.models.core import DeepSeekModel
 from better_ai.models.features.recursive_scratchpad import RecursiveScratchpad
+from better_ai.test_resource_tags import low_resource
 
+@low_resource
 class TestOuroScratchpad(unittest.TestCase):
     def setUp(self):
         self.hidden_dim = 128
