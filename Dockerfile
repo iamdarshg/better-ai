@@ -18,24 +18,27 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Optimize image size and fix dependency conflicts in a single layer
-# 1. We use a constraints file to ensure the pre-installed torch/torchvision/triton
-#    versions are NOT overwritten by newer, potentially incompatible versions from PyPI.
-# 2. We remove them from requirements.txt to be doubly sure.
+# 1. We remove torch, torchvision, triton, and scipy from requirements.txt to
+#    preserve the optimized versions pre-installed in the NGC image.
+# 2. We use a cleaned constraints file to prevent upgrades of core libraries.
 # 3. We use --no-cache-dir to avoid bloating the image.
-# 4. We perform aggressive cleanup of unused CUDA components and package artifacts.
-RUN pip freeze > /tmp/constraints.txt && \
+# 4. We perform extremely aggressive cleanup to reach the <20GB limit (saves >5GB).
+RUN pip freeze | grep -v "@ file://" > /tmp/constraints.txt && \
     sed -i '/torch/d' requirements.txt && \
     sed -i '/torchvision/d' requirements.txt && \
     sed -i '/triton/d' requirements.txt && \
+    sed -i '/scipy/d' requirements.txt && \
     pip install --no-cache-dir -r requirements.txt -c /tmp/constraints.txt && \
     # Optional GPU extras
     (pip install --no-cache-dir "flash-attn>=2.5.0" --no-build-isolation || echo "Optional flash-attn installation failed") && \
-    # Aggressive cleanup to keep image size under 20GB
-    # Remove large static libraries and unused CUDA components (saves GBs)
+    # EXTREMELY Aggressive cleanup to keep image size under 20GB
+    # Remove large static libraries and redundant CUDA components
     find /usr/local/cuda -name "*.a" -delete || true && \
-    # Remove documentation and examples from packages
+    rm -rf /usr/local/cuda/nsight* /usr/local/cuda/samples /usr/local/cuda/doc && \
+    # Remove documentation and examples from Python packages
     find /usr/local/lib/python3.10/dist-packages -name "docs" -type d -exec rm -rf {} + || true && \
     find /usr/local/lib/python3.10/dist-packages -name "examples" -type d -exec rm -rf {} + || true && \
+    find /usr/local/lib/python3.10/dist-packages -name "__pycache__" -type d -exec rm -rf {} + || true && \
     # Clean up apt and temporary files
     rm -rf /root/.cache/pip && \
     apt-get clean && \
