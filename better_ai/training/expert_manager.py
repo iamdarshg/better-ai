@@ -39,8 +39,8 @@ class ExpertSpecializationManager:
         # Language to index mapping
         self.language_to_idx = {
             'python': 0, 'c': 1, 'rust': 2, 'javascript': 3,
-            'java': 4, 'cpp': 5, 'go': 6, 'rust': 7,
-            'typescript': 8, 'other': 9
+            'java': 4, 'cpp': 5, 'go': 6, 'typescript': 7,
+            'other': 8
         }
         
         # Specialization metrics
@@ -77,7 +77,7 @@ class ExpertSpecializationManager:
         if language_tokens is not None and self.num_languages is not None:
             # Map languages to indices once for the whole batch
             lang_indices = torch.tensor([
-                self.language_to_idx.get(lang.lower() if isinstance(lang, str) else 'other', 9)
+                self.language_to_idx.get(lang.lower() if isinstance(lang, str) else 'other', 8)
                 for lang in language_tokens
             ], device=self.device)
 

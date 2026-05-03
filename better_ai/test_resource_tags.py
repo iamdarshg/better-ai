@@ -54,27 +54,3 @@ def low_resource(obj=None):
     if obj is None:
         return decorator
     return decorator(obj)
-
-
-def low_resource(obj=None):
-    """Mark a test or test class as low-resource."""
-
-    def decorator(o):
-        # Set class-level attribute
-        setattr(o, "_is_low_resource", True)
-
-        # Also patch setUp to set instance attribute for runtime access
-        original_setUp = getattr(o, "setUp", None)
-
-        def setUp(self):
-            setattr(self, "_is_low_resource", True)
-            if original_setUp:
-                original_setUp(self)
-
-        o.setUp = setUp
-
-        return o
-
-    if obj is None:
-        return decorator
-    return decorator(obj)
