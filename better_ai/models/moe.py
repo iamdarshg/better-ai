@@ -584,8 +584,8 @@ class MoELayer(nn.Module):
         # OPTIMIZATION 1 & 3: Chunked routing + Fused softmax-topk
         if self.use_chunked_routing:
             # Chunked routing for large expert counts (70-80% memory reduction)
-            # Compute logits once to avoid multiple passes if needed for aux loss
-            # (In true chunked mode, we'd avoid materializing the whole thing)
+            # We compute logits here because aux loss functions (z-loss, specialization)
+            # currently depend on them.
             router_logits = self.router.get_logits(hidden_states)
             routing_weights, selected_experts = chunked_router_logits(
                 hidden_states=hidden_states,
