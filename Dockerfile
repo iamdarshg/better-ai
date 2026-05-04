@@ -13,25 +13,42 @@ COPY requirements-docker.txt .
 # SURGICAL DEPENDENCY INSTALLATION
 # This ensures we NEVER touch the NGC-provided torch/cuda stack.
 # 1. Generate a report of all required dependencies (including transitive ones).
-# 2. Filter out any package that is already provided by NGC or belongs to the GPU stack.
-# 3. Install only the missing app dependencies without checking sub-dependencies.
 RUN pip install --upgrade pip && \
-    pip install --dry-run --report /tmp/report.json -r requirements-docker.txt && \
-    # Python script to extract and filter dependencies
-    python3 -c 'import json; \
-report = json.load(open("/tmp/report.json")); \
-exclude = {"torch", "torchvision", "torchtext", "triton", "flash-attn", "tensorrt", "nvidia", "cuda"}; \
-to_install = []; \
-for req in report["install"]: \
-    name = req["metadata"]["name"].lower(); \
-    if not any(ex in name for ex in exclude): \
-        to_install.append(req["metadata"]["name"] + "==" + req["metadata"]["version"]); \
-print("\n".join(to_install))' > /tmp/filtered_reqs.txt && \
-    # Install the filtered list surgically
-    pip install --no-cache-dir --no-deps -r /tmp/filtered_reqs.txt && \
+    pip install --dry-run --report /tmp/report.json -r requirements-docker.txt
+
+# 2. Filter out any package that is already provided by NGC or belongs to the GPU stack.
+RUN python3 <<EOF
+import json
+import os
+
+with open("/tmp/report.json") as f:
+    report = json.load(f)
+
+exclude = {"torch", "torchvision", "torchtext", "triton", "flash-attn", "tensorrt", "nvidia", "cuda"}
+to_install = []
+
+for req in report["install"]:
+    name = req["metadata"]["name"].lower()
+    version = req["metadata"]["version"]
+
+    # Check if the package or any part of its name is in the exclusion list
+    should_exclude = any(ex in name for ex in exclude)
+
+    if not should_exclude:
+        to_install.append(f"{name}=={version}")
+
+with open("/tmp/filtered_reqs.txt", "w") as f:
+    f.write("\n".join(to_install))
+
+print(f"Filtered {len(to_install)} dependencies for installation.")
+EOF
+
+# 3. Install only the missing app dependencies without checking sub-dependencies.
+# 4. Perform extremely aggressive cleanup to meet <20GB limit.
+RUN pip install --no-cache-dir --no-deps -r /tmp/filtered_reqs.txt && \
     # VERIFICATION: Ensure torch was not uninstalled or replaced
     python -c "import torch; assert 'nv' in torch.__version__, f'NGC torch replaced! Current version: {torch.__version__}'" && \
-    # Aggressive cleanup of non-runtime assets to meet <20GB limit
+    # Remove all CUDA static libraries (saves multiple GBs)
     find /usr/local/cuda -name "*.a" -delete || true && \
     find /usr/lib/x86_64-linux-gnu -name "*.a" -delete || true && \
     rm -rf /usr/local/cuda/nsight* /usr/local/cuda/samples /usr/local/cuda/doc /usr/local/cuda/bin/nvvp && \
