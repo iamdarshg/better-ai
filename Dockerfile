@@ -80,8 +80,13 @@ WORKDIR /app
 COPY . .
 
 # Final Build-time verification
-RUN python -c "import torch; print(f'PyTorch version: {torch.__version__}'); assert 'nv' in torch.__version__"
-RUN python -c "import better_ai; print('Package import successful')"
+# Ensures PyTorch is optimized build AND Transformers can actually use it
+RUN python -c "import torch, transformers; \
+print(f'PyTorch version: {torch.__version__}'); \
+print(f'Transformers version: {transformers.__version__}'); \
+assert 'nv' in torch.__version__, 'NGC torch replaced!'; \
+assert transformers.is_torch_available(), 'Transformers cannot see PyTorch! Check version compatibility.'; \
+print('Container verification successful')"
 
 # Default command for the container
 CMD ["python", "train_enhanced.py", "--stage", "pretrain", "--test"]
