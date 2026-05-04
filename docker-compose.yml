@@ -23,4 +23,9 @@ services:
       - DO_SPACES_KEY=${DO_SPACES_KEY:-}
     stdin_open: true
     tty: true
+    # IPC mode host is recommended for PyTorch multi-process data loading
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
     command: python train_enhanced.py --stage pretrain --test

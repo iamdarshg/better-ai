@@ -129,6 +129,50 @@ def update_optimization_managers(
             self.coherence_scheduler.coherence_calc, "current_coherence", 0.5
         )
 
+    # Update TUI first
+    try:
+        self.training_ui.update_metrics(
+            step=self.global_step,
+            loss=loss_val,
+            aux_loss=aux_loss_val,
+            lr=self._get_current_lr(),
+            expert_stats=expert_stats,
+            memory_usage=memory_usage,
+            gradient_norm=grad_norm_val,
+            throughput=throughput,
+            coherence_score=float(coherence_val),
+            batch_time=step_time,
+        )
+    except Exception as e:
+        print(f"TUI update error (non-critical): {e}")
+
+    # Update training monitor - restored once
+    self.training_monitor.update_step(
+        step=self.global_step,
+        loss=loss_val,
+        aux_loss=aux_loss_val,
+        learning_rate=self._get_current_lr(),
+        gradient_norm=grad_norm_val,
+        expert_ids=expert_ids,
+        language_tokens=language_tokens,
+        memory_usage=memory_usage,
+        batch_time=step_time,
+    )
+
+    # Update memory manager - restored once
+    self.memory_manager.step(loss_val, grad_norm_val)
+
+    # Update capacity manager
+    if expert_ids is not None:
+        expert_loads = self._calculate_expert_loads(expert_ids)
+        if hasattr(self.capacity_manager, "update_expert_loads"):
+            try:
+                loads_tensor = torch.tensor(
+                    list(expert_loads.values()), device=self.device
+                )
+                self.capacity_manager.update_expert_loads(loads_tensor)
+            except Exception:
+                self.capacity_manager.update_expert_loads(expert_loads)
 
     # Memory usage for enhanced features
     self.metrics_history["memory_usage"].append(memory_usage)

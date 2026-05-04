@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def process_batch(batch: Dict[str, Any], device: torch.device) -> Dict[str, Any]:
+def process_batch(self, batch: Dict[str, Any]) -> Dict[str, Any]:
     """Process batch with type safety and enhanced error handling"""
     processed_batch = {}
 
@@ -18,13 +18,13 @@ def process_batch(batch: Dict[str, Any], device: torch.device) -> Dict[str, Any]
                     if any(dim <= 0 for dim in value.shape):
                         logger.warning(f"Invalid tensor dimensions for {key}: {value.shape}")
                         continue
-                processed_batch[key] = value.to(device)
+                processed_batch[key] = value.to(self.device)
             elif isinstance(value, list):
                 # List of strings or other non-tensor data
                 if key in ['input_ids', 'labels', 'attention_mask']:
                     # Convert lists to tensors for critical fields
                     if value and isinstance(value[0], (int, float)):
-                        processed_batch[key] = torch.tensor(value, dtype=torch.long, device=device)
+                        processed_batch[key] = torch.tensor(value, dtype=torch.long, device=self.device)
                     else:
                         processed_batch[key] = value
                 else:
@@ -32,7 +32,7 @@ def process_batch(batch: Dict[str, Any], device: torch.device) -> Dict[str, Any]
             else:
                 # Try to convert to tensor if possible
                 if isinstance(value, (int, float)):
-                    processed_batch[key] = torch.tensor([value], dtype=torch.long, device=device)
+                    processed_batch[key] = torch.tensor([value], dtype=torch.long, device=self.device)
                 elif isinstance(value, str):
                     # Skip string values that can't be converted
                     processed_batch[key] = value
