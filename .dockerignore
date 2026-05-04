@@ -1,0 +1,11 @@
+checkpoints/
+logs/
+dataset_cache/
+.git/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.estimate_cache
+.ram_analysis.json

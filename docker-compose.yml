@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  better-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: better-ai:latest
+    container_name: better-ai-trainer
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ./checkpoints:/app/checkpoints
+      - ./logs:/app/logs
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - WANDB_API_KEY=${WANDB_API_KEY:-}
+      - DO_SPACES_KEY=${DO_SPACES_KEY:-}
+    stdin_open: true
+    tty: true
+    # IPC mode host is recommended for PyTorch multi-process data loading
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    command: python train_enhanced.py --stage pretrain --test

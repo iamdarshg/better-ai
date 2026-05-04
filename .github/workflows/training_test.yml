@@ -111,4 +111,29 @@ jobs:
         run: |
           python tools/runtest.py --test "${{ matrix.test_id }}"
 
+  validate_docker:
+    name: Validate Docker Build & Image Size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: |
+          docker build -t better-ai .
+
+      - name: Verify Package Import (CPU)
+        run: |
+          docker run --rm better-ai python -c "import better_ai; print('better_ai imported successfully in container')"
+
+      - name: Check Image Size
+        run: |
+          # Acceptance criteria: < 20GB
+          SIZE=$(docker image inspect better-ai --format='{{.Size}}')
+          SIZE_GB=$(echo "scale=2; $SIZE / 1024 / 1024 / 1024" | bc)
+          echo "Image Size: $SIZE_GB GB"
+          if (( $(echo "$SIZE_GB > 20" | bc -l) )); then
+            echo "Error: Image size $SIZE_GB GB exceeds 20GB limit"
+            exit 1
+          fi
+
 # TODO: Flame graphs and profiling data upload
