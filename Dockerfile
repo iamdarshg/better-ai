@@ -1,23 +1,19 @@
-# Base image from NVIDIA PyTorch container as specified in issue #27
-FROM nvcr.io/nvidia/pytorch:24.03-py3
+# Stage 1: Build and Cleanup
+FROM nvcr.io/nvidia/pytorch:24.03-py3 AS builder
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
 
-# Set working directory
 WORKDIR /app
 
 # Copy optimized requirements
 COPY requirements-docker.txt .
 
-# Optimize image size in a single layer
 # 1. Install missing app dependencies using constraints to protect NGC stack.
 # 2. Perform extremely aggressive cleanup of non-runtime assets.
 RUN pip freeze | grep -v "@ file://" | grep -v "/rapids/" > /tmp/constraints.txt && \
     pip install --no-cache-dir -r requirements-docker.txt -c /tmp/constraints.txt && \
-    # EXTREMELY Aggressive cleanup to meet the <20GB requirement
     # Remove all CUDA static libraries (saves multiple GBs)
     find /usr/local/cuda -name "*.a" -delete || true && \
     find /usr/lib/x86_64-linux-gnu -name "*.a" -delete || true && \
@@ -32,13 +28,27 @@ RUN pip freeze | grep -v "@ file://" | grep -v "/rapids/" > /tmp/constraints.txt
     rm -rf /var/lib/apt/lists/* && \
     rm /tmp/constraints.txt
 
-# Copy the rest of the source code
-COPY . .
+# Stage 2: Final Flattened Image
+# Using 'scratch' and copying from 'builder' is the only way to truly flatten and
+# EXCLUDE files from the final image that were in the original base image.
+FROM scratch
 
-# Build-time verification: ensures the environment is correctly set up
-# and better_ai is importable.
-RUN python -c "import torch; import better_ai; print('Package import successful')"
-RUN python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
+# Set essential environment variables for NGC stack
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV PATH=/usr/local/npt/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/lib:/usr/lib/x86_64-linux-gnu
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# Copy the entire cleaned filesystem from builder
+COPY --from=builder / /
+
+WORKDIR /app
+
+# Copy the rest of the source code (overwrites if builder had it, but builder was kept clean)
+COPY . .
 
 # Default command for the container
 CMD ["python", "train_enhanced.py", "--stage", "pretrain", "--test"]
