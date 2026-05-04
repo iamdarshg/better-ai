@@ -18,10 +18,14 @@ WORKDIR /app
 # Copy optimized requirements for Docker
 COPY requirements-docker.txt .
 
-# Install only missing app dependencies
-# We use --no-deps to prevent pip from pulling in redundant torch/CUDA wheels
-# that would overwrite the optimized NGC stack and bloat the image.
-RUN pip install --no-cache-dir --no-deps -r requirements-docker.txt
+# Install app dependencies with constraints to protect NGC stack
+# 1. Capture NGC's pre-installed package versions as constraints.
+# 2. Filter constraints to remove local file references for portability.
+# 3. Install requirements using these constraints to prevent accidental replacements
+#    of optimized Torch/CUDA/Flash-Attn/Triton components.
+RUN pip freeze | grep -v "@ file://" > /tmp/constraints.txt && \
+    pip install --no-cache-dir -r requirements-docker.txt -c /tmp/constraints.txt && \
+    rm /tmp/constraints.txt
 
 # Copy the rest of the source code
 COPY . .
