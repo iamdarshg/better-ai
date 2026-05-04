@@ -10,10 +10,18 @@ WORKDIR /app
 # Copy optimized requirements
 COPY requirements-docker.txt .
 
-# 1. Install missing app dependencies using constraints to protect NGC stack.
-# 2. Perform extremely aggressive cleanup of non-runtime assets.
-RUN pip freeze | grep -v "@ file://" | grep -v "/rapids/" > /tmp/constraints.txt && \
+# 1. Protect the NGC stack.
+#    We create a constraints file that pins EXACTLY what is currently installed.
+#    This prevents pip from replacing the optimized NGC torch/cuda/triton stack.
+# 2. Install missing app dependencies.
+# 3. Perform extremely aggressive cleanup of non-runtime assets.
+RUN pip freeze > /tmp/full_freeze.txt && \
+    # Filter out local file references and absolute paths that break constraints
+    grep -v "@ file://" /tmp/full_freeze.txt | grep -v "/rapids/" > /tmp/constraints.txt && \
+    # Install app-level dependencies using the constraints to pin the NGC stack.
     pip install --no-cache-dir -r requirements-docker.txt -c /tmp/constraints.txt && \
+    # VERIFICATION: Ensure torch was not uninstalled or replaced
+    python -c "import torch; assert 'nv' in torch.__version__, f'NGC torch replaced! Current version: {torch.__version__}'" && \
     # Remove all CUDA static libraries (saves multiple GBs)
     find /usr/local/cuda -name "*.a" -delete || true && \
     find /usr/lib/x86_64-linux-gnu -name "*.a" -delete || true && \
@@ -26,7 +34,7 @@ RUN pip freeze | grep -v "@ file://" | grep -v "/rapids/" > /tmp/constraints.txt
     rm -rf /root/.cache/pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    rm /tmp/constraints.txt
+    rm /tmp/constraints.txt /tmp/full_freeze.txt
 
 # Stage 2: Final Flattened Image
 # Using 'scratch' and copying from 'builder' is the only way to truly flatten and
@@ -47,8 +55,12 @@ COPY --from=builder / /
 
 WORKDIR /app
 
-# Copy the rest of the source code (overwrites if builder had it, but builder was kept clean)
+# Copy the rest of the source code
 COPY . .
+
+# Final Build-time verification
+RUN python -c "import torch; print(f'PyTorch version: {torch.__version__}'); assert 'nv' in torch.__version__"
+RUN python -c "import better_ai; print('Package import successful')"
 
 # Default command for the container
 CMD ["python", "train_enhanced.py", "--stage", "pretrain", "--test"]
