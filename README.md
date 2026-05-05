@@ -54,6 +54,8 @@ To avoid unnecessary costs, run the teardown script which will snapshot your vol
 bash infra/do_teardown.sh
 ```
 
+> **Note:** Block storage volumes are preserved after Droplet destruction. You must manually delete them in the DigitalOcean console or via `doctl` to stop all billing.
+
 ## Quick Start
 
 ### Train from Scratch
