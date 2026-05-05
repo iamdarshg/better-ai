@@ -34,16 +34,19 @@ VOL_NAME=$(grep "volume_name:" "$CONFIG_FILE" | awk '{print $2}' | tr -d '"' | t
 if [ -n "$VOL_NAME" ]; then
     VOLUME_DEV="/dev/disk/by-id/scsi-0DO_Volume_$VOL_NAME"
 
-    # Wait up to 30 seconds for the volume to be attached and recognized
-    echo "⏳ Waiting for volume $VOL_NAME at $VOLUME_DEV..."
-    for i in {1..30}; do
+    # Wait up to 5 minutes (300 seconds) for the volume to be attached and recognized
+    # We wait longer because the attach action happens after droplet creation returns.
+    echo "⏳ Waiting for volume $VOL_NAME at $VOLUME_DEV (max 5 mins)..."
+    FOUND=0
+    for i in {1..300}; do
         if [ -b "$VOLUME_DEV" ]; then
+            FOUND=1
             break
         fi
         sleep 1
     done
 
-    if [ -b "$VOLUME_DEV" ]; then
+    if [ "$FOUND" -eq 1 ]; then
         echo "💾 DigitalOcean Volume detected at $VOLUME_DEV"
         MOUNT_POINT="/app/checkpoints"
         mkdir -p "$MOUNT_POINT"
@@ -68,7 +71,9 @@ if [ -n "$VOL_NAME" ]; then
             ln -s "$MOUNT_POINT" checkpoints
         fi
     else
-        echo "⚠️ Timeout: Volume $VOL_NAME not found at $VOLUME_DEV. Checkpoints will be local."
+        echo "❌ Error: Volume $VOL_NAME not found at $VOLUME_DEV after 5 minutes."
+        echo "Provisioning failed because checkpoint persistence could not be guaranteed."
+        exit 1
     fi
 else
     echo "ℹ️ No volume_name found in config. Checkpoints will be stored on the local disk."

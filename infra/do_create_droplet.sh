@@ -48,6 +48,12 @@ SSH_KEYS=${CONF_networking_ssh_keys:-""}
 VOL_NAME=${CONF_storage_volume_name:-""}
 VOL_SIZE=${CONF_storage_volume_size_gb:-"100"}
 
+# Validation
+if [ -z "$SSH_KEYS" ]; then
+    echo "❌ Error: networking.ssh_keys must be set in $CONFIG_FILE to ensure access to the Droplet."
+    exit 1
+fi
+
 echo "Configured Settings:"
 echo "- Size: $SIZE"
 echo "- Region: $REGION"
@@ -84,7 +90,7 @@ echo "✅ Droplet created with ID: $DROPLET_ID"
 if [ -n "$VOL_NAME" ] && [ -n "$DROPLET_ID" ]; then
     echo "🔗 Attaching volume $VOL_NAME to droplet $DROPLET_ID..."
     doctl compute volume-action attach "$VOL_NAME" "$DROPLET_ID"
-    echo "✅ Volume attached."
+    echo "✅ Volume attachment initiated."
 fi
 
 echo "Environment is provisioning. Monitor progress by SSHing into the droplet."
