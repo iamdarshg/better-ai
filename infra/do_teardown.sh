@@ -32,7 +32,9 @@ if [ -z "$DROPLET_ID" ]; then
 fi
 
 echo "Detected Droplet ID: $DROPLET_ID"
-read -p "Do you want to snapshot the volumes and destroy this Droplet? (y/N) " confirm
+echo "⚠️  Note: This script snapshots volumes and destroys the Droplet."
+echo "⚠️  Volumes are NOT destroyed automatically and will continue to be billed unless manually deleted."
+read -p "Do you want to proceed with teardown? (y/N) " confirm
 
 if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
     echo "Teardown cancelled."
@@ -56,5 +58,5 @@ echo "🗑️ Destroying Droplet $DROPLET_ID..."
 doctl compute droplet delete "$DROPLET_ID" --force
 
 echo "✅ Teardown initiated."
-echo "💡 Cost Tip: Ensure any detached volumes are also deleted if no longer needed to stop all billing."
+echo "💡 Cost Tip: Volumes are preserved after Droplet destruction. Delete them in the DO console or via 'doctl compute volume delete <ID>' if no longer needed."
 echo "=================================================="

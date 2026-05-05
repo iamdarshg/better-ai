@@ -2,9 +2,9 @@
 set -e
 
 # Better AI - DigitalOcean Droplet Creation Script
-# This script uses 'doctl' to create a GPU Droplet based on infra/droplet_config.yml
+# This script uses 'doctl' to create a GPU Droplet and a Block Storage Volume.
 
-echo "🏗️ Creating Better AI GPU Droplet..."
+echo "🏗️ Creating Better AI Infrastructure..."
 
 if ! command -v doctl &> /dev/null; then
     echo "❌ Error: 'doctl' is not installed. Please install it and authenticate first."
@@ -45,25 +45,47 @@ IMAGE=${CONF_droplet_image:-"ubuntu-22-04-x64"}
 TAGS=${CONF_droplet_tags:-"better-ai"}
 SSH_KEYS=${CONF_networking_ssh_keys:-""}
 
+VOL_NAME=${CONF_storage_volume_name:-""}
+VOL_SIZE=${CONF_storage_volume_size_gb:-"100"}
+
 echo "Configured Settings:"
 echo "- Size: $SIZE"
 echo "- Region: $REGION"
 echo "- Image: $IMAGE"
 echo "- Tags: $TAGS"
 
-# Provisioning script
-USER_DATA_FILE="infra/do_provision.sh"
+# 1. Create Block Storage Volume if specified
+if [ -n "$VOL_NAME" ]; then
+    echo "💾 Creating/Checking Block Storage Volume: $VOL_NAME..."
+    if ! doctl compute volume get "$VOL_NAME" --region "$REGION" > /dev/null 2>&1; then
+        doctl compute volume create "$VOL_NAME" --region "$REGION" --size "${VOL_SIZE}GiB" --desc "Better AI Checkpoints"
+        echo "✅ Volume created."
+    else
+        echo "ℹ️ Volume already exists."
+    fi
+fi
 
-# Create the Droplet
+# 2. Create the Droplet
 echo "🚀 Dispatching droplet creation command..."
-doctl compute droplet create better-ai-gpu \
+# Create droplet and capture its ID
+DROPLET_ID=$(doctl compute droplet create better-ai-gpu \
     --region "$REGION" \
     --size "$SIZE" \
     --image "$IMAGE" \
-    --user-data-file "$USER_DATA_FILE" \
+    --user-data-file "infra/do_provision.sh" \
     --tag-names "$TAGS" \
     --ssh-keys "$SSH_KEYS" \
-    --wait
+    --format ID --no-header \
+    --wait)
 
-echo "✅ Droplet created successfully!"
+echo "✅ Droplet created with ID: $DROPLET_ID"
+
+# 3. Attach Volume if specified
+if [ -n "$VOL_NAME" ] && [ -n "$DROPLET_ID" ]; then
+    echo "🔗 Attaching volume $VOL_NAME to droplet $DROPLET_ID..."
+    doctl compute volume-action attach "$VOL_NAME" "$DROPLET_ID"
+    echo "✅ Volume attached."
+fi
+
+echo "Environment is provisioning. Monitor progress by SSHing into the droplet."
 doctl compute droplet list --tag-name better-ai

@@ -15,21 +15,18 @@ droplet:
   # Image: Ubuntu 22.04 LTS is required for the provisioning script
   image: "ubuntu-22-04-x64"
 
-  # Recommended Tags for organization
-  tags:
-    - "better-ai"
-    - "gpu-training"
+  # Recommended Tags (comma-separated string for easier script parsing)
+  tags: "better-ai,gpu-training"
 
 storage:
-  # Recommended: Use a separate block storage volume for /app/checkpoints
-  # This allows you to persist models even if the Droplet is destroyed.
+  # Use a separate block storage volume for /app/checkpoints
   volume_size_gb: 100
-  mount_path: "/app/checkpoints"
+  # The name of the volume to be created or attached
+  volume_name: "better-ai-checkpoints"
 
 networking:
-  # Ensure your SSH key is added to DigitalOcean
-  ssh_keys:
-    - "YOUR_SSH_KEY_ID_OR_FINGERPRINT"
+  # Comma-separated list of your DO SSH key IDs or fingerprints
+  ssh_keys: ""
 
 requirements:
   # Minimum specs for stable training/inference

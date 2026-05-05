@@ -40,9 +40,9 @@ For high-performance training and inference, we provide automated provisioning s
 - **Operating System:** Ubuntu 22.04 LTS
 
 ### Automated Provisioning
-1.  **Configure:** Update `infra/droplet_config.yml` with your region, SSH keys, and preferred GPU size.
+1.  **Configure:** Update `infra/droplet_config.yml` with your region, SSH keys (comma-separated), and preferred GPU size.
 2.  **Authenticate:** Ensure `doctl` is installed and authenticated (`doctl auth init`).
-3.  **Deploy:** Run the creation script to spin up and provision the Droplet:
+3.  **Deploy:** Run the creation script to spin up and provision the Droplet (including volume creation/attachment):
     ```bash
     bash infra/do_create_droplet.sh
     ```

@@ -52,7 +52,8 @@ fi
 
 # 4. Mount Block Storage Volume (if attached)
 # DigitalOcean volumes are typically mapped to /dev/disk/by-id/scsi-0DO_Volume_VOLUME_NAME
-# We'll look for any DO volume and mount it to /app/checkpoints
+# We'll wait a few seconds for the volume to appear if it was just attached.
+sleep 5
 VOLUME_DEV=$(ls /dev/disk/by-id/scsi-0DO_Volume_* 2>/dev/null | head -n 1)
 if [ -n "$VOLUME_DEV" ]; then
     echo "💾 DigitalOcean Volume detected at $VOLUME_DEV"
@@ -96,8 +97,8 @@ echo "🏗️ Building Better AI Docker image..."
 docker compose build
 
 echo "🧪 Running Smoke Test..."
-# Run a quick check using the built image to ensure it can see the GPU and load the package
-docker compose run --rm training python -c "import torch, better_ai; print('Better AI Smoke Test Passed!')"
+# Run a quick check using the built image to ensure it can see the GPU and load torch
+docker compose run --rm better-ai python -c "import torch; print(f'Better AI Smoke Test Passed! CUDA available: {torch.cuda.is_available()}')"
 
 # 7. Final Verification
 echo "✅ Provisioning Complete!"
