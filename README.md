@@ -40,13 +40,16 @@ For high-performance training and inference, we provide automated provisioning s
 - **Operating System:** Ubuntu 22.04 LTS
 
 ### Automated Provisioning
-1.  **Configure:** Update `infra/droplet_config.yml` with your region and SSH keys.
-2.  **Create Droplet:** In the DigitalOcean console, create a GPU Droplet.
-3.  **User Data:** Copy the contents of `infra/do_provision.sh` into the "User Data" field during creation.
-4.  **Login:** Once ready, SSH into your Droplet. The environment will be fully configured in `/app/better-ai`.
+1.  **Configure:** Update `infra/droplet_config.yml` with your region, SSH keys, and preferred GPU size.
+2.  **Authenticate:** Ensure `doctl` is installed and authenticated (`doctl auth init`).
+3.  **Deploy:** Run the creation script to spin up and provision the Droplet:
+    ```bash
+    bash infra/do_create_droplet.sh
+    ```
+4.  **Login:** Once the script finishes, SSH into your Droplet. The environment is fully configured in `/app/better-ai`.
 
 ### Teardown
-To avoid unnecessary costs, use the guide in `infra/do_teardown.sh`:
+To avoid unnecessary costs, run the teardown script which will snapshot your volumes and destroy the Droplet:
 ```bash
 bash infra/do_teardown.sh
 ```

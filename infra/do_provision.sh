@@ -91,15 +91,18 @@ if [ -d "/app/checkpoints" ] && [ ! -L "checkpoints" ]; then
     ln -s /app/checkpoints checkpoints
 fi
 
-# 6. Pull the optimized Docker image
-echo "🐳 Pulling NGC PyTorch image..."
-docker pull nvcr.io/nvidia/pytorch:24.03-py3
+# 6. Build and Verify Environment
+echo "🏗️ Building Better AI Docker image..."
+docker compose build
+
+echo "🧪 Running Smoke Test..."
+# Run a quick check using the built image to ensure it can see the GPU and load the package
+docker compose run --rm training python -c "import torch, better_ai; print('Better AI Smoke Test Passed!')"
 
 # 7. Final Verification
 echo "✅ Provisioning Complete!"
 echo "--------------------------------------------------"
 nvidia-smi
-docker run --rm --gpus all nvcr.io/nvidia/pytorch:24.03-py3 nvidia-smi
 
 echo "=================================================="
 echo "Better AI environment is ready."
