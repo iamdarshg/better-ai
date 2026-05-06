@@ -236,16 +236,22 @@ class GRPOTrainer:
         total_loss = policy_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy
 
         # Optimize
-        self.optimizer.zero_grad()
+        if not hasattr(self.model, "backward"):
+            self.optimizer.zero_grad()
         self.value_optimizer.zero_grad()
 
-        total_loss.backward()
+        if hasattr(self.model, "backward"):
+            # DeepSpeed engine handles backward and optimizer step (including zero_grad)
+            self.model.backward(total_loss)
+            self.model.step()
+        else:
+            total_loss.backward()
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            self.optimizer.step()
 
-        # Gradient clipping
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        # Always update value head separately (standard torch logic)
         torch.nn.utils.clip_grad_norm_(self.value_head.parameters(), max_norm=1.0)
-
-        self.optimizer.step()
         self.value_optimizer.step()
 
         loss_dict = {

@@ -112,6 +112,7 @@ def create_curriculum_aware_dataloader(
             tokenizer=tokenizer,
             batch_size=batch_size,
             split=split,
+            distributed=torch.distributed.is_initialized(),
         )
         return dataloader, None
 
@@ -127,6 +128,7 @@ def create_curriculum_aware_dataloader(
             tokenizer=tokenizer,
             batch_size=batch_size,
             split=split,
+            distributed=torch.distributed.is_initialized(),
         )
         return dataloader, None
 
@@ -193,6 +195,15 @@ def train_pretraining(
     model = DeepSeekModel(model_config, device=device)
     model = model.to(device)
 
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not getattr(
+        training_config, "use_deepspeed", False
+    ):
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(model, device_ids=[device.index] if device.index is not None else None)
+        logger.info("Model wrapped in DDP")
+
     # Create tokenizer
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     special_tokens = [
@@ -249,6 +260,7 @@ def train_pretraining(
             tokenizer=tokenizer,
             batch_size=training_config.batch_size * 2,
             split="test",
+            distributed=torch.distributed.is_initialized(),
         )
 
         training_config.max_steps = sum(
@@ -320,6 +332,15 @@ def train_sft(
     model = DeepSeekModel(model_config, device=device)
     model = model.to(device)
 
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not getattr(
+        training_config, "use_deepspeed", False
+    ):
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(model, device_ids=[device.index] if device.index is not None else None)
+        logger.info("Model wrapped in DDP")
+
     # Load checkpoint from pretraining if available
     if checkpoint_path:
         logger.info(f"Loading checkpoint: {checkpoint_path}")
@@ -377,6 +398,7 @@ def train_sft(
             tokenizer=tokenizer,
             split="test",
             batch_size=training_config.batch_size * 2,
+            distributed=torch.distributed.is_initialized(),
         )
 
         training_config.max_steps = sum(d["num_training_steps"] for d in sft_datasets)
@@ -445,6 +467,15 @@ def train_rlhf(
     model = DeepSeekModel(model_config, device=device)
     model = model.to(device)
 
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not getattr(
+        training_config, "use_deepspeed", False
+    ):
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(model, device_ids=[device.index] if device.index is not None else None)
+        logger.info("Model wrapped in DDP")
+
     # Load checkpoint
     if checkpoint_path:
         logger.info(f"Loading checkpoint: {checkpoint_path}")
@@ -504,6 +535,7 @@ def train_rlhf(
             tokenizer=tokenizer,
             split="test",
             batch_size=training_config.batch_size * 2,
+            distributed=torch.distributed.is_initialized(),
         )
 
         training_config.max_steps = sum(d["num_training_steps"] for d in rlhf_datasets)
@@ -572,6 +604,15 @@ def train_security_dpo(
     model = DeepSeekModel(model_config, device=device)
     model = model.to(device)
 
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not getattr(
+        training_config, "use_deepspeed", False
+    ):
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(model, device_ids=[device.index] if device.index is not None else None)
+        logger.info("Model wrapped in DDP")
+
     # Load checkpoint from RLHF stage
     if checkpoint_path:
         logger.info(f"Loading checkpoint: {checkpoint_path}")
@@ -628,6 +669,7 @@ def train_security_dpo(
             tokenizer=tokenizer,
             split="test",
             batch_size=training_config.batch_size * 2,
+            distributed=torch.distributed.is_initialized(),
         )
 
         training_config.max_steps = sum(
@@ -719,6 +761,7 @@ def evaluate_model(
         tokenizer=tokenizer,
         split="test",
         batch_size=8,
+        distributed=torch.distributed.is_initialized(),
     )
 
     # Run evaluation
@@ -829,6 +872,23 @@ class DefaultArgs:
     use_striped_attention: bool = True
 
 
+def load_combined_config(config_path: str):
+    """Load combined model and training config from a single YAML file"""
+    import yaml
+
+    with open(config_path, "r") as f:
+        data = yaml.safe_load(f)
+
+    # Split into model and training config data
+    model_fields = ModelConfig.__dataclass_fields__.keys()
+    training_fields = TrainingConfig.__dataclass_fields__.keys()
+
+    model_data = {k: v for k, v in data.items() if k in model_fields}
+    training_data = {k: v for k, v in data.items() if k in training_fields}
+
+    return ModelConfig.from_dict(model_data), TrainingConfig.from_dict(training_data)
+
+
 def main():
     """Main training pipeline"""
     parser = argparse.ArgumentParser(description="Better AI RLHF Training Pipeline")
@@ -887,9 +947,11 @@ def main():
     if distributed:
         if args.use_deepspeed:
             import deepspeed
+
             deepspeed.init_distributed()
         else:
-            torch.distributed.init_process_group(backend="nccl")
+            if not torch.distributed.is_initialized():
+                torch.distributed.init_process_group(backend="nccl")
         torch.cuda.set_device(local_rank)
         device = torch.device("cuda", local_rank)
         logger.info(f"Initialized distributed training on rank {local_rank}")
@@ -899,11 +961,12 @@ def main():
     # Create configs
     if args.test:
         model_config = ModelConfig.get_small_model_config()
-    else:
+    elif not args.config:
         model_config = ModelConfig()
 
     if args.config:
-        training_config = TrainingConfig.from_file(args.config)
+        model_config, training_config = load_combined_config(args.config)
+        logger.info(f"Loaded combined config from {args.config}")
     else:
         training_config = TrainingConfig(
             batch_size=args.batch_size,

@@ -10,6 +10,7 @@ MASTER_PORT=29500
 NNODES=1
 USE_DEEPSPEED=false
 DS_CONFIG="configs/deepspeed_zero3.json"
+TRAIN_CONFIG="configs/training_do_single_h100.yml"
 STAGE="pretrain"
 EXTRA_ARGS=""
 
@@ -96,6 +97,7 @@ CMD="torchrun \
     --master_port=$MASTER_PORT \
     better_ai/scripts/main_workflow.py \
     --stage $STAGE \
+    --config $TRAIN_CONFIG \
     $EXTRA_ARGS"
 
 if [ "$USE_DEEPSPEED" = true ]; then
