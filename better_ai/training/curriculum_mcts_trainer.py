@@ -79,8 +79,6 @@ class CurriculumMCTSTrainer:
         self.mcts_searcher = None
         self.grpo_trainer = None
 
-        self._initialize_components()
-
         # DeepSpeed initialization
         self.use_deepspeed = getattr(training_config, "use_deepspeed", False)
         if self.use_deepspeed:
@@ -165,6 +163,9 @@ class CurriculumMCTSTrainer:
                 config=ds_config,
             )
             logging.info("DeepSpeed engine initialized")
+
+        # Initialize remaining components (now that model/optimizer might be DeepSpeed-wrapped)
+        self._initialize_components()
 
         # Training state
         self.current_step = 0
@@ -591,6 +592,14 @@ class CurriculumMCTSTrainer:
 
     def save_training_state(self, filepath: str):
         """Save complete training state"""
+        # Only save on master rank
+        is_master = True
+        if torch.distributed.is_initialized():
+            is_master = torch.distributed.get_rank() == 0
+
+        if not is_master:
+            return
+
         state = {
             "config": self.config.__dict__,
             "current_step": self.current_step,
@@ -604,9 +613,19 @@ class CurriculumMCTSTrainer:
             self.curriculum_scheduler.save_state(curriculum_state_path)
             state["curriculum_state_path"] = curriculum_state_path
 
-        model_state_path = filepath.replace(".pt", "_model.pt")
-        torch.save(self.model.state_dict(), model_state_path)
-        state["model_state_path"] = model_state_path
+        if self.use_deepspeed:
+            save_dir = os.path.dirname(filepath)
+            tag = os.path.basename(filepath).replace(".pt", "")
+            self.model.save_checkpoint(save_dir, tag=tag)
+            logging.info(f"DeepSpeed training state saved to {save_dir}/{tag}")
+        else:
+            model_to_save = self.model
+            if hasattr(self.model, "module"):
+                model_to_save = self.model.module
+
+            model_state_path = filepath.replace(".pt", "_model.pt")
+            torch.save(model_to_save.state_dict(), model_state_path)
+            state["model_state_path"] = model_state_path
 
         torch.save(state, filepath)
         logging.info(f"Training state saved to {filepath}")

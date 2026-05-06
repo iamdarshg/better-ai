@@ -33,6 +33,14 @@ def _should_early_stop(self) -> bool:
 
 def _enhanced_logging(self, batch_idx: int):
     """Enhanced logging with all metrics"""
+    # Only log on master rank
+    is_master = True
+    if torch.distributed.is_initialized():
+        is_master = torch.distributed.get_rank() == 0
+
+    if not is_master:
+        return
+
     recent_loss = list(self.metrics_history['loss'])[-10:] if len(self.metrics_history['loss']) > 0 else [0]
     recent_aux_loss = list(self.metrics_history['aux_loss'])[-10:] if len(self.metrics_history['aux_loss']) > 0 else [0]
     avg_lr = list(self.metrics_history['learning_rate'])[-1] if self.metrics_history['learning_rate'] else [0]
@@ -63,6 +71,14 @@ def _enhanced_logging(self, batch_idx: int):
 
 def _get_final_results(self) -> Dict[str, Any]:
     """Get comprehensive training results"""
+    # Only report on master rank
+    is_master = True
+    if torch.distributed.is_initialized():
+        is_master = torch.distributed.get_rank() == 0
+
+    if not is_master:
+        return {}
+
     total_time = time.time() - self.start_time
 
     results = {
@@ -99,12 +115,31 @@ def _get_final_results(self) -> Dict[str, Any]:
 
 def save_checkpoint(self, filepath: str):
     """Enhanced checkpoint saving with optimization state"""
+    # Only save on master rank
+    is_master = True
+    if torch.distributed.is_initialized():
+        is_master = torch.distributed.get_rank() == 0
+
+    if not is_master:
+        return
+
+    if getattr(self, "use_deepspeed", False):
+        save_dir = os.path.dirname(filepath)
+        tag = os.path.basename(filepath)
+        self.model.save_checkpoint(save_dir, tag=tag)
+        print(f"{ColoredText.success(f'DeepSpeed checkpoint saved: {filepath}')}")
+        return
+
+    model_to_save = self.model
+    if hasattr(self.model, "module"):
+        model_to_save = self.model.module
+
     checkpoint = {
-        'model_state_dict': self.model.state_dict(),
-        'optimizer_state_dict': self.optimizer.state_dict(),
-        'global_step': self.global_step,
-        'best_loss': self.best_loss,
-        'config': self.config
+        "model_state_dict": model_to_save.state_dict(),
+        "optimizer_state_dict": self.optimizer.state_dict(),
+        "global_step": self.global_step,
+        "best_loss": self.best_loss,
+        "config": self.config,
     }
 
     if self.use_enhanced_features:

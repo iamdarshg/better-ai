@@ -241,6 +241,7 @@ class CurriculumDomainMixer:
         curriculum_scheduler: Optional[ExtendedCurriculumScheduler] = None,
         split: str = "train",
         streaming: bool = True,
+        distributed: bool = False,
     ):
         self.dataset_configs = dataset_configs
         self.tokenizer = tokenizer
@@ -266,6 +267,7 @@ class CurriculumDomainMixer:
                 data_format=config.get("data_format", "text"),
                 languages=config.get("languages"),
                 domain=domain,
+                distributed=distributed,
             )
 
             self.domain_datasets[domain].append(dataset)
@@ -376,6 +378,7 @@ class CurriculumCombinedDataset(IterableDataset):
         curriculum_scheduler: Optional[ExtendedCurriculumScheduler] = None,
         split: str = "train",
         streaming: bool = True,
+        distributed: bool = False,
     ):
         self.curriculum_scheduler = curriculum_scheduler
         self.split = split
@@ -400,6 +403,7 @@ class CurriculumCombinedDataset(IterableDataset):
             curriculum_scheduler=curriculum_scheduler,
             split=split,
             streaming=streaming,
+            distributed=distributed,
         )
 
         logger.info(
@@ -433,6 +437,7 @@ def create_curriculum_dataloader(
     split: str = "train",
     streaming: bool = True,
     num_workers: int = 0,
+    distributed: bool = False,
 ) -> DataLoader:
     """
     Create a curriculum-aware dataloader.
@@ -445,6 +450,7 @@ def create_curriculum_dataloader(
         split: Dataset split (train/test)
         streaming: Whether to use streaming mode
         num_workers: Number of data loading workers
+        distributed: Whether to use distributed data sharding
 
     Returns:
         DataLoader with curriculum-aware sampling
@@ -457,6 +463,7 @@ def create_curriculum_dataloader(
             curriculum_scheduler=curriculum_scheduler,
             split=split,
             streaming=streaming,
+            distributed=distributed,
         )
     else:
         # Single dataset
@@ -469,6 +476,7 @@ def create_curriculum_dataloader(
             streaming=streaming,
             data_format=dataset_config.get("data_format", "text"),
             languages=dataset_config.get("languages"),
+            distributed=distributed,
         )
 
     return DataLoader(

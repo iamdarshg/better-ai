@@ -24,6 +24,7 @@ usage() {
     echo "  --master_port PORT   Port of master node (default: 29500)"
     echo "  --deepspeed          Enable DeepSpeed (default: false)"
     echo "  --ds_config PATH     Path to DeepSpeed config (default: configs/deepspeed_zero3.json)"
+    echo "  --config PATH        Path to training config YAML/JSON (default: configs/training_do_single_h100.yml)"
     echo "  --stage STAGE        Training stage (pretrain, sft, rlhf, security_dpo) (default: pretrain)"
     echo "  --help               Show this help message"
 }
@@ -59,6 +60,10 @@ while [[ $# -gt 0 ]]; do
             DS_CONFIG="$2"
             shift 2
             ;;
+        --config)
+            TRAIN_CONFIG="$2"
+            shift 2
+            ;;
         --stage)
             STAGE="$2"
             shift 2
@@ -85,6 +90,7 @@ echo "  World Size: $WORLD_SIZE"
 echo "  Node Rank: $NODE_RANK"
 echo "  Master: $MASTER_ADDR:$MASTER_PORT"
 echo "  Stage: $STAGE"
+echo "  Train Config: $TRAIN_CONFIG"
 if [ "$USE_DEEPSPEED" = true ]; then
     echo "  DeepSpeed: Enabled (Config: $DS_CONFIG)"
 fi

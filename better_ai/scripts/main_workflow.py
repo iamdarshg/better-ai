@@ -104,6 +104,8 @@ def create_curriculum_aware_dataloader(
     Returns:
         Tuple of (dataloader, curriculum_scheduler or None)
     """
+    distributed = torch.distributed.is_initialized()
+
     if not CURRICULUM_DATALOADER_AVAILABLE or not EXTENDED_CURRICULUM_AVAILABLE:
         # Fallback to regular dataloader
         logger.warning("Curriculum dataloader not available, using standard dataloader")
@@ -112,7 +114,7 @@ def create_curriculum_aware_dataloader(
             tokenizer=tokenizer,
             batch_size=batch_size,
             split=split,
-            distributed=torch.distributed.is_initialized(),
+            distributed=distributed,
         )
         return dataloader, None
 
@@ -128,7 +130,7 @@ def create_curriculum_aware_dataloader(
             tokenizer=tokenizer,
             batch_size=batch_size,
             split=split,
-            distributed=torch.distributed.is_initialized(),
+            distributed=distributed,
         )
         return dataloader, None
 
@@ -146,6 +148,7 @@ def create_curriculum_aware_dataloader(
         curriculum_scheduler=curriculum_scheduler,
         batch_size=batch_size,
         split=split,
+        distributed=distributed,
     )
 
     logger.info(f"Created curriculum-aware dataloader for stage {stage}")
@@ -191,20 +194,7 @@ def train_pretraining(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Initialize model
-    model = DeepSeekModel(model_config, device=device)
-    model = model.to(device)
-
-    # Use DDP if distributed but NOT using DeepSpeed
-    if torch.distributed.is_initialized() and not getattr(
-        training_config, "use_deepspeed", False
-    ):
-        from torch.nn.parallel import DistributedDataParallel as DDP
-
-        model = DDP(model, device_ids=[device.index] if device.index is not None else None)
-        logger.info("Model wrapped in DDP")
-
-    # Create tokenizer
+    # Create tokenizer first (to get vocab size)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     special_tokens = [
         "[CONTEXT]",
@@ -217,9 +207,31 @@ def train_pretraining(
         "[/EXAMPLES]",
     ]
     tokenizer.add_tokens(special_tokens)
-    model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Initialize model
+    use_deepspeed = getattr(training_config, "use_deepspeed", False)
+    if use_deepspeed:
+        import deepspeed
+
+        with deepspeed.zero.Init():
+            model = DeepSeekModel(model_config, device=device)
+    else:
+        model = DeepSeekModel(model_config, device=device)
+        model = model.to(device)
+
+    # Resize embeddings BEFORE DDP/DeepSpeed engine wrapping
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not use_deepspeed:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(
+            model, device_ids=[device.index] if device.index is not None else None
+        )
+        logger.info("Model wrapped in DDP")
 
     # Create dataloaders
     if use_mock_data:
@@ -302,7 +314,7 @@ def train_pretraining(
     metrics = trainer.train()
 
     # Save final model
-    torch.save(model.state_dict(), f"{output_dir}/pretrained_model.pt")
+    trainer.save_checkpoint(f"{output_dir}/pretrained_model.pt")
     logger.info("Pretraining completed!")
 
     return trainer, metrics
@@ -328,25 +340,7 @@ def train_sft(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Initialize model
-    model = DeepSeekModel(model_config, device=device)
-    model = model.to(device)
-
-    # Use DDP if distributed but NOT using DeepSpeed
-    if torch.distributed.is_initialized() and not getattr(
-        training_config, "use_deepspeed", False
-    ):
-        from torch.nn.parallel import DistributedDataParallel as DDP
-
-        model = DDP(model, device_ids=[device.index] if device.index is not None else None)
-        logger.info("Model wrapped in DDP")
-
-    # Load checkpoint from pretraining if available
-    if checkpoint_path:
-        logger.info(f"Loading checkpoint: {checkpoint_path}")
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-
-    # Create tokenizer
+    # Create tokenizer first (to get vocab size)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     special_tokens = [
         "[CONTEXT]",
@@ -359,9 +353,36 @@ def train_sft(
         "[/EXAMPLES]",
     ]
     tokenizer.add_tokens(special_tokens)
-    model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Initialize model
+    use_deepspeed = getattr(training_config, "use_deepspeed", False)
+    if use_deepspeed:
+        import deepspeed
+
+        with deepspeed.zero.Init():
+            model = DeepSeekModel(model_config, device=device)
+    else:
+        model = DeepSeekModel(model_config, device=device)
+        model = model.to(device)
+
+    # Resize embeddings BEFORE DDP/DeepSpeed engine wrapping
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not use_deepspeed:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(
+            model, device_ids=[device.index] if device.index is not None else None
+        )
+        logger.info("Model wrapped in DDP")
+
+    # Load checkpoint from pretraining if available
+    if checkpoint_path:
+        logger.info(f"Loading checkpoint: {checkpoint_path}")
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
     # Create dataloaders
     if use_mock_data:
@@ -437,7 +458,7 @@ def train_sft(
     metrics = trainer.train()
 
     # Save checkpoint
-    torch.save(model.state_dict(), f"{output_dir}/sft_model.pt")
+    trainer.save_checkpoint(f"{output_dir}/sft_model.pt")
     logger.info("SFT completed!")
 
     return trainer, metrics
@@ -463,25 +484,7 @@ def train_rlhf(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Initialize model
-    model = DeepSeekModel(model_config, device=device)
-    model = model.to(device)
-
-    # Use DDP if distributed but NOT using DeepSpeed
-    if torch.distributed.is_initialized() and not getattr(
-        training_config, "use_deepspeed", False
-    ):
-        from torch.nn.parallel import DistributedDataParallel as DDP
-
-        model = DDP(model, device_ids=[device.index] if device.index is not None else None)
-        logger.info("Model wrapped in DDP")
-
-    # Load checkpoint
-    if checkpoint_path:
-        logger.info(f"Loading checkpoint: {checkpoint_path}")
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-
-    # Create tokenizer
+    # Create tokenizer first (to get vocab size)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     special_tokens = [
         "[CONTEXT]",
@@ -494,9 +497,36 @@ def train_rlhf(
         "[/EXAMPLES]",
     ]
     tokenizer.add_tokens(special_tokens)
-    model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Initialize model
+    use_deepspeed = getattr(training_config, "use_deepspeed", False)
+    if use_deepspeed:
+        import deepspeed
+
+        with deepspeed.zero.Init():
+            model = DeepSeekModel(model_config, device=device)
+    else:
+        model = DeepSeekModel(model_config, device=device)
+        model = model.to(device)
+
+    # Resize embeddings BEFORE DDP/DeepSpeed engine wrapping
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not use_deepspeed:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(
+            model, device_ids=[device.index] if device.index is not None else None
+        )
+        logger.info("Model wrapped in DDP")
+
+    # Load checkpoint
+    if checkpoint_path:
+        logger.info(f"Loading checkpoint: {checkpoint_path}")
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
     # Create dataloaders
     if use_mock_data:
@@ -574,7 +604,7 @@ def train_rlhf(
     metrics = trainer.train()
 
     # Save final model
-    torch.save(model.state_dict(), f"{output_dir}/rlhf_model.pt")
+    trainer.save_checkpoint(f"{output_dir}/rlhf_model.pt")
     logger.info("RLHF training completed!")
 
     return trainer, metrics
@@ -600,25 +630,7 @@ def train_security_dpo(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Initialize model
-    model = DeepSeekModel(model_config, device=device)
-    model = model.to(device)
-
-    # Use DDP if distributed but NOT using DeepSpeed
-    if torch.distributed.is_initialized() and not getattr(
-        training_config, "use_deepspeed", False
-    ):
-        from torch.nn.parallel import DistributedDataParallel as DDP
-
-        model = DDP(model, device_ids=[device.index] if device.index is not None else None)
-        logger.info("Model wrapped in DDP")
-
-    # Load checkpoint from RLHF stage
-    if checkpoint_path:
-        logger.info(f"Loading checkpoint: {checkpoint_path}")
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-
-    # Create tokenizer with special context tags
+    # Create tokenizer first (to get vocab size)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     special_tokens = [
         "[CONTEXT]",
@@ -631,9 +643,36 @@ def train_security_dpo(
         "[/EXAMPLES]",
     ]
     tokenizer.add_tokens(special_tokens)
-    model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Initialize model
+    use_deepspeed = getattr(training_config, "use_deepspeed", False)
+    if use_deepspeed:
+        import deepspeed
+
+        with deepspeed.zero.Init():
+            model = DeepSeekModel(model_config, device=device)
+    else:
+        model = DeepSeekModel(model_config, device=device)
+        model = model.to(device)
+
+    # Resize embeddings BEFORE DDP/DeepSpeed engine wrapping
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not use_deepspeed:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(
+            model, device_ids=[device.index] if device.index is not None else None
+        )
+        logger.info("Model wrapped in DDP")
+
+    # Load checkpoint from RLHF stage
+    if checkpoint_path:
+        logger.info(f"Loading checkpoint: {checkpoint_path}")
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
     # Create dataloaders
     if use_mock_data:
@@ -710,7 +749,7 @@ def train_security_dpo(
     metrics = trainer.train()
 
     # Save final model
-    torch.save(model.state_dict(), f"{output_dir}/security_model.pt")
+    trainer.save_checkpoint(f"{output_dir}/security_model.pt")
     logger.info("Security DPO training completed!")
 
     return trainer, metrics

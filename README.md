@@ -365,7 +365,7 @@ MIT — see [LICENSE](LICENSE)
 ## Resource Estimates
 
 *Auto-generated from config using production settings*
-*Last updated: 2026-05-06 08:11:21*
+*Last updated: 2026-05-06 10:30:14*
 
 ### Model Architecture
 - **Total Parameters**: 5.72B
