@@ -264,6 +264,84 @@ class EnhancedMoETrainer:
                 show_plots=getattr(config, "tui_show_plots", False),
             )
 
+        # Initialize reference model for DPO/RLHF
+        # IMPORTANT: This must happen BEFORE DeepSpeed initialization because
+        # DeepSpeed engine objects are not pickleable/deepcopyable.
+        self.ref_model = self._setup_ref_model()
+
+        # DeepSpeed initialization
+        self.use_deepspeed = getattr(config, "use_deepspeed", False)
+        if self.use_deepspeed:
+            import deepspeed
+
+            # DeepSpeed expects micro_batch_size to be set if auto is used for train_batch_size
+            ds_config = config.deepspeed_config
+            if isinstance(ds_config, str):
+                with open(ds_config, 'r') as f:
+                    ds_config = json.load(f)
+
+            # Populate auto fields from config if they are "auto"
+            if ds_config.get("train_micro_batch_size_per_gpu") == "auto":
+                ds_config["train_micro_batch_size_per_gpu"] = config.batch_size
+            if ds_config.get("gradient_accumulation_steps") == "auto":
+                ds_config["gradient_accumulation_steps"] = config.gradient_accumulation_steps
+            if ds_config.get("train_batch_size") == "auto":
+                world_size = int(os.environ.get("WORLD_SIZE", 1))
+                ds_config["train_batch_size"] = config.batch_size * config.gradient_accumulation_steps * world_size
+
+            if "fp16" in ds_config and ds_config["fp16"].get("enabled") == "auto":
+                ds_config["fp16"]["enabled"] = config.fp16
+            if "bf16" in ds_config and ds_config["bf16"].get("enabled") == "auto":
+                ds_config["bf16"]["enabled"] = config.bf16
+
+            if "optimizer" in ds_config:
+                opt_params = ds_config["optimizer"].get("params", {})
+                if opt_params.get("lr") == "auto":
+                    opt_params["lr"] = config.learning_rate
+                if opt_params.get("weight_decay") == "auto":
+                    opt_params["weight_decay"] = config.weight_decay
+                if opt_params.get("betas") == "auto":
+                    opt_params["betas"] = [config.beta1, config.beta2]
+                if opt_params.get("eps") == "auto":
+                    opt_params["eps"] = config.eps
+
+            if "scheduler" in ds_config:
+                sched_params = ds_config["scheduler"].get("params", {})
+                if sched_params.get("total_num_steps") == "auto":
+                    sched_params["total_num_steps"] = config.max_steps
+                if sched_params.get("warmup_min_lr") == "auto":
+                    sched_params["warmup_min_lr"] = 0
+                if sched_params.get("warmup_max_lr") == "auto":
+                    sched_params["warmup_max_lr"] = config.learning_rate
+                if sched_params.get("warmup_num_steps") == "auto":
+                    sched_params["warmup_num_steps"] = config.warmup_steps
+
+            # If using ZeRO-Offload on CPU, we should ideally use DeepSpeedCPUAdam,
+            # but for this toy setup we'll try to use deepspeed.ops.adam.DeepSpeedCPUAdam
+            if "zero_optimization" in ds_config:
+                zero_config = ds_config["zero_optimization"]
+                if "offload_optimizer" in zero_config and zero_config["offload_optimizer"].get("device") == "cpu":
+                    try:
+                        from deepspeed.ops.adam import DeepSpeedCPUAdam
+                        self.optimizer = DeepSpeedCPUAdam(
+                            self.model.parameters(),
+                            lr=config.learning_rate,
+                            betas=(config.beta1, config.beta2),
+                            eps=config.eps,
+                            weight_decay=config.weight_decay
+                        )
+                        logger.info("Using DeepSpeedCPUAdam for ZeRO-Offload")
+                    except Exception as e:
+                        logger.warning(f"Failed to initialize DeepSpeedCPUAdam: {e}. Falling back to default optimizer.")
+
+            self.model, self.optimizer, _, self.scheduler = deepspeed.initialize(
+                model=self.model,
+                optimizer=self.optimizer,
+                lr_scheduler=self.scheduler,
+                config=ds_config
+            )
+            logger.info("DeepSpeed engine initialized")
+
         # Training state
         self.global_step = 0
         self.current_epoch = 0
@@ -304,9 +382,6 @@ class EnhancedMoETrainer:
         self.checkpoint_loaded = False
         self.save_dir = getattr(config, "output_dir", "./checkpoints")
         os.makedirs(self.save_dir, exist_ok=True)
-
-        # Initialize reference model for DPO/RLHF
-        self.ref_model = self._setup_ref_model()
 
     def _setup_ref_model(self):
         """Create a frozen copy of the model as reference"""
@@ -569,7 +644,10 @@ class EnhancedMoETrainer:
 
                 # Backward pass with gradient handling
                 loss_total = loss + aux_loss
-                loss_total.backward()
+                if self.use_deepspeed:
+                    self.model.backward(loss_total)
+                else:
+                    loss_total.backward()
 
                 # Gradient clipping and optimization
                 grad_norm = self._handle_gradients_and_optimize()
@@ -580,7 +658,7 @@ class EnhancedMoETrainer:
                 )
 
                 # Scheduler step
-                if self.scheduler is not None:
+                if self.scheduler is not None and not self.use_deepspeed:
                     self.scheduler.step()
 
                 self.global_step += 1

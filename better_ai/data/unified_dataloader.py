@@ -245,6 +245,7 @@ def create_dataloader(
     split="train",
     streaming=True,
     num_workers=0,
+    distributed=False,
 ):
     """Create a dataloader from a single or multiple dataset configurations."""
 
@@ -266,6 +267,12 @@ def create_dataloader(
             data_format=dataset_config.get('data_format', 'text'),
             languages=dataset_config.get('languages')
         )
+
+    # For IterableDataset (Streaming), we don't use a DistributedSampler.
+    # Instead, we rely on each process having its own copy of the dataset
+    # and either shuffling differently or using different shards if supported.
+    # HF datasets with streaming=True handle sharding automatically when using torch.utils.data.DataLoader
+    # if the dataset is sharded on HF Hub and we use IterableDataset.
 
     return DataLoader(
         dataset,

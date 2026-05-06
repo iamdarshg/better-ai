@@ -374,3 +374,29 @@ class TrainingConfig:
 - With MoE (8 experts): +4GB
 - With KV-cache for GRPO: +6GB
 - FP8 quantization: -50% from above
+
+## Distributed Training
+
+The project supports multi-GPU and multi-node training via `torchrun` and DeepSpeed:
+- `scripts/launch_distributed.sh`: A wrapper script to facilitate launching distributed jobs.
+- `configs/deepspeed_zero3.json`: Configuration for DeepSpeed ZeRO Stage 3 (parameter sharding + CPU offload).
+- `configs/training_do_single_h100.yml`: Optimized configuration for a single 80GB H100 GPU using FP8 and gradient checkpointing.
+
+To launch training on multiple GPUs:
+```bash
+./scripts/launch_distributed.sh --gpus 8 --stage pretrain
+```
+
+To use DeepSpeed:
+```bash
+./scripts/launch_distributed.sh --gpus 8 --deepspeed --stage pretrain
+```
+
+For multi-node training on DigitalOcean, ensure private networking is enabled and set `--master_addr` to the master node's private IP:
+```bash
+# On Node 0 (Master)
+./scripts/launch_distributed.sh --gpus 1 --nnodes 2 --node_rank 0 --master_addr 10.x.x.x
+
+# On Node 1
+./scripts/launch_distributed.sh --gpus 1 --nnodes 2 --node_rank 1 --master_addr 10.x.x.x
+```

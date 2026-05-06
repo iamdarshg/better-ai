@@ -837,11 +837,15 @@ def main():
         choices=["pretrain", "sft", "rlhf", "security_dpo", "full"],
         default="full",
     )
+    parser.add_argument("--config", type=str, help="Path to training config YAML/JSON")
     parser.add_argument("--output-dir", default="./checkpoints")
     parser.add_argument("--log-dir", default="./logs")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
     parser.add_argument("--max-steps", type=int, default=100000)
+    parser.add_argument("--local_rank", type=int, default=-1, help="Local rank for distributed training")
+    parser.add_argument("--use-deepspeed", action="store_true", help="Use DeepSpeed for training")
+    parser.add_argument("--deepspeed-config", type=str, default="configs/deepspeed_zero3.json")
     parser.add_argument(
         "--eval", action="store_true", help="Run evaluation after training"
     )
@@ -875,20 +879,46 @@ def main():
     setup_logging(args.log_dir)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Initialize distributed training
+    local_rank = int(os.environ.get("LOCAL_RANK", args.local_rank))
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    distributed = world_size > 1
+
+    if distributed:
+        if args.use_deepspeed:
+            import deepspeed
+            deepspeed.init_distributed()
+        else:
+            torch.distributed.init_process_group(backend="nccl")
+        torch.cuda.set_device(local_rank)
+        device = torch.device("cuda", local_rank)
+        logger.info(f"Initialized distributed training on rank {local_rank}")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     # Create configs
     if args.test:
         model_config = ModelConfig.get_small_model_config()
     else:
         model_config = ModelConfig()
 
-    training_config = TrainingConfig(
-        batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
-        max_steps=args.max_steps,
-        output_dir=args.output_dir,
-        log_dir=args.log_dir,
-        use_striped_attention=args.use_striped_attention,
-    )
+    if args.config:
+        training_config = TrainingConfig.from_file(args.config)
+    else:
+        training_config = TrainingConfig(
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            max_steps=args.max_steps,
+            output_dir=args.output_dir,
+            log_dir=args.log_dir,
+            use_striped_attention=args.use_striped_attention,
+        )
+
+    # Add DeepSpeed config to training_config if used
+    if args.use_deepspeed:
+        training_config.use_deepspeed = True
+        if args.deepspeed_config:
+            training_config.deepspeed_config = args.deepspeed_config
 
     logger.info("Better AI RLHF Training Pipeline")
     logger.info(f"Device: {device}")
