@@ -1,0 +1,34 @@
+# DigitalOcean GPU Droplet Configuration for Better AI
+
+droplet:
+  # Recommended GPU Slugs:
+  # - gpu-h100x1-80gb: Single H100 (80GB VRAM) - Best for high-performance inference/SFT
+  # - gpu-h100x8-640gb: Multi-GPU (8 H100s) - Required for full-scale training
+  size: "gpu-h100x1-80gb"
+
+  # Recommended Regions (GPU availability varies):
+  # - nyc3 (New York)
+  # - sfo3 (San Francisco)
+  # - tor1 (Toronto)
+  region: "nyc3"
+
+  # Image: Ubuntu 22.04 LTS is required for the provisioning script
+  image: "ubuntu-22-04-x64"
+
+  # Recommended Tags (comma-separated string for easier script parsing)
+  tags: "better-ai,gpu-training"
+
+storage:
+  # Use a separate block storage volume for /app/checkpoints
+  volume_size_gb: 100
+  # The name of the volume to be created or attached
+  volume_name: "better-ai-checkpoints"
+
+networking:
+  # Comma-separated list of your DO SSH key IDs or fingerprints
+  ssh_keys: ""
+
+requirements:
+  # Minimum specs for stable training/inference
+  min_vram: "80GB"
+  min_disk: "100GB"

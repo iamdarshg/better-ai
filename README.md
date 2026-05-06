@@ -30,6 +30,32 @@ pip install -r requirements.txt
 
 **Requirements:** Python 3.8+, PyTorch 2.0+, CUDA 11.8+, 20GB+ VRAM
 
+## Cloud Deployment (DigitalOcean)
+
+For high-performance training and inference, we provide automated provisioning scripts for DigitalOcean GPU Droplets.
+
+### Recommended Specs
+- **Minimum for Inference/SFT:** H100 80GB (~$10-15/hr)
+- **Recommended for Training:** 2x H100 or 8x H100 (Multi-GPU)
+- **Operating System:** Ubuntu 22.04 LTS
+
+### Automated Provisioning
+1.  **Configure:** Update `infra/droplet_config.yml` with your region, SSH keys (comma-separated), and preferred GPU size.
+2.  **Authenticate:** Ensure `doctl` is installed and authenticated (`doctl auth init`).
+3.  **Deploy:** Run the creation script to spin up and provision the Droplet (including volume creation/attachment):
+    ```bash
+    bash infra/do_create_droplet.sh
+    ```
+4.  **Login:** Once the script finishes, SSH into your Droplet. The environment is fully configured in `/app/better-ai`.
+
+### Teardown
+To avoid unnecessary costs, run the teardown script which will snapshot your volumes and destroy the Droplet:
+```bash
+bash infra/do_teardown.sh
+```
+
+> **Note:** Block storage volumes are preserved after Droplet destruction. You must manually delete them in the DigitalOcean console or via `doctl` to stop all billing.
+
 ## Quick Start
 
 ### Train from Scratch
