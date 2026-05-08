@@ -248,12 +248,6 @@ class CurriculumMCTSTrainer:
             training_batch = self._prepare_training_batch(batch)
 
             # GRPO update
-            if self.use_deepspeed:
-                # When using DeepSpeed, we might need to handle the engine specifically
-                # if grpo_trainer performs its own backward/step.
-                # Currently GRPOTrainer uses its own optimizer and model parameters.
-                pass
-
             grpo_metrics = self._perform_grpo_update(training_batch)
             step_metrics.update(grpo_metrics)
             self.performance_stats["grpo_updates"] += 1

@@ -41,9 +41,25 @@ class GRPOTrainer:
         self.tokenizer = config.get("tokenizer", getattr(model, "tokenizer", None))
 
         # Value function for baseline
-        hidden_dim = config.get("hidden_dim", getattr(model, "config", None).hidden_dim if hasattr(model, "config") else 128)
+        hidden_dim = config.get(
+            "hidden_dim",
+            getattr(model, "config", None).hidden_dim if hasattr(model, "config") else 128,
+        )
         self.value_head = nn.Linear(hidden_dim, 1).to(self.device)
-        self.value_optimizer = torch.optim.Adam(self.value_head.parameters(), lr=config.get("value_lr", 5e-5))
+
+        # Wrap value_head in DDP if distributed and not using DeepSpeed
+        # DeepSpeed usually shards the main model; if the value_head is separate, it needs synchronization
+        if torch.distributed.is_initialized() and not hasattr(model, "backward"):
+            from torch.nn.parallel import DistributedDataParallel as DDP
+
+            self.value_head = DDP(
+                self.value_head,
+                device_ids=[self.device.index] if self.device.index is not None else None,
+            )
+
+        self.value_optimizer = torch.optim.Adam(
+            self.value_head.parameters(), lr=config.get("value_lr", 5e-5)
+        )
 
         # Ref policy for KL divergence computation
         self.ref_model = None

@@ -279,22 +279,26 @@ def train_pretraining(
             d["num_training_steps"] for d in pretraining_datasets
         )
 
-    # Setup optimizer
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=training_config.learning_rate,
-        betas=(training_config.beta1, training_config.beta2),
-        weight_decay=training_config.weight_decay,
-        eps=training_config.eps,
-    )
+    # Setup optimizer (Skip for DeepSpeed as it manages its own)
+    if not use_deepspeed:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=training_config.learning_rate,
+            betas=(training_config.beta1, training_config.beta2),
+            weight_decay=training_config.weight_decay,
+            eps=training_config.eps,
+        )
 
-    # Setup scheduler
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=training_config.warmup_steps,
-        T_mult=1,
-        eta_min=training_config.learning_rate * training_config.min_lr_ratio,
-    )
+        # Setup scheduler
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=training_config.warmup_steps,
+            T_mult=1,
+            eta_min=training_config.learning_rate * training_config.min_lr_ratio,
+        )
+    else:
+        optimizer = None
+        scheduler = None
 
     # Initialize trainer
     trainer = EnhancedMoETrainer(
@@ -424,21 +428,25 @@ def train_sft(
 
         training_config.max_steps = sum(d["num_training_steps"] for d in sft_datasets)
 
-    # Setup optimizer and scheduler
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=training_config.learning_rate,
-        betas=(training_config.beta1, training_config.beta2),
-        weight_decay=training_config.weight_decay,
-        eps=training_config.eps,
-    )
+    # Setup optimizer (Skip for DeepSpeed as it manages its own)
+    if not use_deepspeed:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=training_config.learning_rate,
+            betas=(training_config.beta1, training_config.beta2),
+            weight_decay=training_config.weight_decay,
+            eps=training_config.eps,
+        )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=training_config.warmup_steps,
-        T_mult=1,
-        eta_min=training_config.learning_rate * training_config.min_lr_ratio,
-    )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=training_config.warmup_steps,
+            T_mult=1,
+            eta_min=training_config.learning_rate * training_config.min_lr_ratio,
+        )
+    else:
+        optimizer = None
+        scheduler = None
 
     # Initialize trainer
     trainer = EnhancedMoETrainer(
@@ -570,21 +578,25 @@ def train_rlhf(
 
         training_config.max_steps = sum(d["num_training_steps"] for d in rlhf_datasets)
 
-    # Setup optimizer and scheduler
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=training_config.learning_rate * 0.1,  # Lower LR for fine-tuning
-        betas=(training_config.beta1, training_config.beta2),
-        weight_decay=training_config.weight_decay,
-        eps=training_config.eps,
-    )
+    # Setup optimizer (Skip for DeepSpeed as it manages its own)
+    if not use_deepspeed:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=training_config.learning_rate * 0.1,  # Lower LR for fine-tuning
+            betas=(training_config.beta1, training_config.beta2),
+            weight_decay=training_config.weight_decay,
+            eps=training_config.eps,
+        )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=training_config.warmup_steps,
-        T_mult=1,
-        eta_min=training_config.learning_rate * 0.1 * training_config.min_lr_ratio,
-    )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=training_config.warmup_steps,
+            T_mult=1,
+            eta_min=training_config.learning_rate * 0.1 * training_config.min_lr_ratio,
+        )
+    else:
+        optimizer = None
+        scheduler = None
 
     # Initialize trainer
     trainer = EnhancedMoETrainer(
@@ -715,20 +727,24 @@ def train_security_dpo(
             d["num_training_steps"] for d in security_datasets
         )
 
-    # Setup optimizer - very low LR for final alignment
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=training_config.learning_rate * 0.05,
-        betas=(training_config.beta1, training_config.beta2),
-        weight_decay=training_config.weight_decay,
-    )
+    # Setup optimizer (Skip for DeepSpeed as it manages its own)
+    if not use_deepspeed:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=training_config.learning_rate * 0.05,
+            betas=(training_config.beta1, training_config.beta2),
+            weight_decay=training_config.weight_decay,
+        )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=training_config.warmup_steps,
-        T_mult=1,
-        eta_min=training_config.learning_rate * 0.05 * training_config.min_lr_ratio,
-    )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=training_config.warmup_steps,
+            T_mult=1,
+            eta_min=training_config.learning_rate * 0.05 * training_config.min_lr_ratio,
+        )
+    else:
+        optimizer = None
+        scheduler = None
 
     # Initialize trainer
     # For DPO, the trainer will use its internal ref_model setup (frozen copy of start model)
