@@ -41,9 +41,25 @@ class GRPOTrainer:
         self.tokenizer = config.get("tokenizer", getattr(model, "tokenizer", None))
 
         # Value function for baseline
-        hidden_dim = config.get("hidden_dim", getattr(model, "config", None).hidden_dim if hasattr(model, "config") else 128)
+        hidden_dim = config.get(
+            "hidden_dim",
+            getattr(model, "config", None).hidden_dim if hasattr(model, "config") else 128,
+        )
         self.value_head = nn.Linear(hidden_dim, 1).to(self.device)
-        self.value_optimizer = torch.optim.Adam(self.value_head.parameters(), lr=config.get("value_lr", 5e-5))
+
+        # Wrap value_head in DDP if distributed and not using DeepSpeed
+        # DeepSpeed usually shards the main model; if the value_head is separate, it needs synchronization
+        if torch.distributed.is_initialized() and not hasattr(model, "backward"):
+            from torch.nn.parallel import DistributedDataParallel as DDP
+
+            self.value_head = DDP(
+                self.value_head,
+                device_ids=[self.device.index] if self.device.index is not None else None,
+            )
+
+        self.value_optimizer = torch.optim.Adam(
+            self.value_head.parameters(), lr=config.get("value_lr", 5e-5)
+        )
 
         # Ref policy for KL divergence computation
         self.ref_model = None
@@ -236,16 +252,22 @@ class GRPOTrainer:
         total_loss = policy_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy
 
         # Optimize
-        self.optimizer.zero_grad()
+        if not hasattr(self.model, "backward"):
+            self.optimizer.zero_grad()
         self.value_optimizer.zero_grad()
 
-        total_loss.backward()
+        if hasattr(self.model, "backward"):
+            # DeepSpeed engine handles backward and optimizer step (including zero_grad)
+            self.model.backward(total_loss)
+            self.model.step()
+        else:
+            total_loss.backward()
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            self.optimizer.step()
 
-        # Gradient clipping
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+        # Always update value head separately (standard torch logic)
         torch.nn.utils.clip_grad_norm_(self.value_head.parameters(), max_norm=1.0)
-
-        self.optimizer.step()
         self.value_optimizer.step()
 
         loss_dict = {

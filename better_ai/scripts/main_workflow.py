@@ -104,6 +104,8 @@ def create_curriculum_aware_dataloader(
     Returns:
         Tuple of (dataloader, curriculum_scheduler or None)
     """
+    distributed = torch.distributed.is_initialized()
+
     if not CURRICULUM_DATALOADER_AVAILABLE or not EXTENDED_CURRICULUM_AVAILABLE:
         # Fallback to regular dataloader
         logger.warning("Curriculum dataloader not available, using standard dataloader")
@@ -112,6 +114,7 @@ def create_curriculum_aware_dataloader(
             tokenizer=tokenizer,
             batch_size=batch_size,
             split=split,
+            distributed=distributed,
         )
         return dataloader, None
 
@@ -127,6 +130,7 @@ def create_curriculum_aware_dataloader(
             tokenizer=tokenizer,
             batch_size=batch_size,
             split=split,
+            distributed=distributed,
         )
         return dataloader, None
 
@@ -144,6 +148,7 @@ def create_curriculum_aware_dataloader(
         curriculum_scheduler=curriculum_scheduler,
         batch_size=batch_size,
         split=split,
+        distributed=distributed,
     )
 
     logger.info(f"Created curriculum-aware dataloader for stage {stage}")
@@ -189,11 +194,7 @@ def train_pretraining(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Initialize model
-    model = DeepSeekModel(model_config, device=device)
-    model = model.to(device)
-
-    # Create tokenizer
+    # Create tokenizer first (to get vocab size)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     special_tokens = [
         "[CONTEXT]",
@@ -206,9 +207,31 @@ def train_pretraining(
         "[/EXAMPLES]",
     ]
     tokenizer.add_tokens(special_tokens)
-    model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Initialize model
+    use_deepspeed = getattr(training_config, "use_deepspeed", False)
+    if use_deepspeed:
+        import deepspeed
+
+        with deepspeed.zero.Init():
+            model = DeepSeekModel(model_config, device=device)
+    else:
+        model = DeepSeekModel(model_config, device=device)
+        model = model.to(device)
+
+    # Resize embeddings BEFORE DDP/DeepSpeed engine wrapping
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not use_deepspeed:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(
+            model, device_ids=[device.index] if device.index is not None else None
+        )
+        logger.info("Model wrapped in DDP")
 
     # Create dataloaders
     if use_mock_data:
@@ -249,28 +272,33 @@ def train_pretraining(
             tokenizer=tokenizer,
             batch_size=training_config.batch_size * 2,
             split="test",
+            distributed=torch.distributed.is_initialized(),
         )
 
         training_config.max_steps = sum(
             d["num_training_steps"] for d in pretraining_datasets
         )
 
-    # Setup optimizer
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=training_config.learning_rate,
-        betas=(training_config.beta1, training_config.beta2),
-        weight_decay=training_config.weight_decay,
-        eps=training_config.eps,
-    )
+    # Setup optimizer (Skip for DeepSpeed as it manages its own)
+    if not use_deepspeed:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=training_config.learning_rate,
+            betas=(training_config.beta1, training_config.beta2),
+            weight_decay=training_config.weight_decay,
+            eps=training_config.eps,
+        )
 
-    # Setup scheduler
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=training_config.warmup_steps,
-        T_mult=1,
-        eta_min=training_config.learning_rate * training_config.min_lr_ratio,
-    )
+        # Setup scheduler
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=training_config.warmup_steps,
+            T_mult=1,
+            eta_min=training_config.learning_rate * training_config.min_lr_ratio,
+        )
+    else:
+        optimizer = None
+        scheduler = None
 
     # Initialize trainer
     trainer = EnhancedMoETrainer(
@@ -290,7 +318,7 @@ def train_pretraining(
     metrics = trainer.train()
 
     # Save final model
-    torch.save(model.state_dict(), f"{output_dir}/pretrained_model.pt")
+    trainer.save_checkpoint(f"{output_dir}/pretrained_model.pt")
     logger.info("Pretraining completed!")
 
     return trainer, metrics
@@ -316,16 +344,7 @@ def train_sft(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Initialize model
-    model = DeepSeekModel(model_config, device=device)
-    model = model.to(device)
-
-    # Load checkpoint from pretraining if available
-    if checkpoint_path:
-        logger.info(f"Loading checkpoint: {checkpoint_path}")
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-
-    # Create tokenizer
+    # Create tokenizer first (to get vocab size)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     special_tokens = [
         "[CONTEXT]",
@@ -338,9 +357,36 @@ def train_sft(
         "[/EXAMPLES]",
     ]
     tokenizer.add_tokens(special_tokens)
-    model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Initialize model
+    use_deepspeed = getattr(training_config, "use_deepspeed", False)
+    if use_deepspeed:
+        import deepspeed
+
+        with deepspeed.zero.Init():
+            model = DeepSeekModel(model_config, device=device)
+    else:
+        model = DeepSeekModel(model_config, device=device)
+        model = model.to(device)
+
+    # Resize embeddings BEFORE DDP/DeepSpeed engine wrapping
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not use_deepspeed:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(
+            model, device_ids=[device.index] if device.index is not None else None
+        )
+        logger.info("Model wrapped in DDP")
+
+    # Load checkpoint from pretraining if available
+    if checkpoint_path:
+        logger.info(f"Loading checkpoint: {checkpoint_path}")
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
     # Create dataloaders
     if use_mock_data:
@@ -377,25 +423,30 @@ def train_sft(
             tokenizer=tokenizer,
             split="test",
             batch_size=training_config.batch_size * 2,
+            distributed=torch.distributed.is_initialized(),
         )
 
         training_config.max_steps = sum(d["num_training_steps"] for d in sft_datasets)
 
-    # Setup optimizer and scheduler
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=training_config.learning_rate,
-        betas=(training_config.beta1, training_config.beta2),
-        weight_decay=training_config.weight_decay,
-        eps=training_config.eps,
-    )
+    # Setup optimizer (Skip for DeepSpeed as it manages its own)
+    if not use_deepspeed:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=training_config.learning_rate,
+            betas=(training_config.beta1, training_config.beta2),
+            weight_decay=training_config.weight_decay,
+            eps=training_config.eps,
+        )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=training_config.warmup_steps,
-        T_mult=1,
-        eta_min=training_config.learning_rate * training_config.min_lr_ratio,
-    )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=training_config.warmup_steps,
+            T_mult=1,
+            eta_min=training_config.learning_rate * training_config.min_lr_ratio,
+        )
+    else:
+        optimizer = None
+        scheduler = None
 
     # Initialize trainer
     trainer = EnhancedMoETrainer(
@@ -415,7 +466,7 @@ def train_sft(
     metrics = trainer.train()
 
     # Save checkpoint
-    torch.save(model.state_dict(), f"{output_dir}/sft_model.pt")
+    trainer.save_checkpoint(f"{output_dir}/sft_model.pt")
     logger.info("SFT completed!")
 
     return trainer, metrics
@@ -441,16 +492,7 @@ def train_rlhf(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Initialize model
-    model = DeepSeekModel(model_config, device=device)
-    model = model.to(device)
-
-    # Load checkpoint
-    if checkpoint_path:
-        logger.info(f"Loading checkpoint: {checkpoint_path}")
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-
-    # Create tokenizer
+    # Create tokenizer first (to get vocab size)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     special_tokens = [
         "[CONTEXT]",
@@ -463,9 +505,36 @@ def train_rlhf(
         "[/EXAMPLES]",
     ]
     tokenizer.add_tokens(special_tokens)
-    model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Initialize model
+    use_deepspeed = getattr(training_config, "use_deepspeed", False)
+    if use_deepspeed:
+        import deepspeed
+
+        with deepspeed.zero.Init():
+            model = DeepSeekModel(model_config, device=device)
+    else:
+        model = DeepSeekModel(model_config, device=device)
+        model = model.to(device)
+
+    # Resize embeddings BEFORE DDP/DeepSpeed engine wrapping
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not use_deepspeed:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(
+            model, device_ids=[device.index] if device.index is not None else None
+        )
+        logger.info("Model wrapped in DDP")
+
+    # Load checkpoint
+    if checkpoint_path:
+        logger.info(f"Loading checkpoint: {checkpoint_path}")
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
     # Create dataloaders
     if use_mock_data:
@@ -504,25 +573,30 @@ def train_rlhf(
             tokenizer=tokenizer,
             split="test",
             batch_size=training_config.batch_size * 2,
+            distributed=torch.distributed.is_initialized(),
         )
 
         training_config.max_steps = sum(d["num_training_steps"] for d in rlhf_datasets)
 
-    # Setup optimizer and scheduler
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=training_config.learning_rate * 0.1,  # Lower LR for fine-tuning
-        betas=(training_config.beta1, training_config.beta2),
-        weight_decay=training_config.weight_decay,
-        eps=training_config.eps,
-    )
+    # Setup optimizer (Skip for DeepSpeed as it manages its own)
+    if not use_deepspeed:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=training_config.learning_rate * 0.1,  # Lower LR for fine-tuning
+            betas=(training_config.beta1, training_config.beta2),
+            weight_decay=training_config.weight_decay,
+            eps=training_config.eps,
+        )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=training_config.warmup_steps,
-        T_mult=1,
-        eta_min=training_config.learning_rate * 0.1 * training_config.min_lr_ratio,
-    )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=training_config.warmup_steps,
+            T_mult=1,
+            eta_min=training_config.learning_rate * 0.1 * training_config.min_lr_ratio,
+        )
+    else:
+        optimizer = None
+        scheduler = None
 
     # Initialize trainer
     trainer = EnhancedMoETrainer(
@@ -542,7 +616,7 @@ def train_rlhf(
     metrics = trainer.train()
 
     # Save final model
-    torch.save(model.state_dict(), f"{output_dir}/rlhf_model.pt")
+    trainer.save_checkpoint(f"{output_dir}/rlhf_model.pt")
     logger.info("RLHF training completed!")
 
     return trainer, metrics
@@ -568,16 +642,7 @@ def train_security_dpo(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Initialize model
-    model = DeepSeekModel(model_config, device=device)
-    model = model.to(device)
-
-    # Load checkpoint from RLHF stage
-    if checkpoint_path:
-        logger.info(f"Loading checkpoint: {checkpoint_path}")
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-
-    # Create tokenizer with special context tags
+    # Create tokenizer first (to get vocab size)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     special_tokens = [
         "[CONTEXT]",
@@ -590,9 +655,36 @@ def train_security_dpo(
         "[/EXAMPLES]",
     ]
     tokenizer.add_tokens(special_tokens)
-    model.resize_token_embeddings(len(tokenizer))
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Initialize model
+    use_deepspeed = getattr(training_config, "use_deepspeed", False)
+    if use_deepspeed:
+        import deepspeed
+
+        with deepspeed.zero.Init():
+            model = DeepSeekModel(model_config, device=device)
+    else:
+        model = DeepSeekModel(model_config, device=device)
+        model = model.to(device)
+
+    # Resize embeddings BEFORE DDP/DeepSpeed engine wrapping
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Use DDP if distributed but NOT using DeepSpeed
+    if torch.distributed.is_initialized() and not use_deepspeed:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+
+        model = DDP(
+            model, device_ids=[device.index] if device.index is not None else None
+        )
+        logger.info("Model wrapped in DDP")
+
+    # Load checkpoint from RLHF stage
+    if checkpoint_path:
+        logger.info(f"Loading checkpoint: {checkpoint_path}")
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
     # Create dataloaders
     if use_mock_data:
@@ -628,26 +720,31 @@ def train_security_dpo(
             tokenizer=tokenizer,
             split="test",
             batch_size=training_config.batch_size * 2,
+            distributed=torch.distributed.is_initialized(),
         )
 
         training_config.max_steps = sum(
             d["num_training_steps"] for d in security_datasets
         )
 
-    # Setup optimizer - very low LR for final alignment
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=training_config.learning_rate * 0.05,
-        betas=(training_config.beta1, training_config.beta2),
-        weight_decay=training_config.weight_decay,
-    )
+    # Setup optimizer (Skip for DeepSpeed as it manages its own)
+    if not use_deepspeed:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=training_config.learning_rate * 0.05,
+            betas=(training_config.beta1, training_config.beta2),
+            weight_decay=training_config.weight_decay,
+        )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=training_config.warmup_steps,
-        T_mult=1,
-        eta_min=training_config.learning_rate * 0.05 * training_config.min_lr_ratio,
-    )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=training_config.warmup_steps,
+            T_mult=1,
+            eta_min=training_config.learning_rate * 0.05 * training_config.min_lr_ratio,
+        )
+    else:
+        optimizer = None
+        scheduler = None
 
     # Initialize trainer
     # For DPO, the trainer will use its internal ref_model setup (frozen copy of start model)
@@ -668,7 +765,7 @@ def train_security_dpo(
     metrics = trainer.train()
 
     # Save final model
-    torch.save(model.state_dict(), f"{output_dir}/security_model.pt")
+    trainer.save_checkpoint(f"{output_dir}/security_model.pt")
     logger.info("Security DPO training completed!")
 
     return trainer, metrics
@@ -719,6 +816,7 @@ def evaluate_model(
         tokenizer=tokenizer,
         split="test",
         batch_size=8,
+        distributed=torch.distributed.is_initialized(),
     )
 
     # Run evaluation
@@ -829,6 +927,23 @@ class DefaultArgs:
     use_striped_attention: bool = True
 
 
+def load_combined_config(config_path: str):
+    """Load combined model and training config from a single YAML file"""
+    import yaml
+
+    with open(config_path, "r") as f:
+        data = yaml.safe_load(f)
+
+    # Split into model and training config data
+    model_fields = ModelConfig.__dataclass_fields__.keys()
+    training_fields = TrainingConfig.__dataclass_fields__.keys()
+
+    model_data = {k: v for k, v in data.items() if k in model_fields}
+    training_data = {k: v for k, v in data.items() if k in training_fields}
+
+    return ModelConfig.from_dict(model_data), TrainingConfig.from_dict(training_data)
+
+
 def main():
     """Main training pipeline"""
     parser = argparse.ArgumentParser(description="Better AI RLHF Training Pipeline")
@@ -837,11 +952,15 @@ def main():
         choices=["pretrain", "sft", "rlhf", "security_dpo", "full"],
         default="full",
     )
+    parser.add_argument("--config", type=str, help="Path to training config YAML/JSON")
     parser.add_argument("--output-dir", default="./checkpoints")
     parser.add_argument("--log-dir", default="./logs")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
     parser.add_argument("--max-steps", type=int, default=100000)
+    parser.add_argument("--local_rank", type=int, default=-1, help="Local rank for distributed training")
+    parser.add_argument("--use-deepspeed", action="store_true", help="Use DeepSpeed for training")
+    parser.add_argument("--deepspeed-config", type=str, default="configs/deepspeed_zero3.json")
     parser.add_argument(
         "--eval", action="store_true", help="Run evaluation after training"
     )
@@ -875,20 +994,49 @@ def main():
     setup_logging(args.log_dir)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Initialize distributed training
+    local_rank = int(os.environ.get("LOCAL_RANK", args.local_rank))
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    distributed = world_size > 1
+
+    if distributed:
+        if args.use_deepspeed:
+            import deepspeed
+
+            deepspeed.init_distributed()
+        else:
+            if not torch.distributed.is_initialized():
+                torch.distributed.init_process_group(backend="nccl")
+        torch.cuda.set_device(local_rank)
+        device = torch.device("cuda", local_rank)
+        logger.info(f"Initialized distributed training on rank {local_rank}")
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     # Create configs
     if args.test:
         model_config = ModelConfig.get_small_model_config()
-    else:
+    elif not args.config:
         model_config = ModelConfig()
 
-    training_config = TrainingConfig(
-        batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
-        max_steps=args.max_steps,
-        output_dir=args.output_dir,
-        log_dir=args.log_dir,
-        use_striped_attention=args.use_striped_attention,
-    )
+    if args.config:
+        model_config, training_config = load_combined_config(args.config)
+        logger.info(f"Loaded combined config from {args.config}")
+    else:
+        training_config = TrainingConfig(
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            max_steps=args.max_steps,
+            output_dir=args.output_dir,
+            log_dir=args.log_dir,
+            use_striped_attention=args.use_striped_attention,
+        )
+
+    # Add DeepSpeed config to training_config if used
+    if args.use_deepspeed:
+        training_config.use_deepspeed = True
+        if args.deepspeed_config:
+            training_config.deepspeed_config = args.deepspeed_config
 
     logger.info("Better AI RLHF Training Pipeline")
     logger.info(f"Device: {device}")

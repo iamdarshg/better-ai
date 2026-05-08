@@ -6,6 +6,11 @@ from typing import Dict, Any
 def handle_gradients_and_optimize(self) -> float:
     """Enhanced gradient handling with clipping and bf16 support"""
 
+    # Use explicit boolean check to avoid MagicMock issues in tests
+    if getattr(self, "use_deepspeed", False) is True:
+        self.model.step()
+        return 0.0
+
     grad_norm = 0.0
 
     clip_norm = getattr(self.config, "gradient_clip_norm", None)

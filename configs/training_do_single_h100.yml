@@ -1,0 +1,27 @@
+# Scaled-down config for single H100 (80GB)
+batch_size: 4
+gradient_accumulation_steps: 8
+learning_rate: 1.0e-4
+max_steps: 50000
+save_steps: 500
+eval_steps: 500
+
+# Memory Optimizations
+use_fp8: true
+use_gradient_checkpointing: true
+use_flash_attention: true
+use_striped_attention: true
+striped_block_size: 2048
+
+# Model Scaling
+num_layers: 16
+hidden_dim: 2048
+intermediate_dim: 5632
+num_attention_heads: 32
+num_experts: 8
+num_experts_per_token: 2
+
+# Distributed
+distributed_backend: "nccl"
+bf16: true
+fp16: false

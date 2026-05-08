@@ -4,3 +4,6 @@
 *.log
 .ruff_cache
 .vscode/.estimate_cache
+.estimate_cache
+checkpoints/
+logs/

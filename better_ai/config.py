@@ -341,9 +341,11 @@ class TrainingConfig:
     bf16: bool = True
 
     # Distributed training
-    distributed_backend: str = "fsdp"  # "ddp", "fsdp"
+    distributed_backend: str = "nccl"  # "nccl", "gloo", "fsdp"
     fsdp_sharding_strategy: str = "FULL_SHARD"
     fsdp_cpu_offload: bool = True
+    use_deepspeed: bool = False
+    deepspeed_config: Optional[str] = "configs/deepspeed_zero3.json"
 
     # Monitoring
     profile_memory: bool = True
@@ -361,6 +363,7 @@ class TrainingConfig:
 
     # Striped Attention
     use_striped_attention: bool = True
+    use_ring_attention: bool = False
 
     # Enhanced MoE Training Features
     # Expert specialization and monitoring
@@ -442,6 +445,36 @@ class TrainingConfig:
             profile_memory=False,
             profile_time=False,
         )
+
+    def to_file(self, filepath: str):
+        """Save config to file"""
+        _, ext = os.path.splitext(filepath)
+        if ext.lower() == ".json":
+            with open(filepath, "w") as f:
+                json.dump(self.to_dict(), f, indent=2)
+        elif ext.lower() in [".yaml", ".yml"]:
+            with open(filepath, "w") as f:
+                yaml.dump(self.to_dict(), f)
+        else:
+            raise ValueError(f"Unsupported file extension: {ext}")
+
+    @classmethod
+    def from_file(cls, filepath: str):
+        """Load config from file"""
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Config file not found: {filepath}")
+
+        _, ext = os.path.splitext(filepath)
+        if ext.lower() == ".json":
+            with open(filepath, "r") as f:
+                data = json.load(f)
+        elif ext.lower() in [".yaml", ".yml"]:
+            with open(filepath, "r") as f:
+                data = yaml.safe_load(f)
+        else:
+            raise ValueError(f"Unsupported file extension: {ext}")
+
+        return cls.from_dict(data)
 
 
 @dataclass

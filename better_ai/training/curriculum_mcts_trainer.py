@@ -79,6 +79,92 @@ class CurriculumMCTSTrainer:
         self.mcts_searcher = None
         self.grpo_trainer = None
 
+        # DeepSpeed initialization
+        self.use_deepspeed = getattr(training_config, "use_deepspeed", False)
+        if self.use_deepspeed:
+            import deepspeed
+            import json
+            import os
+
+            # DeepSpeed expects micro_batch_size to be set if auto is used for train_batch_size
+            ds_config = training_config.deepspeed_config
+            if isinstance(ds_config, str):
+                with open(ds_config, "r") as f:
+                    ds_config = json.load(f)
+
+            # Populate auto fields from config if they are "auto"
+            if ds_config.get("train_micro_batch_size_per_gpu") == "auto":
+                ds_config["train_micro_batch_size_per_gpu"] = training_config.batch_size
+            if ds_config.get("gradient_accumulation_steps") == "auto":
+                ds_config[
+                    "gradient_accumulation_steps"
+                ] = training_config.gradient_accumulation_steps
+            if ds_config.get("train_batch_size") == "auto":
+                world_size = int(os.environ.get("WORLD_SIZE", 1))
+                ds_config["train_batch_size"] = (
+                    training_config.batch_size
+                    * training_config.gradient_accumulation_steps
+                    * world_size
+                )
+
+            if "fp16" in ds_config and ds_config["fp16"].get("enabled") == "auto":
+                ds_config["fp16"]["enabled"] = training_config.fp16
+            if "bf16" in ds_config and ds_config["bf16"].get("enabled") == "auto":
+                ds_config["bf16"]["enabled"] = training_config.bf16
+
+            if "optimizer" in ds_config:
+                opt_params = ds_config["optimizer"].get("params", {})
+                if opt_params.get("lr") == "auto":
+                    opt_params["lr"] = training_config.learning_rate
+                if opt_params.get("weight_decay") == "auto":
+                    opt_params["weight_decay"] = training_config.weight_decay
+                if opt_params.get("betas") == "auto":
+                    opt_params["betas"] = [training_config.beta1, training_config.beta2]
+                if opt_params.get("eps") == "auto":
+                    opt_params["eps"] = training_config.eps
+
+            if "scheduler" in ds_config:
+                sched_params = ds_config["scheduler"].get("params", {})
+                if sched_params.get("total_num_steps") == "auto":
+                    sched_params["total_num_steps"] = training_config.max_steps
+                if sched_params.get("warmup_min_lr") == "auto":
+                    sched_params["warmup_min_lr"] = 0
+                if sched_params.get("warmup_max_lr") == "auto":
+                    sched_params["warmup_max_lr"] = training_config.learning_rate
+                if sched_params.get("warmup_num_steps") == "auto":
+                    sched_params["warmup_num_steps"] = training_config.warmup_steps
+
+            # If using ZeRO-Offload on CPU, we should ideally use DeepSpeedCPUAdam
+            if "zero_optimization" in ds_config:
+                zero_config = ds_config["zero_optimization"]
+                if (
+                    "offload_optimizer" in zero_config
+                    and zero_config["offload_optimizer"].get("device") == "cpu"
+                ):
+                    try:
+                        from deepspeed.ops.adam import DeepSpeedCPUAdam
+
+                        self.optimizer = DeepSpeedCPUAdam(
+                            self.model.parameters(),
+                            lr=training_config.learning_rate,
+                            betas=(training_config.beta1, training_config.beta2),
+                            eps=training_config.eps,
+                            weight_decay=training_config.weight_decay,
+                        )
+                        logging.info("Using DeepSpeedCPUAdam for ZeRO-Offload")
+                    except Exception as e:
+                        logging.warning(
+                            f"Failed to initialize DeepSpeedCPUAdam: {e}. Falling back to default optimizer."
+                        )
+
+            self.model, self.optimizer, _, _ = deepspeed.initialize(
+                model=self.model,
+                optimizer=self.optimizer,
+                config=ds_config,
+            )
+            logging.info("DeepSpeed engine initialized")
+
+        # Initialize remaining components (now that model/optimizer might be DeepSpeed-wrapped)
         self._initialize_components()
 
         # Training state
@@ -500,6 +586,14 @@ class CurriculumMCTSTrainer:
 
     def save_training_state(self, filepath: str):
         """Save complete training state"""
+        # Only save on master rank
+        is_master = True
+        if torch.distributed.is_initialized():
+            is_master = torch.distributed.get_rank() == 0
+
+        if not is_master:
+            return
+
         state = {
             "config": self.config.__dict__,
             "current_step": self.current_step,
@@ -513,9 +607,19 @@ class CurriculumMCTSTrainer:
             self.curriculum_scheduler.save_state(curriculum_state_path)
             state["curriculum_state_path"] = curriculum_state_path
 
-        model_state_path = filepath.replace(".pt", "_model.pt")
-        torch.save(self.model.state_dict(), model_state_path)
-        state["model_state_path"] = model_state_path
+        if self.use_deepspeed:
+            save_dir = os.path.dirname(filepath)
+            tag = os.path.basename(filepath).replace(".pt", "")
+            self.model.save_checkpoint(save_dir, tag=tag)
+            logging.info(f"DeepSpeed training state saved to {save_dir}/{tag}")
+        else:
+            model_to_save = self.model
+            if hasattr(self.model, "module"):
+                model_to_save = self.model.module
+
+            model_state_path = filepath.replace(".pt", "_model.pt")
+            torch.save(model_to_save.state_dict(), model_state_path)
+            state["model_state_path"] = model_state_path
 
         torch.save(state, filepath)
         logging.info(f"Training state saved to {filepath}")

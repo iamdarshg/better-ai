@@ -72,7 +72,18 @@ class StreamingDataset(IterableDataset):
             formatted += f"[{role}]{content}[/{role}]\n"
         return formatted.strip()
 
-    def __init__(self, dataset_name, tokenizer, max_length=8192, split="train", streaming=True, data_format="text", languages=None, config_name=None):
+    def __init__(
+        self,
+        dataset_name,
+        tokenizer,
+        max_length=8192,
+        split="train",
+        streaming=True,
+        data_format="text",
+        languages=None,
+        config_name=None,
+        distributed=False,
+    ):
         self.dataset_name = dataset_name
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -81,11 +92,35 @@ class StreamingDataset(IterableDataset):
         self.data_format = data_format
         self.languages = languages
         self.config_name = config_name
+        self.distributed = distributed
 
         try:
-            self.dataset = load_dataset(self.dataset_name, name=self.config_name, split=self.split, streaming=self.streaming)
+            self.dataset = load_dataset(
+                self.dataset_name,
+                name=self.config_name,
+                split=self.split,
+                streaming=self.streaming,
+            )
+
+            # Handle distributed sharding for streaming datasets
+            if self.distributed and self.streaming:
+                import torch.distributed as dist
+
+                if dist.is_initialized():
+                    world_size = dist.get_world_size()
+                    rank = dist.get_rank()
+                    # HF datasets handle sharding via .shard()
+                    self.dataset = self.dataset.shard(
+                        num_shards=world_size, index=rank
+                    )
+                    logger.info(
+                        f"Rank {rank}/{world_size}: Sharded dataset {self.dataset_name}"
+                    )
+
             if self.languages:
-                self.dataset = self.dataset.filter(lambda x: x.get("lang") in self.languages)
+                self.dataset = self.dataset.filter(
+                    lambda x: x.get("lang") in self.languages
+                )
             logger.info(f"Loaded dataset {self.dataset_name} ({self.split} split)")
         except Exception as e:
             logger.error(f"Failed to load dataset {self.dataset_name}: {e}")
@@ -156,7 +191,18 @@ UnifiedDataLoader = StreamingDataset
 
 
 class CombinedStreamingDataset(IterableDataset):
-    def __init__(self, dataset_configs, tokenizer, max_length=8192, split="train", streaming=True, data_format="text", languages=None, multi_turn_ratio=0.25):
+    def __init__(
+        self,
+        dataset_configs,
+        tokenizer,
+        max_length=8192,
+        split="train",
+        streaming=True,
+        data_format="text",
+        languages=None,
+        multi_turn_ratio=0.25,
+        distributed=False,
+    ):
         self.tokenizer = tokenizer
         self.multi_turn_ratio = multi_turn_ratio
 
@@ -166,14 +212,15 @@ class CombinedStreamingDataset(IterableDataset):
 
         for config in dataset_configs:
             ds = StreamingDataset(
-                dataset_name=config['path'],
-                config_name=config.get('config_name'),
+                dataset_name=config["path"],
+                config_name=config.get("config_name"),
                 tokenizer=tokenizer,
-                max_length=config.get('max_seq_length', max_length),
-                split=config.get('split', split),
+                max_length=config.get("max_seq_length", max_length),
+                split=config.get("split", split),
                 streaming=streaming,
-                data_format=config.get('data_format', data_format),
-                languages=config.get('languages', languages)
+                data_format=config.get("data_format", data_format),
+                languages=config.get("languages", languages),
+                distributed=distributed,
             )
 
             # Use metadata or name to distinguish (simplified)
@@ -245,6 +292,7 @@ def create_dataloader(
     split="train",
     streaming=True,
     num_workers=0,
+    distributed=False,
 ):
     """Create a dataloader from a single or multiple dataset configurations."""
 
@@ -254,18 +302,26 @@ def create_dataloader(
             tokenizer=tokenizer,
             split=split,
             streaming=streaming,
+            distributed=distributed,
         )
     else:
         dataset = StreamingDataset(
-            dataset_name=dataset_config['path'],
-            config_name=dataset_config.get('config_name'),
+            dataset_name=dataset_config["path"],
+            config_name=dataset_config.get("config_name"),
             tokenizer=tokenizer,
-            max_length=dataset_config['max_seq_length'],
+            max_length=dataset_config.get("max_seq_length", 8192),
             split=split,
             streaming=streaming,
-            data_format=dataset_config.get('data_format', 'text'),
-            languages=dataset_config.get('languages')
+            data_format=dataset_config.get("data_format", "text"),
+            languages=dataset_config.get("languages"),
+            distributed=distributed,
         )
+
+    # For IterableDataset (Streaming), we don't use a DistributedSampler.
+    # Instead, we rely on each process having its own copy of the dataset
+    # and either shuffling differently or using different shards if supported.
+    # HF datasets with streaming=True handle sharding automatically when using torch.utils.data.DataLoader
+    # if the dataset is sharded on HF Hub and we use IterableDataset.
 
     return DataLoader(
         dataset,
