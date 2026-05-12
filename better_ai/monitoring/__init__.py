@@ -15,6 +15,8 @@ from .htsr_monitor import (
 )
 
 from .dashboard import HTMLDashboard, SecureAuthenticator, LogLevel as DashboardLogLevel
+from .observability import ObservabilityAdapter, ObservabilityConfig, collect_gpu_stats
+
 
 __all__ = [
     "HTSRMonitor",
@@ -30,4 +32,7 @@ __all__ = [
     "ALPHA_VARIANCE_THRESHOLD",
     "HTMLDashboard",
     "SecureAuthenticator",
+    "ObservabilityAdapter",
+    "ObservabilityConfig",
+    "collect_gpu_stats",
 ]

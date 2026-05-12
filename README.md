@@ -160,6 +160,29 @@ ModelConfig(
 )
 ```
 
+
+### Observability (optional)
+
+Training supports a provider-agnostic observability adapter with optional W&B.
+
+**Environment variables**
+- `BETTER_AI_OBSERVABILITY_BACKEND`: `none` (default) or `wandb`
+- `BETTER_AI_RUN_NAME`: run display name
+- `WANDB_PROJECT`: required when backend is `wandb`
+- `WANDB_ENTITY`: optional W&B entity/team
+- `WANDB_MODE`: e.g. `online`, `offline`, or `disabled`
+
+**Config example**
+```python
+training_config.observability_backend = "wandb"  # or "none"
+training_config.run_name = "pretrain-exp-01"
+training_config.wandb_project = "better-ai"
+training_config.wandb_entity = "my-team"
+training_config.wandb_mode = "offline"
+```
+
+When enabled, trainer lifecycle hooks emit run start/finish and step-level metrics including loss, LR, grad norm, tokens/sec, step time, and GPU stats.
+
 ## Testing
 
 ```bash
