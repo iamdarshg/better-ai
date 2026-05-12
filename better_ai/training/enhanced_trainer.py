@@ -37,7 +37,13 @@ from .trainer_utils.callbacks import (
     load_checkpoint,
 )
 
-from ..monitoring import HTSRMonitor, HTMLDashboard, LogLevel
+from ..monitoring import (
+    HTSRMonitor,
+    HTMLDashboard,
+    LogLevel,
+    ObservabilityAdapter,
+    collect_gpu_stats,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +314,9 @@ class EnhancedMoETrainer:
         # Initialize reference model for DPO/RLHF
         self.ref_model = self._setup_ref_model()
 
+        # Run observability (provider-agnostic, optional)
+        self.observability = ObservabilityAdapter.from_config(config)
+
     def _setup_ref_model(self):
         """Create a frozen copy of the model as reference"""
         import copy
@@ -552,6 +561,7 @@ class EnhancedMoETrainer:
 
         try:
             self.model.train()
+            self.observability.start_run(config=getattr(self.config, "__dict__", {}))
 
             # Handle iterable datasets properly - create continuous iterator
             data_iterator = iter(self.train_dataloader)
@@ -579,11 +589,27 @@ class EnhancedMoETrainer:
                     loss, aux_loss, grad_norm, expert_ids, batch, step_start_time
                 )
 
+                step_time = time.time() - step_start_time
+                throughput = self._estimate_throughput(batch, step_time)
+                current_lr = self._get_current_lr()
+
                 # Scheduler step
                 if self.scheduler is not None:
                     self.scheduler.step()
 
                 self.global_step += 1
+
+                metrics_payload = {
+                    "train/loss": float(loss.item() if hasattr(loss, "item") else loss),
+                    "train/aux_loss": float(aux_loss.item() if hasattr(aux_loss, "item") else aux_loss),
+                    "train/lr": float(current_lr),
+                    "train/grad_norm": float(grad_norm),
+                    "train/tokens_per_sec": float(throughput),
+                    "train/step_time_sec": float(step_time),
+                    "train/epoch": float(self.current_epoch),
+                }
+                metrics_payload.update(collect_gpu_stats())
+                self.observability.log_metrics(metrics_payload, step=self.global_step)
 
                 # Pruning
                 if (
@@ -638,14 +664,17 @@ class EnhancedMoETrainer:
                     )
 
         except KeyboardInterrupt:
+            self.observability.finish_run(status="interrupted")
             print(f"\n{ColoredText.warning('Training interrupted by user!')}")
         except Exception as e:
+            self.observability.finish_run(status="failed")
             print(f"{ColoredText.error(f'Training failed: {e}')}")
             import traceback
 
             traceback.print_exc()
 
         finally:
+            self.observability.finish_run(status="completed")
             if self.use_enhanced_features:
                 self.training_ui.stop_training_ui()
 
@@ -693,6 +722,7 @@ class EnhancedMoETrainer:
                     self.htsr_dashboard.update_losses(
                         train_loss=train_loss, val_loss=None, step=self.global_step
                     )
+                    self.observability.log_metrics({"eval/train_loss": float(train_loss)}, step=self.global_step)
 
             # Apply intervention if grokking detected
             htsr_config = getattr(self.config, "htsr", None)
