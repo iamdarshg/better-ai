@@ -14,6 +14,7 @@ import logging
 from ..config import TrainingConfig
 from ..optimizers import get_optimizer
 from ..models.core import DeepSeekModel
+from ..data.qa import run_audit_or_raise, DatasetQAThresholds
 
 
 class Trainer:
@@ -123,6 +124,22 @@ class Trainer:
         )
 
         start_time = time.time()
+
+        if self.config.dataset_qa_enabled:
+            thresholds = DatasetQAThresholds(
+                max_duplicate_ratio=self.config.dataset_qa_max_duplicate_ratio,
+                min_token_length=self.config.dataset_qa_min_token_length,
+                max_token_length=self.config.dataset_qa_max_token_length,
+                max_malformed_ratio=self.config.dataset_qa_max_malformed_ratio,
+                max_schema_error_ratio=self.config.dataset_qa_max_schema_error_ratio,
+                max_language_domain_mismatch_ratio=self.config.dataset_qa_max_language_domain_mismatch_ratio,
+            )
+            run_audit_or_raise(
+                self.config.data_path,
+                thresholds=thresholds,
+                output_path=self.config.dataset_qa_output_path,
+            )
+            self.logger.info("Dataset QA completed: %s", self.config.dataset_qa_output_path)
 
         try:
             while self.global_step < self.config.max_steps:

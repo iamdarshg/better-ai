@@ -325,6 +325,15 @@ class TrainingConfig:
     max_seq_length: int = 1024
     shuffle_buffer_size: int = 10000
 
+    # Dataset QA
+    dataset_qa_enabled: bool = True
+    dataset_qa_output_path: str = "./logs/dataset_qa_report.json"
+    dataset_qa_max_duplicate_ratio: float = 0.05
+    dataset_qa_min_token_length: int = 2
+    dataset_qa_max_token_length: int = 4096
+    dataset_qa_max_malformed_ratio: float = 0.01
+    dataset_qa_max_schema_error_ratio: float = 0.01
+    dataset_qa_max_language_domain_mismatch_ratio: float = 0.2
     # Logging
     log_dir: str = "./logs"
     log_every_n_steps: int = 100
@@ -411,6 +420,13 @@ class TrainingConfig:
             raise ConfigError("gradient_accumulation_steps must be positive")
         if self.save_steps <= 0:
             raise ConfigError("save_steps must be positive")
+
+        if not 0 <= self.dataset_qa_max_duplicate_ratio <= 1:
+            raise ConfigError("dataset_qa_max_duplicate_ratio must be between 0 and 1")
+        if self.dataset_qa_min_token_length < 0:
+            raise ConfigError("dataset_qa_min_token_length must be non-negative")
+        if self.dataset_qa_max_token_length <= 0:
+            raise ConfigError("dataset_qa_max_token_length must be positive")
 
         if self.beta1 < 0 or self.beta1 >= 1:
             raise ConfigError("beta1 must be in [0, 1)")

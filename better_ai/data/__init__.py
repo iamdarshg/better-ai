@@ -2,6 +2,7 @@
 
 from .hf_datasets import create_code_dataloaders
 from .unified_dataloader import UnifiedDataLoader, create_dataloader
+from .qa import run_dataset_qa, run_audit_or_raise, DatasetQAReport, DatasetQAThresholds
 from .curation import (
     DatasetCurator,
     AgentFLANDecomposer,
@@ -53,4 +54,8 @@ __all__ = [
     "load_datasets_by_stage",
     "load_dataset_from_config",
     "DATASET_CONFIG_AVAILABLE",
+    "run_dataset_qa",
+    "run_audit_or_raise",
+    "DatasetQAReport",
+    "DatasetQAThresholds",
 ]
